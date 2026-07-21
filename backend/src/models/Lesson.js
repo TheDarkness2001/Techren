@@ -1,0 +1,23 @@
+const mongoose = require('mongoose');
+const softDeletePlugin = require('../plugins/softDeletePlugin');
+
+const lessonSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    levelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Level', required: true },
+    order: { type: Number, required: true, default: 1 },
+    wordIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Word' }],
+    maxWords: { type: Number, default: 20, min: 1 },
+    type: { type: String, enum: ['words', 'sentences', 'listening'], default: 'words' },
+    examTimeLimit: { type: Number, default: 300 },
+    minPassScore: { type: Number, default: 70 },
+    examUnlockedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ExamGroup' }],
+    directionMode: { type: String, enum: ['mixed', 'en-to-uz', 'uz-to-en'], default: 'mixed' },
+  },
+  { timestamps: true }
+);
+
+lessonSchema.index({ levelId: 1, order: 1 });
+lessonSchema.plugin(softDeletePlugin);
+
+module.exports = mongoose.model('Lesson', lessonSchema);

@@ -1,0 +1,7 @@
+﻿{
+    "windows":  true,
+    "apiBaseUrl":  "http://192.168.2.136:5002/api/v1",
+    "android":  true,
+    "mode":  "profile",
+    "builtAt":  "2026-07-21T05:41:46.4889417Z"
+}

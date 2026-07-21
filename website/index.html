@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Download TechRen EDU for Android and Windows. Students and staff install the native app for school learning." />
+  <title>TechRen EDU — Download</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">TechRen EDU</span>
+    </a>
+  </header>
+
+  <main class="hero">
+    <h1 class="hero-title">TechRen EDU</h1>
+    <p class="hero-lead">
+      Download the native app for students and staff. Install once, then sign in with your school account.
+    </p>
+
+    <div class="cta-row">
+      <a
+        id="dl-android"
+        class="btn btn-primary"
+        href="/downloads/techren-edu.apk"
+        download="techren-edu.apk"
+      >
+        Download for Android
+      </a>
+      <a
+        id="dl-windows"
+        class="btn btn-secondary"
+        href="/downloads/TechRenEDU-windows.zip"
+        download="TechRenEDU-windows.zip"
+      >
+        Download for Windows
+      </a>
+      <button class="btn btn-ghost" type="button" disabled title="iOS apps must be built on a Mac with Xcode">
+        iOS — needs a Mac
+      </button>
+    </div>
+
+    <p class="hint" id="dl-hint">
+      Checking download availability…
+    </p>
+  </main>
+
+  <section class="steps" id="install">
+    <h2>Install in minutes</h2>
+    <div class="step-grid">
+      <article class="step">
+        <h3>Android</h3>
+        <ol>
+          <li>Tap <strong>Download for Android</strong>.</li>
+          <li>Open the APK. If asked, allow installs from this browser/source.</li>
+          <li>Open <strong>TechRen EDU</strong> and sign in.</li>
+        </ol>
+      </article>
+      <article class="step">
+        <h3>Windows</h3>
+        <ol>
+          <li>Tap <strong>Download for Windows</strong>.</li>
+          <li>Unzip the folder.</li>
+          <li>Run <code>techren_edu.exe</code> and sign in.</li>
+        </ol>
+        <p class="step-note">
+          Building the Windows zip on this PC requires Visual Studio with
+          <em>Desktop development with C++</em>.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>Need help signing in? Contact your school administrator.</p>
+    <p class="muted">Native install only — not a browser “Add to Home Screen” app.</p>
+  </footer>
+
+  <script>
+    async function probe(url) {
+      try {
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        return res.ok;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function markMissing(el, label) {
+      el.classList.add('btn-unavailable');
+      el.setAttribute('aria-disabled', 'true');
+      el.addEventListener('click', (e) => e.preventDefault());
+      el.textContent = label + ' — not built yet';
+    }
+
+    (async () => {
+      const android = document.getElementById('dl-android');
+      const windows = document.getElementById('dl-windows');
+      const hint = document.getElementById('dl-hint');
+
+      const [hasAndroid, hasWindows] = await Promise.all([
+        probe('/downloads/techren-edu.apk'),
+        probe('/downloads/TechRenEDU-windows.zip'),
+      ]);
+
+      if (!hasAndroid) markMissing(android, 'Android');
+      if (!hasWindows) markMissing(windows, 'Windows');
+
+      if (hasAndroid && hasWindows) {
+        hint.textContent = 'Installers are ready. Choose your platform above.';
+      } else if (hasAndroid) {
+        hint.textContent =
+          'Android is ready. Windows zip is missing — install Visual Studio (C++ desktop) and run the build script.';
+      } else if (hasWindows) {
+        hint.textContent = 'Windows is ready. Android APK is missing — run the build script on a machine with Android SDK.';
+      } else {
+        hint.textContent =
+          'No installers on the server yet. Admin: .\\scripts\\build-release-apps.ps1 -LocalDev';
+      }
+    })();
+  </script>
+</body>
+</html>

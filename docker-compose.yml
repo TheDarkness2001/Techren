@@ -1,0 +1,40 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    environment:
+      NODE_ENV: production
+      PORT: 5002
+      MONGO_URI: mongodb://mongo:27017/techren_edu
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.docker}
+      JWT_ACCESS_EXPIRE: ${JWT_ACCESS_EXPIRE:-15m}
+      JWT_REFRESH_EXPIRE: ${JWT_REFRESH_EXPIRE:-7d}
+      FOUNDER_EMAIL: ${FOUNDER_EMAIL:-founder@techren.uz}
+      FOUNDER_PASSWORD: ${FOUNDER_PASSWORD:?Set FOUNDER_PASSWORD in .env.docker}
+      GAMIFICATION_ENABLED: ${GAMIFICATION_ENABLED:-true}
+      WALLET_ENABLED: ${WALLET_ENABLED:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
+  uploads_data:
