@@ -8,7 +8,7 @@
 
 | Environment | API | Database | Bootstrap |
 |-------------|-----|----------|-----------|
-| **Development** | `npm start` locally | In-memory MongoDB fallback or local Mongo | Demo accounts auto-seeded |
+| **Development** | `npm start` locally | In-memory MongoDB fallback or local Mongo | No demo users; seed founder with `npm run seed` if needed |
 | **Docker stack** | `docker compose up` | MongoDB 7 container | Run `npm run seed` once |
 | **Staging / Production** | VPS + PM2 or container | MongoDB Atlas M10+ replica set | `npm run seed` for founder only |
 
@@ -29,11 +29,13 @@
 | `GAMIFICATION_ENABLED` | No | Default `true` |
 | `WALLET_ENABLED` | No | Default `false` |
 | `FRONTEND_URL` | Prod CORS | Allowed origin when `NODE_ENV=production` |
+| `JWT_REFRESH_SECRET` | Yes (prod) | Distinct from `JWT_SECRET`, 32+ chars |
+| `UPLOADS_DIR` | Railway volume | e.g. `/data/uploads` |
 | `FIREBASE_*` | Push only | FCM credentials (optional) |
 
-Copy `backend/.env.example` for local development. Copy `.env.docker.example` → `.env.docker` for Docker Compose.
+For Railway (new TechRen service, leave SMS/PWA alone), see [09-RAILWAY.md](./09-RAILWAY.md) and `backend/.env.railway.example`.
 
-> **Security:** Demo accounts are only auto-created when `NODE_ENV` is not `production`. In production, run `npm run seed` once to create the founder, then change passwords immediately.
+> **Security:** Demo role accounts are not auto-created. Run `npm run seed` once to create the founder from `FOUNDER_EMAIL` / `FOUNDER_PASSWORD`, then use a strong password.
 
 ---
 
@@ -176,7 +178,7 @@ JWT_SECRET=local-test-secret-minimum-32-characters npm test
 - [ ] Upload volume backed up
 - [ ] Firebase credentials for push (if notifications enabled)
 - [ ] Rate limits and firewall reviewed
-- [ ] Demo seed disabled (`ensureDevAccounts` skips production automatically)
+- [ ] Demo role accounts not auto-seeded (`SEED_DEMO_DATA` unset / not `true`)
 - [ ] Flutter apps built with production `API_BASE_URL`
 
 ---

@@ -208,10 +208,9 @@ class AdaptiveScaffold extends ConsumerWidget {
                 child: CircleAvatar(
                   radius: 20,
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.school_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 22,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Image.asset('assets/branding/logo.png', fit: BoxFit.contain),
                   ),
                 ),
               ),

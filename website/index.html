@@ -16,7 +16,7 @@
 
   <header class="top">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"></span>
+      <img class="brand-mark" src="/logo.png" alt="TechRen EDU logo" />
       <span class="brand-name">TechRen EDU</span>
     </a>
   </header>
@@ -39,8 +39,8 @@
       <a
         id="dl-windows"
         class="btn btn-secondary"
-        href="/downloads/TechRenEDU-windows.zip"
-        download="TechRenEDU-windows.zip"
+        href="/downloads/TechRenEDU-setup.exe"
+        download="TechRenEDU-setup.exe"
       >
         Download for Windows
       </a>
@@ -69,12 +69,19 @@
         <h3>Windows</h3>
         <ol>
           <li>Tap <strong>Download for Windows</strong>.</li>
-          <li>Unzip the folder.</li>
-          <li>Run <code>techren_edu.exe</code> and sign in.</li>
+          <li>Run <code>TechRenEDU-setup.exe</code>.</li>
+          <li>Finish the wizard — a <strong>TechRen EDU</strong> shortcut appears on your Desktop and Start Menu.</li>
         </ol>
         <p class="step-note">
-          Building the Windows zip on this PC requires Visual Studio with
-          <em>Desktop development with C++</em>.
+          If <strong>Smart App Control</strong> blocks the setup (only “Okay”, no Run anyway): open
+          <em>Windows Security → App &amp; browser control → Smart App Control</em> and set it to
+          <strong>Off</strong>, then run the setup again. (Unsigned school apps need this until a
+          code-signing certificate is used.)
+        </p>
+        <p class="step-note">
+          Alternative: download the
+          <a href="/downloads/TechRenEDU-windows.zip">portable zip</a>, unzip, and run
+          <code>techren_edu.exe</code> (same Smart App Control rule applies).
         </p>
       </article>
     </div>
@@ -109,7 +116,7 @@
 
       const [hasAndroid, hasWindows] = await Promise.all([
         probe('/downloads/techren-edu.apk'),
-        probe('/downloads/TechRenEDU-windows.zip'),
+        probe('/downloads/TechRenEDU-setup.exe'),
       ]);
 
       if (!hasAndroid) markMissing(android, 'Android');
@@ -119,7 +126,7 @@
         hint.textContent = 'Installers are ready. Choose your platform above.';
       } else if (hasAndroid) {
         hint.textContent =
-          'Android is ready. Windows zip is missing — install Visual Studio (C++ desktop) and run the build script.';
+          'Android is ready. Windows installer is missing — run the build script on the admin PC.';
       } else if (hasWindows) {
         hint.textContent = 'Windows is ready. Android APK is missing — run the build script on a machine with Android SDK.';
       } else {

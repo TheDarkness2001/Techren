@@ -193,11 +193,12 @@ class _BrandPanel extends StatelessWidget {
           Container(
             width: 64,
             height: 64,
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.school_rounded, color: Colors.white, size: 36),
+            child: Image.asset('assets/branding/logo.png', fit: BoxFit.contain),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(

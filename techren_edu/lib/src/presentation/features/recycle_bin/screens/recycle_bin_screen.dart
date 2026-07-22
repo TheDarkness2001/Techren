@@ -143,14 +143,7 @@ class _RecycleBinScreenState extends ConsumerState<RecycleBinScreen> {
                           onSelectChanged: (index) {
                             showAppDialog<void>(
                               context: context,
-                              builder: (dialogContext) => _SnapshotPreviewDialog(
-                                entryId: items[index].id,
-                                onClose: () {
-                                  if (dialogContext.mounted) {
-                                    Navigator.of(dialogContext, rootNavigator: true).pop();
-                                  }
-                                },
-                              ),
+                              builder: (_) => _SnapshotPreviewDialog(entryId: items[index].id),
                             );
                           },
                           rows: [
@@ -288,23 +281,26 @@ class _RecycleBinTile extends ConsumerWidget {
   Future<void> _showSnapshotPreview(BuildContext context, WidgetRef ref) async {
     await showAppDialog<void>(
       context: context,
-      builder: (dialogContext) => _SnapshotPreviewDialog(
-        entryId: entry.id,
-        onClose: () {
-          if (dialogContext.mounted) {
-            Navigator.of(dialogContext, rootNavigator: true).pop();
-          }
-        },
-      ),
+      builder: (_) => _SnapshotPreviewDialog(entryId: entry.id),
     );
   }
 }
 
 class _SnapshotPreviewDialog extends ConsumerWidget {
-  const _SnapshotPreviewDialog({required this.entryId, required this.onClose});
+  const _SnapshotPreviewDialog({required this.entryId});
 
   final String entryId;
-  final VoidCallback onClose;
+
+  /// Pops the dialog; if the navigator has nothing to pop (orphaned route),
+  /// falls back to the splash route so the user is never trapped.
+  void _close(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      GoRouter.of(context).go('/splash');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -337,7 +333,7 @@ class _SnapshotPreviewDialog extends ConsumerWidget {
       ),
       actions: [
         TextButton(
-          onPressed: onClose,
+          onPressed: () => _close(context),
           child: const Text('Close'),
         ),
       ],

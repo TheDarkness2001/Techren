@@ -1,15 +1,11 @@
-const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { ensureUploadDirs } = require('../config/paths');
 
-const UPLOAD_ROOT = path.join(__dirname, '../../uploads');
+const UPLOAD_ROOT = ensureUploadDirs();
 const DOCX_DIR = path.join(UPLOAD_ROOT, 'imports');
 const IMAGE_DIR = path.join(UPLOAD_ROOT, 'images');
 const AUDIO_DIR = path.join(UPLOAD_ROOT, 'audio');
-
-for (const dir of [UPLOAD_ROOT, DOCX_DIR, IMAGE_DIR, AUDIO_DIR]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
 
 const makeStorage = (folder, prefix) =>
   multer.diskStorage({

@@ -46,13 +46,20 @@ $downloadsDir = Join-Path $root 'website\downloads'
 if (-not (Test-Path $flutterDir)) { throw "Missing Flutter project: $flutterDir" }
 New-Item -ItemType Directory -Force -Path $downloadsDir | Out-Null
 
+# App version from pubspec.yaml (e.g. "1.0.0+1" -> "1.0.0").
+# Installed apps compare this against /downloads/status.json to show an Update button.
+$pubspec = Get-Content (Join-Path $flutterDir 'pubspec.yaml') -Raw
+if ($pubspec -notmatch '(?m)^version:\s*([^\s+]+)') { throw "Could not read version from pubspec.yaml" }
+$appVersion = $Matches[1]
+Write-Host "App version: $appVersion"
+
 $built = @()
 
 Push-Location $flutterDir
 try {
   if (-not $SkipAndroid) {
     Write-Host "==> Building Android APK ($buildMode)..."
-    & flutter build apk "--$buildMode" "--dart-define=API_BASE_URL=$ApiBaseUrl"
+    & flutter build apk "--$buildMode" "--dart-define=API_BASE_URL=$ApiBaseUrl" "--dart-define=APP_VERSION=$appVersion"
     $apkSrc = Join-Path $flutterDir "build\app\outputs\flutter-apk\app-$buildMode.apk"
     if (-not (Test-Path $apkSrc)) {
       $apkSrc = Join-Path $flutterDir 'build\app\outputs\flutter-apk\app-release.apk'
@@ -66,7 +73,7 @@ try {
 
   if (-not $SkipWindows) {
     Write-Host "==> Building Windows ($buildMode)..."
-    & flutter build windows "--$buildMode" "--dart-define=API_BASE_URL=$ApiBaseUrl"
+    & flutter build windows "--$buildMode" "--dart-define=API_BASE_URL=$ApiBaseUrl" "--dart-define=APP_VERSION=$appVersion"
     $candidates = @(
       (Join-Path $flutterDir 'build\windows\x64\runner\Release'),
       (Join-Path $flutterDir 'build\windows\x64\runner\Profile'),
@@ -89,6 +96,24 @@ See docs/NATIVE-INSTALL.md.
     if (Test-Path $zipDest) { Remove-Item $zipDest -Force }
     Compress-Archive -Path (Join-Path $winDir '*') -DestinationPath $zipDest -Force
     Write-Host "    Zipped  -> $zipDest"
+
+    # Setup wizard (Desktop + Start Menu shortcuts) via Inno Setup, if installed.
+    $isccCandidates = @(
+      (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
+      'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+    )
+    $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($iscc) {
+      Write-Host "==> Building Windows installer (Inno Setup)..."
+      $issFile = Join-Path $PSScriptRoot 'techren-windows-installer.iss'
+      $iconFile = Join-Path $flutterDir 'windows\runner\resources\app_icon.ico'
+      & $iscc "/DAppVersion=$appVersion" "/DSourceDir=$winDir" "/DOutputDir=$downloadsDir" "/DIconFile=$iconFile" /Qp $issFile
+      if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed (exit $LASTEXITCODE)" }
+      $setupDest = Join-Path $downloadsDir 'TechRenEDU-setup.exe'
+      Write-Host "    Setup   -> $setupDest"
+    } else {
+      Write-Host '    Inno Setup not found - skipping setup.exe (zip only). Install: winget install JRSoftware.InnoSetup'
+    }
     $built += 'windows'
   }
 }
@@ -97,11 +122,13 @@ finally {
 }
 
 $status = @{
+  version = $appVersion
   builtAt = (Get-Date).ToUniversalTime().ToString('o')
   mode = $buildMode
   apiBaseUrl = $ApiBaseUrl
   android = [bool](Test-Path (Join-Path $downloadsDir 'techren-edu.apk'))
-  windows = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-windows.zip'))
+  windows = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-setup.exe'))
+  windowsZip = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-windows.zip'))
 }
 $status | ConvertTo-Json | Set-Content -Path (Join-Path $downloadsDir 'status.json') -Encoding utf8
 

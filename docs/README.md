@@ -19,6 +19,7 @@
 | 7 | [Navigation Flows](./06-NAVIGATION-FLOWS.md) | ✅ Complete |
 | 8 | [UI/UX Wireframes & Screen Hierarchy](./07-UI-WIREFRAMES.md) | ✅ Complete |
 | 8.1 | [Deployment Guide](./08-DEPLOYMENT.md) | ✅ Complete |
+| 8.2 | [Railway (alongside SMS / PWA)](./09-RAILWAY.md) | ✅ Complete |
 | 9 | Module implementation (one at a time) | ✅ Complete |
 | 9.1 | Foundation — backend + Flutter shell | ✅ Complete |
 | 9.2 | Identity & Branches — CRUD, dashboards | ✅ Complete |
@@ -79,7 +80,7 @@ See [Deployment Guide](./08-DEPLOYMENT.md) for Docker Compose, CI, Atlas, and Fl
 
 | Step | Module | Status |
 |------|--------|--------|
-| 12.1 | Manager dashboard — permission-aware nav, route guard, demo account | ✅ Complete |
+| 12.1 | Manager dashboard — permission-aware nav, route guard | ✅ Complete |
 | 12.2 | People photos — profile image upload & display | ✅ Complete |
 | 12.3 | Parent shell — bottom nav, child routes, switcher | ✅ Complete |
 | 12.4 | Unified progress hub — staff drill-down, vocab lessons tab | ✅ Complete |
@@ -90,21 +91,12 @@ See [Deployment Guide](./08-DEPLOYMENT.md) for Docker Compose, CI, Atlas, and Fl
 
 | Step | Module | Status |
 |------|--------|--------|
-| 13.1 | Sales & receptionist — demo accounts, role dashboards | ✅ Complete |
+| 13.1 | Sales & receptionist — role dashboards | ✅ Complete |
 | 13.2 | Practice recommendations — Learn & Progress hub surfacing | ✅ Complete |
 | 13.3 | People edit — student/teacher profile updates from detail sheet | ✅ Complete |
 | 13.4 | Feature-flag UX — wallet gating, notification unread badges | ✅ Complete |
 | 13.5 | People lifecycle — teacher status, create form fields, unified actions | ✅ Complete |
 | 13.6 | Role dashboards — quick links for limited staff, finance toolbar permissions | ✅ Complete |
-
-**Demo accounts**
-
-| Role | Email | Password |
-|------|-------|----------|
-| Manager | `manager@techren.uz` | `Manager123!` |
-| Sales | `sales@techren.uz` | `Sales123!` |
-| Receptionist | `receptionist@techren.uz` | `Reception123!` |
-| Parent | `parent@techren.uz` | `Parent123!` |
 
 ---
 

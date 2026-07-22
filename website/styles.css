@@ -65,7 +65,9 @@ body {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.65rem;
-  background: linear-gradient(145deg, var(--primary-fill), var(--cyan));
+  object-fit: contain;
+  background: #fff;
+  padding: 0.2rem;
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
 }
 

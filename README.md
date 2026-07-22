@@ -22,7 +22,7 @@ npm install
 npm start              # http://localhost:5002
 ```
 
-Development uses an **in-memory MongoDB** fallback when local MongoDB is unavailable. Demo accounts are created automatically on first startup.
+Development uses an **in-memory MongoDB** fallback when local MongoDB is unavailable. Create real users from the admin/founder account (or `npm run seed` for founder only).
 
 ### Flutter
 
@@ -60,19 +60,6 @@ JWT_SECRET=local-test-secret-minimum-32-characters npm test
 ```
 
 GitHub Actions runs backend tests + `flutter analyze` on push/PR (`.github/workflows/ci.yml`).
-
-## Demo accounts
-
-| Role | Email | Password |
-|------|-------|----------|
-| Founder | `founder@techren.uz` | `Founder123!` |
-| Admin | `admin@techren.uz` | `Admin123!` |
-| Manager | `manager@techren.uz` | `Manager123!` |
-| Sales | `sales@techren.uz` | `Sales123!` |
-| Receptionist | `receptionist@techren.uz` | `Reception123!` |
-| Teacher | `teacher@techren.uz` | `Teacher123!` |
-| Student | `student@techren.uz` | `Student123!` |
-| Parent | `parent@techren.uz` | `Parent123!` |
 
 ## Phase 9 status
 

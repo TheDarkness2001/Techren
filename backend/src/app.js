@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const config = require('./config');
+const { ensureUploadDirs, getWebsiteRoot } = require('./config/paths');
 const sanitizeInput = require('./middleware/sanitize');
 const routes = require('./routes');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -33,6 +34,10 @@ const createApp = () => {
       if (/^https:\/\/([a-z0-9-]+\.)*techrenacademy\.com$/i.test(origin)) {
         return callback(null, true);
       }
+      // New TechRen Railway service (native apps + download site). SMS PWA uses its own origin.
+      if (/^https:\/\/([a-z0-9-]+\.)*up\.railway\.app$/i.test(origin)) {
+        return callback(null, true);
+      }
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -56,7 +61,7 @@ const createApp = () => {
   }));
   app.use(sanitizeInput);
 
-  const uploadsRoot = path.join(__dirname, '../uploads');
+  const uploadsRoot = ensureUploadDirs();
   const staticOpts = {
     fallthrough: false,
     index: false,
@@ -72,7 +77,7 @@ const createApp = () => {
   app.use('/api/v1', routes);
 
   // Public download site (native installers) — not the Flutter web shell.
-  const websiteRoot = path.resolve(__dirname, '../../website');
+  const websiteRoot = getWebsiteRoot();
   const downloadsRoot = path.join(websiteRoot, 'downloads');
 
   app.use(
@@ -89,6 +94,9 @@ const createApp = () => {
         } else if (filePath.endsWith('.zip')) {
           res.setHeader('Content-Type', 'application/zip');
           res.setHeader('Content-Disposition', 'attachment; filename="TechRenEDU-windows.zip"');
+        } else if (filePath.endsWith('.exe')) {
+          res.setHeader('Content-Type', 'application/octet-stream');
+          res.setHeader('Content-Disposition', 'attachment; filename="TechRenEDU-setup.exe"');
         }
       },
     })

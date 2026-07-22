@@ -1,12 +1,8 @@
-const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { ensureUploadDirs } = require('../config/paths');
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads/listening');
-
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+const UPLOAD_DIR = path.join(ensureUploadDirs(), 'listening');
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

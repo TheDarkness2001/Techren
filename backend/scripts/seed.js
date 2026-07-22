@@ -1,10 +1,13 @@
 require('dotenv').config();
 
 const connectDB = require('../src/config/database');
-const { Branch, Teacher, Student } = require('../src/models');
+const { Branch, Teacher } = require('../src/models');
 const { initDefaults } = require('../src/services/settingsService');
 const config = require('../src/config');
 
+/**
+ * Seeds founder only. Does not create demo role accounts and never deletes existing users.
+ */
 const seed = async () => {
   await connectDB();
   await initDefaults();
@@ -34,24 +37,11 @@ const seed = async () => {
     branch.createdBy = founder._id;
     await branch.save();
     console.log(`Created founder: ${founderEmail}`);
+  } else {
+    console.log(`Founder already exists: ${founderEmail}`);
   }
 
-  const studentEmail = 'student@techren.uz';
-  let student = await Student.findOne({ email: studentEmail });
-  if (!student) {
-    student = await Student.create({
-      name: 'Demo Student',
-      email: studentEmail,
-      password: 'Student123!',
-      branchId: branch._id,
-      status: 'active',
-    });
-    console.log(`Created student: ${studentEmail}`);
-  }
-
-  console.log('\nSeed complete.');
-  console.log(`Founder login: ${founderEmail} / ${config.founder.password}`);
-  console.log('Student login: student@techren.uz / Student123!');
+  console.log('\nSeed complete. Create staff/students from the app — no demo accounts are added.');
   process.exit(0);
 };
 

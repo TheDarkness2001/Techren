@@ -107,11 +107,12 @@ class BrandHeader extends StatelessWidget {
         Container(
           width: compact ? 56 : 72,
           height: compact ? 56 : 72,
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: scheme.primaryContainer,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Icon(Icons.school_rounded, size: compact ? 32 : 40, color: scheme.primary),
+          child: Image.asset('assets/branding/logo.png', fit: BoxFit.contain),
         ),
         SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
         Text(

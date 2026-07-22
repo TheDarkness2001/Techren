@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/update_banner.dart';
 import '../../../../domain/entities/branch.dart';
 import '../../../../domain/entities/dashboard_data.dart';
 import '../../../../domain/entities/person.dart';
@@ -39,6 +40,7 @@ class RoleDashboardBody extends ConsumerWidget {
         child: ListView(
           padding: AppSpacing.pagePaddingWide,
           children: [
+            const UpdateBanner(),
             DashboardStatRow(children: _statsForRole(data)),
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),

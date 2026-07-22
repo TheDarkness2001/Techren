@@ -1,7 +1,9 @@
 ﻿{
-    "windows":  true,
+    "builtAt":  "2026-07-21T08:55:12.0791042Z",
+    "version":  "1.0.1",
+    "windowsZip":  true,
     "apiBaseUrl":  "http://192.168.2.136:5002/api/v1",
-    "android":  true,
+    "windows":  true,
     "mode":  "profile",
-    "builtAt":  "2026-07-21T05:41:46.4889417Z"
+    "android":  true
 }

@@ -1,0 +1,18 @@
+# TechRen EDU — Railway (NEW service only)
+#
+# IMPORTANT: Do NOT replace the existing "SMS" Railway service used by the student PWA.
+# Create a separate Railway service from this GitHub repo so both can run together.
+#
+# Root Directory: leave EMPTY (deploy whole monorepo) — nixpacks uses this file.
+# Or set Root Directory to "/" and use the commands below.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd backend && npm ci --omit=dev"
+
+[deploy]
+startCommand = "cd backend && node src/server.js"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

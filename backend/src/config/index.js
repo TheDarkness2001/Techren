@@ -61,9 +61,8 @@ module.exports = {
   useMemoryFallback:
     process.env.MONGO_FALLBACK_MEMORY === 'true'
     || (process.env.MONGO_FALLBACK_MEMORY !== 'false' && !isAtlasUri && !isProduction),
-  seedDemoData:
-    process.env.SEED_DEMO_DATA === 'true'
-    || (process.env.SEED_DEMO_DATA !== 'false' && !isAtlasUri && !isProduction),
+  // Demo role accounts are never auto-seeded unless explicitly requested.
+  seedDemoData: process.env.SEED_DEMO_DATA === 'true',
   jwt: {
     secret: jwtSecret,
     refreshSecret: resolvedRefreshSecret,
