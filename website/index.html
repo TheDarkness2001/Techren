@@ -93,6 +93,10 @@
   </footer>
 
   <script>
+    // Installers are published to GitHub Releases (too large for git / Railway disk).
+    const RELEASE_ANDROID = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk';
+    const RELEASE_WINDOWS = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe';
+
     async function probe(url) {
       try {
         const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
@@ -102,36 +106,24 @@
       }
     }
 
-    function markMissing(el, label) {
-      el.classList.add('btn-unavailable');
-      el.setAttribute('aria-disabled', 'true');
-      el.addEventListener('click', (e) => e.preventDefault());
-      el.textContent = label + ' — not built yet';
-    }
-
     (async () => {
       const android = document.getElementById('dl-android');
       const windows = document.getElementById('dl-windows');
       const hint = document.getElementById('dl-hint');
 
-      const [hasAndroid, hasWindows] = await Promise.all([
+      const [localAndroid, localWindows] = await Promise.all([
         probe('/downloads/techren-edu.apk'),
         probe('/downloads/TechRenEDU-setup.exe'),
       ]);
 
-      if (!hasAndroid) markMissing(android, 'Android');
-      if (!hasWindows) markMissing(windows, 'Windows');
+      android.href = localAndroid ? '/downloads/techren-edu.apk' : RELEASE_ANDROID;
+      windows.href = localWindows ? '/downloads/TechRenEDU-setup.exe' : RELEASE_WINDOWS;
 
-      if (hasAndroid && hasWindows) {
-        hint.textContent = 'Installers are ready. Choose your platform above.';
-      } else if (hasAndroid) {
-        hint.textContent =
-          'Android is ready. Windows installer is missing — run the build script on the admin PC.';
-      } else if (hasWindows) {
-        hint.textContent = 'Windows is ready. Android APK is missing — run the build script on a machine with Android SDK.';
+      if (localAndroid && localWindows) {
+        hint.textContent = 'Installers are ready on this server. Choose your platform above.';
       } else {
         hint.textContent =
-          'No installers on the server yet. Admin: .\\scripts\\build-release-apps.ps1 -LocalDev';
+          'Download from GitHub Releases (latest). If a link 404s, the admin still needs to upload the APK/EXE to a Release.';
       }
     })();
   </script>

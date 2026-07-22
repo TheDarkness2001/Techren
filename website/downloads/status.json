@@ -1,9 +1,9 @@
 ﻿{
-    "builtAt":  "2026-07-21T08:55:12.0791042Z",
-    "version":  "1.0.1",
+    "builtAt":  "2026-07-22T16:47:17.1957449Z",
+    "version":  "1.0.2",
     "windowsZip":  true,
-    "apiBaseUrl":  "http://192.168.2.136:5002/api/v1",
+    "apiBaseUrl":  "https://techren-production.up.railway.app/api/v1",
     "windows":  true,
-    "mode":  "profile",
+    "mode":  "release",
     "android":  true
 }
