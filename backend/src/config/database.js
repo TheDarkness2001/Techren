@@ -25,7 +25,9 @@ const configureAtlasDns = () => {
 const connectDB = async () => {
   try {
     configureAtlasDns();
-    const conn = await mongoose.connect(config.mongoUri);
+    const conn = await mongoose.connect(config.mongoUri, {
+      serverSelectionTimeoutMS: 15000,
+    });
     connectionMode = config.isAtlasUri ? 'atlas' : 'remote';
     logger.info(`MongoDB connected: ${conn.connection.host} [${connectionMode}]`);
     return conn;
