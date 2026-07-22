@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 
 const required = ['JWT_SECRET'];
 
@@ -29,7 +30,7 @@ const WEAK_FOUNDER_PASSWORDS = new Set([
 const env = process.env.NODE_ENV || 'development';
 const isProduction = env === 'production';
 const jwtSecret = process.env.JWT_SECRET;
-const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || null;
+const jwtRefreshSecretEnv = process.env.JWT_REFRESH_SECRET || null;
 
 if (isProduction) {
   if (!process.env.MONGO_URI || process.env.MONGO_URI.includes('127.0.0.1') || process.env.MONGO_URI.includes('localhost')) {
@@ -42,9 +43,9 @@ if (isProduction) {
       'Refusing to start: set a strong JWT_SECRET (32+ chars) in production. Do not use example defaults.'
     );
   }
-  if (!jwtRefreshSecret || jwtRefreshSecret === jwtSecret || jwtRefreshSecret.length < 32) {
+  if (jwtRefreshSecretEnv && (jwtRefreshSecretEnv === jwtSecret || jwtRefreshSecretEnv.length < 32)) {
     throw new Error(
-      'Refusing to start: set a distinct JWT_REFRESH_SECRET (32+ chars) in production.'
+      'Refusing to start: JWT_REFRESH_SECRET must be 32+ chars and different from JWT_SECRET (or omit it to auto-derive).'
     );
   }
   if (!process.env.FOUNDER_PASSWORD || WEAK_FOUNDER_PASSWORDS.has(process.env.FOUNDER_PASSWORD)) {
@@ -62,10 +63,24 @@ if (isProduction) {
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/techren_edu';
 const isAtlasUri = mongoUri.includes('mongodb+srv://');
 
-// Prefer an explicit refresh secret; in non-prod, derive so refresh tokens cannot
-// be verified with the access-token secret alone when JWT_REFRESH_SECRET is unset.
+// Prefer an explicit refresh secret. If unset, derive a distinct key from JWT_SECRET
+// so production can boot with only JWT_SECRET configured.
 const resolvedRefreshSecret =
-  jwtRefreshSecret || `${jwtSecret}:refresh`;
+  jwtRefreshSecretEnv
+  || crypto.createHash('sha256').update(`${jwtSecret}:techren-refresh`).digest('hex');
+
+// Guard against accidentally putting a secret string into JWT_REFRESH_EXPIRE.
+const rawRefreshExpire = process.env.JWT_REFRESH_EXPIRE || '7d';
+const refreshExpire = /^\d+[smhd]$/i.test(String(rawRefreshExpire).trim())
+  ? String(rawRefreshExpire).trim()
+  : '7d';
+
+if (rawRefreshExpire !== refreshExpire) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[config] JWT_REFRESH_EXPIRE="${rawRefreshExpire}" is not a duration (e.g. 7d). Using 7d instead.`
+  );
+}
 
 module.exports = {
   env,
@@ -81,7 +96,7 @@ module.exports = {
     secret: jwtSecret,
     refreshSecret: resolvedRefreshSecret,
     accessExpire: process.env.JWT_ACCESS_EXPIRE || '15m',
-    refreshExpire: process.env.JWT_REFRESH_EXPIRE || '7d',
+    refreshExpire,
   },
   founder: {
     email: process.env.FOUNDER_EMAIL || 'founder@techren.uz',
