@@ -13,9 +13,18 @@ const WEAK_JWT_DEFAULTS = new Set([
   'secret',
   'jwt_secret',
   'your-secret',
+  'replace-with-a-long-random-secret-at-least-32-chars',
 ]);
 
-const WEAK_FOUNDER_PASSWORDS = new Set(['Founder123!', 'founder123', 'password', 'Password1!']);
+const WEAK_FOUNDER_PASSWORDS = new Set([
+  'Founder123!',
+  'founder123',
+  'password',
+  'Password1!',
+  'replace-with-a-strong-founder-password',
+  'replace-with-a-strong-password',
+  'replace-with-a-strong-unique-password',
+]);
 
 const env = process.env.NODE_ENV || 'development';
 const isProduction = env === 'production';
@@ -23,6 +32,11 @@ const jwtSecret = process.env.JWT_SECRET;
 const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || null;
 
 if (isProduction) {
+  if (!process.env.MONGO_URI || process.env.MONGO_URI.includes('127.0.0.1') || process.env.MONGO_URI.includes('localhost')) {
+    throw new Error(
+      'Refusing to start: set MONGO_URI to your MongoDB Atlas connection string in production.'
+    );
+  }
   if (WEAK_JWT_DEFAULTS.has(jwtSecret) || jwtSecret.length < 32) {
     throw new Error(
       'Refusing to start: set a strong JWT_SECRET (32+ chars) in production. Do not use example defaults.'
