@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/task_integrity_scope.dart';
 import '../../../../domain/entities/sentences.dart';
 import '../../../providers/sentences_provider.dart';
 
@@ -88,7 +89,8 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return TaskIntegrityScope(
+      child: Scaffold(
       appBar: AppBar(title: Text(widget.lessonName)),
       body: Padding(
         padding: AppSpacing.pagePaddingWide,
@@ -153,6 +155,7 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
                 ],
               ),
       ),
+    ),
     );
   }
 }

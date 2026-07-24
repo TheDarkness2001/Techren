@@ -4,6 +4,7 @@ const inactiveStudentDashboardRoute = '/student/dashboard';
 
 const _learningRoutePrefixes = [
   '/student/learn',
+  '/student/learning',
   '/student/words',
   '/student/sentences',
   '/student/listening',

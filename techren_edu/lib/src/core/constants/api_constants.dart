@@ -6,8 +6,10 @@ class ApiConstants {
     defaultValue: 'http://127.0.0.1:5002/api/v1',
   );
 
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  // Railway (and some mobile networks) can take 10–20s+ for TLS/connect;
+  // 15s was aborting healthy-but-slow requests as "connection timeout".
+  static const Duration connectTimeout = Duration(seconds: 45);
+  static const Duration receiveTimeout = Duration(seconds: 60);
 
   /// Fail fast in release if the API is still pointing at localhost / plain HTTP.
   static void assertReleaseConfig() {

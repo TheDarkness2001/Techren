@@ -70,6 +70,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(path: '/login', builder: (_, __) => const LoginScreen()),
       AppPageTransitions.route(path: '/student/dashboard', builder: (_, __) => const StudentDashboardScreen()),
       AppPageTransitions.route(path: '/student/learn', builder: (_, __) => const StudentLearnScreen()),
+      // Legacy path used by older builds / mistaken /learning links.
+      AppPageTransitions.route(
+        path: '/student/learning/:subjectId',
+        redirect: (_, state) => '/student/learn/${state.pathParameters['subjectId']}',
+      ),
       AppPageTransitions.route(
         path: '/student/learn/:subjectId',
         builder: (_, state) => StudentLearningSubjectScreen(

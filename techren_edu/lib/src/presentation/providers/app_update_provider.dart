@@ -5,19 +5,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_constants.dart';
 
+/// Fallback when status.json omits direct installer URLs (Railway has no big APKs).
+const _githubAndroidApk =
+    'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk';
+const _githubWindowsSetup =
+    'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe';
+
 class AppUpdateInfo {
-  const AppUpdateInfo({required this.latestVersion, required this.downloadSiteUrl});
+  const AppUpdateInfo({
+    required this.latestVersion,
+    required this.downloadSiteUrl,
+    required this.androidApkUrl,
+    required this.windowsSetupUrl,
+  });
 
   final String latestVersion;
 
-  /// Landing page where the user downloads the new installer.
+  /// Landing page (Railway site).
   final Uri downloadSiteUrl;
+
+  /// Direct APK URL (usually GitHub Releases).
+  final Uri androidApkUrl;
+
+  /// Direct Windows setup URL (usually GitHub Releases).
+  final Uri windowsSetupUrl;
 }
 
 /// scheme://host:port of the API server — the download site is served there too.
 Uri _serverOrigin() {
   final api = Uri.parse(ApiConstants.baseUrl);
   return Uri(scheme: api.scheme, host: api.host, port: api.hasPort ? api.port : null);
+}
+
+Uri _uriOrFallback(dynamic raw, String fallback) {
+  final text = raw?.toString().trim();
+  if (text != null && text.isNotEmpty) {
+    final parsed = Uri.tryParse(text);
+    if (parsed != null && parsed.hasScheme) return parsed;
+  }
+  return Uri.parse(fallback);
 }
 
 /// Resolves to update info when the server has a newer build, otherwise null.
@@ -40,7 +66,12 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     final latest = map['version']?.toString();
     if (latest == null || latest.isEmpty) return null;
     if (compareVersions(latest, AppConstants.appVersion) <= 0) return null;
-    return AppUpdateInfo(latestVersion: latest, downloadSiteUrl: origin);
+    return AppUpdateInfo(
+      latestVersion: latest,
+      downloadSiteUrl: origin,
+      androidApkUrl: _uriOrFallback(map['androidUrl'] ?? map['androidApkUrl'], _githubAndroidApk),
+      windowsSetupUrl: _uriOrFallback(map['windowsUrl'] ?? map['windowsSetupUrl'], _githubWindowsSetup),
+    );
   } catch (_) {
     return null;
   }

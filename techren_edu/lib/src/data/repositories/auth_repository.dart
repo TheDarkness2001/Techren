@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import '../../core/network/dio_client.dart';
+import '../../core/security/session_policy.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../domain/entities/app_user.dart';
 
@@ -60,10 +61,16 @@ class AuthRepository {
     final userJson = await _storage.getUserJson();
     if (token == null || userJson == null) return null;
 
+    if (await _isSessionExpiredLocally()) {
+      await _storage.clearAll();
+      return null;
+    }
+
     try {
       final response = await _client.dio.get('/auth/me');
       final user = AppUser.fromJson(response.data['data'] as Map<String, dynamic>);
       await _storage.saveUserJson(jsonEncode(user.toJson()));
+      await _storage.clearBackgrounded();
       return user;
     } catch (_) {
       await _storage.clearAll();
@@ -71,7 +78,25 @@ class AuthRepository {
     }
   }
 
-  Future<void> logout() async {
+  Future<bool> _isSessionExpiredLocally() async {
+    final started = await _storage.getSessionStartedAt();
+    final backgrounded = await _storage.getBackgroundedAt();
+    final now = DateTime.now().toUtc();
+
+    // Older installs without timestamps: force re-login once for security.
+    if (started == null) {
+      return true;
+    }
+    if (now.difference(started) > SessionPolicy.maxSessionAge) {
+      return true;
+    }
+    if (backgrounded != null && now.difference(backgrounded) > SessionPolicy.maxIdleAge) {
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> logout({String? reason}) async {
     final refreshToken = await _storage.getRefreshToken();
     try {
       if (refreshToken != null) {
@@ -79,8 +104,21 @@ class AuthRepository {
       }
     } finally {
       await _storage.clearAll();
+      if (reason != null && reason.isNotEmpty) {
+        await _storage.setLogoutReason(reason);
+      }
     }
   }
+
+  Future<void> markBackgrounded() => _storage.markBackgrounded();
+
+  Future<void> clearBackgrounded() => _storage.clearBackgrounded();
+
+  Future<String?> takeLogoutReason() => _storage.takeLogoutReason();
+
+  Future<DateTime?> getSessionStartedAt() => _storage.getSessionStartedAt();
+
+  Future<DateTime?> getBackgroundedAt() => _storage.getBackgroundedAt();
 
   Future<AppUser> _persistSession(Map<String, dynamic> data) async {
     final accessToken = data['accessToken']?.toString();
@@ -98,6 +136,7 @@ class AuthRepository {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+    await _storage.markSessionStarted();
     final user = AppUser.fromJson(Map<String, dynamic>.from(userRaw));
     await _storage.saveUserJson(jsonEncode(user.toJson()));
     return user;

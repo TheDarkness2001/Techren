@@ -226,7 +226,7 @@ class _TimeRow extends StatelessWidget {
               Container(width: _dividerWidth, color: border),
               SizedBox(
                 width: dayWidth,
-                height: 64,
+                height: 76,
                 child: _Cell(entry: entries[day]),
               ),
             ],
@@ -254,38 +254,49 @@ class _Cell extends StatelessWidget {
             entry!.className.trim().toLowerCase() != entry!.subject!.trim().toLowerCase())
         ? entry!.className.trim()
         : null;
+    final muted = context.semantic.textMuted;
 
-    return Container(
-      margin: const EdgeInsets.all(AppSpacing.xs),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        color: AppColors.primaryContainer.withValues(alpha: 0.55),
+    // Keep the card fully inside the cell (no overflow into the Time column).
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xxs),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.55),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
-          if (subtitle != null)
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 10, color: context.semantic.textMuted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, height: 1.15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 10, color: muted, height: 1.15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                if (entry!.endTime.isNotEmpty)
+                  Text(
+                    '${entry!.startTime}–${entry!.endTime}',
+                    style: TextStyle(fontSize: 9, color: muted, height: 1.15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
-          if (entry!.endTime.isNotEmpty)
-            Text(
-              '${entry!.startTime} – ${entry!.endTime}',
-              style: TextStyle(fontSize: 10, color: context.semantic.textMuted),
-            ),
-        ],
+          ),
+        ),
       ),
     );
   }

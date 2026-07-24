@@ -146,6 +146,7 @@ class LeaderboardEntry {
     required this.studentCode,
     required this.accuracy,
     required this.correctAnswers,
+    this.profileImage,
   });
 
   final int rank;
@@ -153,6 +154,7 @@ class LeaderboardEntry {
   final String studentCode;
   final int accuracy;
   final int correctAnswers;
+  final String? profileImage;
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) => LeaderboardEntry(
         rank: json['rank'] as int? ?? 0,
@@ -160,6 +162,7 @@ class LeaderboardEntry {
         studentCode: json['studentCode'] as String? ?? '',
         accuracy: json['accuracy'] as int? ?? 0,
         correctAnswers: json['correctAnswers'] as int? ?? 0,
+        profileImage: json['profileImage'] as String?,
       );
 }
 

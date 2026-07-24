@@ -28,6 +28,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    final msg = ref.read(authProvider).logoutMessage;
+    if (msg != null && msg.isNotEmpty) {
+      _errorMessage = msg;
+      ref.read(authProvider.notifier).clearLogoutMessage();
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -146,7 +156,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Semantics(
                 liveRegion: true,
                 child: ErrorState(
-                  title: 'Sign-in failed',
+                  title: _errorMessage!.startsWith('Signed out') || _errorMessage!.startsWith('Your session')
+                      ? 'Session ended'
+                      : 'Sign-in failed',
                   message: _errorMessage!,
                   icon: Icons.lock_outline,
                 ),

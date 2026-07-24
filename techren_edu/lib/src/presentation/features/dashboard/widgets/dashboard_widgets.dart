@@ -504,6 +504,7 @@ class DashboardListTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.leading,
     this.trailing,
     this.onTap,
   });
@@ -511,6 +512,7 @@ class DashboardListTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final Widget? leading;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -523,10 +525,11 @@ class DashboardListTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: scheme.primaryContainer,
-          child: Icon(icon, color: scheme.primary, size: 20),
-        ),
+        leading: leading ??
+            CircleAvatar(
+              backgroundColor: scheme.primaryContainer,
+              child: Icon(icon, color: scheme.primary, size: 20),
+            ),
         title: Text(title, style: Theme.of(context).textTheme.titleSmall),
         subtitle: Text(subtitle, style: TextStyle(color: muted, fontSize: 12)),
         trailing: trailing,

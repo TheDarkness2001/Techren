@@ -7,9 +7,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../update/app_updater.dart';
 
-/// Shown on dashboards when the server has a newer native build.
-/// On Windows the Update button downloads and installs the new version
-/// automatically; on Android it downloads the APK for a one-tap install.
+/// Shown on dashboards when a newer native build is published.
+/// Tap Update → download + install over the current app (no uninstall).
 class UpdateBanner extends ConsumerStatefulWidget {
   const UpdateBanner({super.key});
 
@@ -35,11 +34,17 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
       );
       // On Windows the process exits before reaching here.
       if (mounted) setState(() => _updating = false);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _updating = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Automatic update failed — opening the download page instead.')),
+        SnackBar(
+          content: Text(
+            e.toString().contains('Allow installs')
+                ? 'Allow installs from TechRen EDU in Settings, then tap Update again.'
+                : 'Automatic update failed — opening the download page instead.',
+          ),
+        ),
       );
       await launchUrl(update.downloadSiteUrl, mode: LaunchMode.externalApplication);
     }

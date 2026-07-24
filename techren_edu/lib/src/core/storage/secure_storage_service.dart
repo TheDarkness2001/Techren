@@ -54,5 +54,37 @@ class SecureStorageService {
     await _storage.delete(key: StorageKeys.refreshToken);
   }
 
+  Future<void> markSessionStarted() async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _writeWithRetry(StorageKeys.sessionStartedAt, now);
+    await _storage.delete(key: StorageKeys.backgroundedAt);
+  }
+
+  Future<void> markBackgrounded() async {
+    await _writeWithRetry(StorageKeys.backgroundedAt, DateTime.now().toUtc().toIso8601String());
+  }
+
+  Future<void> clearBackgrounded() async {
+    await _storage.delete(key: StorageKeys.backgroundedAt);
+  }
+
+  Future<DateTime?> getSessionStartedAt() => _readDate(StorageKeys.sessionStartedAt);
+
+  Future<DateTime?> getBackgroundedAt() => _readDate(StorageKeys.backgroundedAt);
+
+  Future<DateTime?> _readDate(String key) async {
+    final raw = await _storage.read(key: key);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  Future<void> setLogoutReason(String reason) => _writeWithRetry(StorageKeys.logoutReason, reason);
+
+  Future<String?> takeLogoutReason() async {
+    final reason = await _storage.read(key: StorageKeys.logoutReason);
+    if (reason != null) await _storage.delete(key: StorageKeys.logoutReason);
+    return reason;
+  }
+
   Future<void> clearAll() => _storage.deleteAll();
 }

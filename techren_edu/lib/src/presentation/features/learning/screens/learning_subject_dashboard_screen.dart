@@ -99,7 +99,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
     try {
       await ref.read(learningApiProvider).deleteSubject(dash.id);
       if (context.mounted) {
-        context.go('$_prefix/learning');
+        context.go(isStudent ? '$_prefix/learn' : '$_prefix/learning');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${dash.name} removed')));
       }
     } catch (e) {

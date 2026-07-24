@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/task_integrity_scope.dart';
 import '../../../../domain/entities/video.dart';
 import '../../../providers/video_provider.dart';
 
@@ -130,8 +131,7 @@ class _VideoTestScreenState extends ConsumerState<VideoTestScreen> with WidgetsB
   @override
   Widget build(BuildContext context) {
     final isPractice = widget.mode == 'practice';
-
-    return Scaffold(
+    final body = Scaffold(
       appBar: AppBar(title: Text(isPractice ? 'Practice Test' : 'Topic Exam')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -148,6 +148,14 @@ class _VideoTestScreenState extends ConsumerState<VideoTestScreen> with WidgetsB
                           child: const Padding(
                             padding: EdgeInsets.all(AppSpacing.sm),
                             child: Text('Exam mode: leaving the app counts as a warning (3 = terminated).'),
+                          ),
+                        ),
+                      if (isPractice)
+                        Card(
+                          color: Colors.orange.shade50,
+                          child: const Padding(
+                            padding: EdgeInsets.all(AppSpacing.sm),
+                            child: Text('Stay in TechRen EDU during this task. Leaving the app signs you out.'),
                           ),
                         ),
                       Expanded(
@@ -189,5 +197,8 @@ class _VideoTestScreenState extends ConsumerState<VideoTestScreen> with WidgetsB
                   ),
                 ),
     );
+
+    if (!isPractice) return body;
+    return TaskIntegrityScope(child: body);
   }
 }

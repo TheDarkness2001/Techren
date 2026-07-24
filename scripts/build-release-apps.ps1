@@ -129,6 +129,9 @@ $status = @{
   android = [bool](Test-Path (Join-Path $downloadsDir 'techren-edu.apk'))
   windows = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-setup.exe'))
   windowsZip = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-windows.zip'))
+  # Railway cannot host large installers — apps download these from GitHub Releases.
+  androidUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk'
+  windowsUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe'
 }
 $status | ConvertTo-Json | Set-Content -Path (Join-Path $downloadsDir 'status.json') -Encoding utf8
 

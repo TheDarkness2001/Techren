@@ -1,9 +1,11 @@
 ﻿{
-    "builtAt":  "2026-07-22T16:47:17.1957449Z",
-    "version":  "1.0.2",
-    "windowsZip":  true,
-    "apiBaseUrl":  "https://techren-production.up.railway.app/api/v1",
-    "windows":  true,
     "mode":  "release",
-    "android":  true
+    "windowsZip":  true,
+    "windows":  true,
+    "version":  "1.0.5",
+    "android":  true,
+    "androidUrl":  "https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk",
+    "apiBaseUrl":  "https://techren-production.up.railway.app/api/v1",
+    "builtAt":  "2026-07-24T03:34:37.5383165Z",
+    "windowsUrl":  "https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe"
 }

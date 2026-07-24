@@ -17,6 +17,8 @@ import '../../../providers/identity_provider.dart';
 import 'dashboard_header.dart';
 import 'dashboard_widgets.dart';
 import 'role_dashboard_shortcuts.dart';
+import 'student_home_panels.dart';
+import '../../../../core/widgets/person_avatar.dart';
 
 
 
@@ -79,6 +81,10 @@ class RoleDashboardBody extends ConsumerWidget {
                   ],
                 ),
               ),
+            ],
+            if (data.role == 'student') ...[
+              const SizedBox(height: AppSpacing.xl),
+              const StudentHomePanels(),
             ],
             if (data.role == 'student' && data.profile != null) ...[
               const SizedBox(height: AppSpacing.xl),
@@ -235,6 +241,12 @@ class _RecentStudentRow extends StatelessWidget {
       title: student.name,
       subtitle: student.email ?? student.displayId ?? 'Student',
       icon: Icons.person_outline,
+      leading: PersonAvatar(
+        name: student.name,
+        profileImage: student.profileImage,
+        radius: 20,
+        isActive: student.isActive,
+      ),
       onTap: () => context.go('/admin/people'),
     );
   }

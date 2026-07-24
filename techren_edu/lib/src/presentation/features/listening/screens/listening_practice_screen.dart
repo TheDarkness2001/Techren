@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/task_integrity_scope.dart';
 import '../../../../domain/entities/listening.dart';
 import '../../../providers/listening_provider.dart';
 
@@ -125,7 +126,8 @@ class _ListeningPracticeScreenState extends ConsumerState<ListeningPracticeScree
   Widget build(BuildContext context) {
     final exercise = _exercise;
 
-    return Scaffold(
+    return TaskIntegrityScope(
+      child: Scaffold(
       appBar: AppBar(title: Text('${widget.levelName} · ${exercise?.title ?? ''}')),
       body: Padding(
         padding: AppSpacing.pagePaddingWide,
@@ -201,6 +203,7 @@ class _ListeningPracticeScreenState extends ConsumerState<ListeningPracticeScree
                     ],
                   ),
       ),
+    ),
     );
   }
 }

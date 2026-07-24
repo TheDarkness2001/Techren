@@ -49,7 +49,11 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
   }
 
   void _openSubject(LearningSubjectCard subject) {
-    context.go('$_prefix/learning/${subject.id}');
+    // Student shell registers `/student/learn/:subjectId` (not `/learning`).
+    final path = widget.isStudent
+        ? '$_prefix/learn/${subject.id}'
+        : '$_prefix/learning/${subject.id}';
+    context.go(path);
   }
 
   Future<void> _addSubject() async {

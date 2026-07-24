@@ -70,15 +70,16 @@ const resolvedRefreshSecret =
   || crypto.createHash('sha256').update(`${jwtSecret}:techren-refresh`).digest('hex');
 
 // Guard against accidentally putting a secret string into JWT_REFRESH_EXPIRE.
-const rawRefreshExpire = process.env.JWT_REFRESH_EXPIRE || '7d';
+// Default 1d (was 7d) so stale sessions cannot linger for a week.
+const rawRefreshExpire = process.env.JWT_REFRESH_EXPIRE || '1d';
 const refreshExpire = /^\d+[smhd]$/i.test(String(rawRefreshExpire).trim())
   ? String(rawRefreshExpire).trim()
-  : '7d';
+  : '1d';
 
 if (rawRefreshExpire !== refreshExpire) {
   // eslint-disable-next-line no-console
   console.warn(
-    `[config] JWT_REFRESH_EXPIRE="${rawRefreshExpire}" is not a duration (e.g. 7d). Using 7d instead.`
+    `[config] JWT_REFRESH_EXPIRE="${rawRefreshExpire}" is not a duration (e.g. 1d). Using 1d instead.`
   );
 }
 

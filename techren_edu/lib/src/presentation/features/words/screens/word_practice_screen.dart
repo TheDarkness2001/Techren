@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/task_integrity_scope.dart';
 import '../../../../domain/entities/words.dart';
 import '../../../providers/words_provider.dart';
 
@@ -91,7 +92,8 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return TaskIntegrityScope(
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.lessonName),
         actions: [
@@ -145,6 +147,7 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> {
                 ],
               ),
       ),
+    ),
     );
   }
 }
