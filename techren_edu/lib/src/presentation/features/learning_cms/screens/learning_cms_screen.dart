@@ -466,9 +466,22 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> with Sing
 
   Future<void> _showListeningDialog({CmsListeningExercise? exercise}) async {
     if (_levelId == null) return;
+
+    var nextOrder = 1;
+    try {
+      final existing = await ref.read(cmsListeningExercisesProvider(_levelId!).future);
+      if (existing.isNotEmpty) {
+        nextOrder = existing.map((e) => e.order).reduce((a, b) => a > b ? a : b) + 1;
+      }
+    } catch (_) {
+      nextOrder = 1;
+    }
+
     final titleCtrl = TextEditingController(text: exercise?.title ?? '');
     final scriptCtrl = TextEditingController(text: exercise?.script ?? '');
-    final orderCtrl = TextEditingController(text: '${exercise?.order ?? 1}');
+    final orderCtrl = TextEditingController(
+      text: exercise != null ? '${exercise.order}' : '$nextOrder',
+    );
     PlatformFile? pickedAudio;
     var audioLabel = exercise?.hasAudio == true ? 'Audio attached (pick to replace)' : 'No audio selected';
 
@@ -490,7 +503,12 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> with Sing
                 ),
                 TextField(
                   controller: orderCtrl,
-                  decoration: const InputDecoration(labelText: 'Order'),
+                  decoration: InputDecoration(
+                    labelText: 'Order',
+                    helperText: exercise == null
+                        ? 'Auto-filled with next number ($nextOrder). Clear to keep auto.'
+                        : null,
+                  ),
                   keyboardType: TextInputType.number,
                 ),
                 OutlinedButton.icon(
@@ -525,7 +543,8 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> with Sing
 
     try {
       final api = ref.read(listeningApiProvider);
-      final order = int.tryParse(orderCtrl.text.trim()) ?? 1;
+      final parsedOrder = int.tryParse(orderCtrl.text.trim());
+      final order = (parsedOrder != null && parsedOrder > 0) ? parsedOrder : nextOrder;
       if (exercise == null) {
         await api.createExercise(
           levelId: _levelId!,

@@ -94,9 +94,17 @@ const createExercise = async (data, file) => {
     script: normalizeText(data.script),
     audioFile: file ? file.filename : data.audioFile,
     lessonId,
-    order: data.order || 1,
+    order: await resolveExerciseOrder(lessonId, data.order),
   });
   return formatExercise(exercise, { includeScript: true });
+};
+
+const resolveExerciseOrder = async (lessonId, rawOrder) => {
+  const parsed = Number.parseInt(rawOrder, 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+
+  const last = await ListeningExercise.findOne({ lessonId }).sort({ order: -1 }).select('order').lean();
+  return (last?.order ?? 0) + 1;
 };
 
 const updateExercise = async (id, data, file) => {
