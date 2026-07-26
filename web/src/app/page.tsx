@@ -1,23 +1,12 @@
-import { AboutSection } from "@/components/AboutSection";
-import { CampusSection } from "@/components/CampusSection";
-import { DownloadSection } from "@/components/DownloadSection";
-import { Hero } from "@/components/Hero";
-import { LearnSection } from "@/components/LearnSection";
-import { SiteFooter } from "@/components/SiteFooter";
-import { SiteHeader } from "@/components/SiteHeader";
+import { CinematicLanding } from "@/components/cinematic/CinematicLanding";
+import { CustomCursor } from "@/components/cinematic/CustomCursor";
+import { SmoothScroll } from "@/components/cinematic/SmoothScroll";
 
 export default function HomePage() {
   return (
-    <>
-      <SiteHeader />
-      <main>
-        <Hero />
-        <AboutSection />
-        <LearnSection />
-        <CampusSection />
-        <DownloadSection />
-      </main>
-      <SiteFooter />
-    </>
+    <SmoothScroll>
+      <CustomCursor />
+      <CinematicLanding />
+    </SmoothScroll>
   );
 }

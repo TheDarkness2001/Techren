@@ -15,17 +15,17 @@ const body = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "TechRen EDU — Education center",
+  title: "TechRen EDU — Premium education platform",
   description:
-    "TechRen EDU — native learning app for our education center. Words, sentences, listening, attendance, and progress.",
+    "Cinematic landing for TechRen EDU — native learning for students and staff at our education center.",
   icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable} bg-paper text-ink antialiased`}>
-        <div className="grain" aria-hidden />
+      <body className={`${display.variable} ${body.variable} antialiased`}>
+        <div className="noise" aria-hidden />
         {children}
       </body>
     </html>

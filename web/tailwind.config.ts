@@ -9,35 +9,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#f3f5f8",
-        ink: {
-          DEFAULT: "#0b1220",
-          soft: "#1a2438",
-          mute: "#5b6b82",
-        },
-        line: "rgba(11, 18, 32, 0.12)",
-        brand: {
-          DEFAULT: "#4338ca",
-          soft: "#6366f1",
-          wash: "#eef0ff",
-        },
-        signal: "#0e7490",
+        void: "#050816",
+        primary: "#6C63FF",
+        secondary: "#00D4FF",
+        accent: "#7C3AED",
+        glass: "rgba(255,255,255,0.08)",
+        line: "rgba(255,255,255,0.15)",
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
       },
       maxWidth: {
-        site: "78rem",
+        site: "80rem",
       },
-      keyframes: {
-        marquee: {
-          from: { transform: "translateX(0)" },
-          to: { transform: "translateX(-50%)" },
-        },
-      },
-      animation: {
-        marquee: "marquee 28s linear infinite",
+      boxShadow: {
+        glow: "0 0 40px rgba(108,99,255,0.45)",
+        "glow-cyan": "0 0 40px rgba(0,212,255,0.35)",
       },
     },
   },

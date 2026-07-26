@@ -1,6 +1,6 @@
 # TechRen EDU marketing site (Next.js)
 
-Creative landing for the education center. Static-exported into `../website/` so Railway / Express keep serving `/` and `/downloads`.
+Premium cinematic landing (GSAP + Lenis + ScrollTrigger). Static-exported into `../website/` so Railway / Express keep serving `/` and `/downloads`.
 
 ## Develop
 
@@ -11,11 +11,11 @@ npm run dev
 
 Open http://localhost:3000
 
-## Publish into monorepo website folder
+## Publish
 
 ```bash
 cd web
 npm run build:site
 ```
 
-This runs `next build` (static export) and copies `out/` → `website/`, **keeping** `website/downloads/` (status.json, installers).
+Commit `web/` + `website/` and push for production.
