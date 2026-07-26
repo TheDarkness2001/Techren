@@ -89,15 +89,19 @@ Future<bool> _updateAndroid(
     update.androidApkUrl,
     target.path,
     onReceiveProgress: (received, total) {
-      if (total > 0) onProgress?.call(received / total);
+      if (total > 0) onProgress?.call(received / total * 0.95);
     },
   );
 
   _assertApkFile(target);
+  onProgress?.call(0.98);
 
+  // Native PackageInstaller: system "Update" sheet → replaces this app → relaunches.
+  // Same package name + signing key = upgrade in place (no uninstall, no Downloads folder).
   await _androidInstallChannel.invokeMethod<bool>('installApk', {
     'path': target.path,
   });
+  onProgress?.call(1);
   return true;
 }
 

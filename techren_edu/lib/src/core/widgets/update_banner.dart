@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,7 +9,8 @@ import '../theme/app_spacing.dart';
 import '../update/app_updater.dart';
 
 /// Shown on dashboards when a newer native build is published.
-/// Tap Update → download + install over the current app (no uninstall).
+/// Tap Update → download inside the app → install over the current app (no uninstall,
+/// no Downloads folder). Android shows one system "Update" confirmation (required by OS).
 class UpdateBanner extends ConsumerStatefulWidget {
   const UpdateBanner({super.key});
 
@@ -19,34 +21,76 @@ class UpdateBanner extends ConsumerStatefulWidget {
 class _UpdateBannerState extends ConsumerState<UpdateBanner> {
   bool _updating = false;
   double _progress = 0;
+  String _phase = '';
 
   Future<void> _update(AppUpdateInfo update) async {
     setState(() {
       _updating = true;
       _progress = 0;
+      _phase = 'Downloading update ${update.latestVersion}…';
     });
     try {
       await startPlatformUpdate(
         update,
         onProgress: (p) {
-          if (mounted) setState(() => _progress = p);
+          if (!mounted) return;
+          setState(() {
+            _progress = p;
+            if (p >= 0.99) {
+              _phase = 'Installing… confirm Update on the next screen';
+            } else {
+              _phase = 'Downloading update ${update.latestVersion}…';
+            }
+          });
         },
       );
-      // Windows/macOS exit the process before reaching here; Android/iOS continue.
-      if (mounted) setState(() => _updating = false);
+      if (mounted) {
+        setState(() {
+          _updating = false;
+          _phase = '';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _updating = false);
+      setState(() {
+        _updating = false;
+        _phase = '';
+      });
+      final needsPermission = e.toString().contains('Allow installs');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 8),
           content: Text(
-            e.toString().contains('Allow installs')
+            needsPermission
                 ? 'Allow installs from TechRen EDU in Settings, then tap Update again.'
-                : 'Automatic update failed — opening the installer download instead.',
+                : 'Update failed. Tap Update to retry — installs inside the app (no Downloads folder).',
           ),
+          action: needsPermission
+              ? null
+              : SnackBarAction(
+                  label: 'Retry',
+                  onPressed: () => _update(update),
+                ),
         ),
       );
-      // Open the real GitHub installer URL — not Railway /downloads/*.apk (404 there).
+    }
+  }
+
+  Future<void> _manualDownload(AppUpdateInfo update) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Manual download?'),
+        content: const Text(
+          'Normally Update installs inside the app. Only use this if in-app install keeps failing.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Open link')),
+        ],
+      ),
+    );
+    if (ok == true) {
       await launchUrl(update.platformInstallerUrl, mode: LaunchMode.externalApplication);
     }
   }
@@ -75,21 +119,22 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
               Expanded(
                 child: Text(
                   _updating
-                      ? 'Downloading update ${update.latestVersion}…'
-                      : 'New version ${update.latestVersion} is available',
+                      ? (_phase.isEmpty ? 'Updating…' : _phase)
+                      : 'New version ${update.latestVersion} is available — installs over this app',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               FilledButton.icon(
                 onPressed: _updating ? null : () => _update(update),
+                onLongPress: _updating ? null : () => _manualDownload(update),
                 icon: _updating
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.download_rounded, size: 18),
+                    : const Icon(Icons.system_update_alt_rounded, size: 18),
                 label: Text(_updating ? 'Updating…' : 'Update'),
               ),
             ],
