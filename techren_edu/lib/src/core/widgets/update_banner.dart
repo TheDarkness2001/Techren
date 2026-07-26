@@ -42,11 +42,12 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
           content: Text(
             e.toString().contains('Allow installs')
                 ? 'Allow installs from TechRen EDU in Settings, then tap Update again.'
-                : 'Automatic update failed — opening the download page instead.',
+                : 'Automatic update failed — opening the installer download instead.',
           ),
         ),
       );
-      await launchUrl(update.downloadSiteUrl, mode: LaunchMode.externalApplication);
+      // Open the real GitHub installer URL — not Railway /downloads/*.apk (404 there).
+      await launchUrl(update.platformInstallerUrl, mode: LaunchMode.externalApplication);
     }
   }
 

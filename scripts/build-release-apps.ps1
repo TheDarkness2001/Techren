@@ -145,7 +145,10 @@ $status = @{
   macosUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip'
   iosUrl = if ($prev -and $prev.iosUrl) { [string]$prev.iosUrl } else { 'https://github.com/TheDarkness2001/Techren/releases/latest' }
 }
-$status | ConvertTo-Json | Set-Content -Path (Join-Path $downloadsDir 'status.json') -Encoding utf8
+$statusJson = $status | ConvertTo-Json
+$statusPath = Join-Path $downloadsDir 'status.json'
+# UTF-8 without BOM — a BOM breaks some clients parsing status.json
+[System.IO.File]::WriteAllText($statusPath, $statusJson + "`n", [System.Text.UTF8Encoding]::new($false))
 
 Write-Host ""
 Write-Host "Done. Built: $($built -join ', ')"

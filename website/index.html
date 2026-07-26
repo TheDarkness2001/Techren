@@ -31,24 +31,21 @@
       <a
         id="dl-android"
         class="btn btn-primary"
-        href="/downloads/techren-edu.apk"
-        download="techren-edu.apk"
+        href="https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk"
       >
         Download for Android
       </a>
       <a
         id="dl-windows"
         class="btn btn-secondary"
-        href="/downloads/TechRenEDU-setup.exe"
-        download="TechRenEDU-setup.exe"
+        href="https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe"
       >
         Download for Windows
       </a>
       <a
         id="dl-macos"
         class="btn btn-secondary"
-        href="/downloads/TechRenEDU-macos.zip"
-        download="TechRenEDU-macos.zip"
+        href="https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip"
       >
         Download for Mac
       </a>
@@ -130,8 +127,9 @@
 
     async function probe(url) {
       try {
-        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-        return res.ok;
+        // Manual redirects: Railway may 302 missing installers to GitHub — that is not "local".
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store', redirect: 'manual' });
+        return res.status >= 200 && res.status < 300;
       } catch (_) {
         return false;
       }

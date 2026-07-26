@@ -1,15 +1,14 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../presentation/providers/app_update_provider.dart';
 
 const _androidInstallChannel = MethodChannel('uz.techren.techren_edu/updater');
-
-String _tempJoin(String name) =>
-    '${Directory.systemTemp.path}${Platform.pathSeparator}$name';
 
 /// One-click update — installs over the existing app (no uninstall needed).
 /// - Windows: download setup → silent install → exit; installer relaunches.
@@ -39,13 +38,28 @@ Future<bool> startPlatformUpdate(
 Dio _downloadClient() => Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 45),
       receiveTimeout: const Duration(minutes: 10),
+      followRedirects: true,
+      maxRedirects: 8,
+      headers: const {
+        // Some CDNs reject empty / default clients.
+        'User-Agent': 'TechRenEDU-Updater/1.0',
+        'Accept': '*/*',
+      },
     ));
+
+Future<String> _tempPath(String name) async {
+  if (Platform.isAndroid) {
+    final dir = await getTemporaryDirectory();
+    return '${dir.path}${Platform.pathSeparator}$name';
+  }
+  return '${Directory.systemTemp.path}${Platform.pathSeparator}$name';
+}
 
 Future<bool> _updateWindows(
   AppUpdateInfo update, {
   void Function(double progress)? onProgress,
 }) async {
-  final target = File(_tempJoin('TechRenEDU-setup.exe'));
+  final target = File(await _tempPath('TechRenEDU-setup.exe'));
 
   await _downloadClient().downloadUri(
     update.windowsSetupUrl,
@@ -64,7 +78,12 @@ Future<bool> _updateAndroid(
   AppUpdateInfo update, {
   void Function(double progress)? onProgress,
 }) async {
-  final target = File(_tempJoin('techren-edu-update.apk'));
+  final target = File(await _tempPath('techren-edu-update.apk'));
+  if (target.existsSync()) {
+    try {
+      target.deleteSync();
+    } catch (_) {}
+  }
 
   await _downloadClient().downloadUri(
     update.androidApkUrl,
@@ -74,10 +93,40 @@ Future<bool> _updateAndroid(
     },
   );
 
+  _assertApkFile(target);
+
   await _androidInstallChannel.invokeMethod<bool>('installApk', {
     'path': target.path,
   });
   return true;
+}
+
+void _assertApkFile(File file) {
+  if (!file.existsSync()) {
+    throw StateError('Download failed — APK file missing.');
+  }
+  final length = file.lengthSync();
+  if (length < 1024 * 100) {
+    // Likely an HTML/JSON error page saved as .apk
+    throw StateError(
+      'Download failed — got ${length}B instead of an APK. '
+      'Check the GitHub Release asset techren-edu.apk.',
+    );
+  }
+  final raf = file.openSync(mode: FileMode.read);
+  try {
+    final header = Uint8List(4);
+    final read = raf.readIntoSync(header);
+    // APK is a ZIP archive → local file header magic "PK\x03\x04"
+    if (read < 4 || header[0] != 0x50 || header[1] != 0x4b) {
+      throw StateError(
+        'Download failed — file is not a valid APK. '
+        'Open the download link and confirm techren-edu.apk is attached to the Release.',
+      );
+    }
+  } finally {
+    raf.closeSync();
+  }
 }
 
 Future<bool> _updateMacos(
@@ -89,8 +138,8 @@ Future<bool> _updateMacos(
     return launchUrl(update.downloadSiteUrl, mode: LaunchMode.externalApplication);
   }
 
-  final zipPath = _tempJoin('TechRenEDU-macos-update.zip');
-  final extractDir = _tempJoin('techren-edu-macos-update');
+  final zipPath = await _tempPath('TechRenEDU-macos-update.zip');
+  final extractDir = await _tempPath('techren-edu-macos-update');
   final extract = Directory(extractDir);
   if (extract.existsSync()) {
     extract.deleteSync(recursive: true);
@@ -118,7 +167,7 @@ Future<bool> _updateMacos(
   onProgress?.call(0.95);
 
   // Detached shell replaces the bundle after this process exits, then relaunches.
-  final scriptFile = File(_tempJoin('techren-edu-apply-update.sh'));
+  final scriptFile = File(await _tempPath('techren-edu-apply-update.sh'));
   final ourPid = pid;
   final script = '''
 #!/bin/bash

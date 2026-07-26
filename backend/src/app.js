@@ -107,6 +107,20 @@ const createApp = () => {
     })
   );
 
+  // Railway disk has no large installers — redirect missing binaries to GitHub Releases
+  // so in-app Update and download links still work.
+  const githubInstallers = {
+    'techren-edu.apk': 'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk',
+    'TechRenEDU-setup.exe': 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe',
+    'TechRenEDU-windows.zip': 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-windows.zip',
+    'TechRenEDU-macos.zip': 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip',
+  };
+  app.get('/downloads/:file', (req, res, next) => {
+    const dest = githubInstallers[req.params.file];
+    if (!dest) return next();
+    return res.redirect(302, dest);
+  });
+
   app.get('/', (_req, res) => {
     res.sendFile(path.join(websiteRoot, 'index.html'));
   });

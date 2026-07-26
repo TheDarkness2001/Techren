@@ -41,6 +41,22 @@ class AppUpdateInfo {
 
   /// TestFlight / App Store / OTA page for iPhone (cannot sideload IPA in-app).
   final Uri iosUpdateUrl;
+
+  /// Platform installer / store page to open when automatic update fails.
+  Uri get platformInstallerUrl {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return androidApkUrl;
+      case TargetPlatform.windows:
+        return windowsSetupUrl;
+      case TargetPlatform.macOS:
+        return macosZipUrl;
+      case TargetPlatform.iOS:
+        return iosUpdateUrl;
+      default:
+        return downloadSiteUrl;
+    }
+  }
 }
 
 /// scheme://host:port of the API server — the download site is served there too.
@@ -79,44 +95,22 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     if (latest == null || latest.isEmpty) return null;
     if (compareVersions(latest, AppConstants.appVersion) <= 0) return null;
 
-    // Prefer explicit URLs from status.json (usually GitHub Releases — Railway
-    // cannot host large APKs/EXEs). Fall back to same-origin only when flagged
-    // and no remote URL is set.
-    Uri installerUrl({
-      required dynamic remoteRaw,
-      required String fallback,
-      required dynamic localFlag,
-      required String localPath,
-    }) {
-      final remote = remoteRaw?.toString().trim();
-      if (remote != null && remote.isNotEmpty) {
-        return _uriOrFallback(remote, fallback);
-      }
-      final available = localFlag == true || localFlag?.toString().toLowerCase() == 'true';
-      if (available) return origin.resolve(localPath);
-      return Uri.parse(fallback);
-    }
-
+    // Always use explicit remote installer URLs (GitHub Releases). Never point
+    // the app at Railway /downloads/*.apk — those files are not deployed there.
     return AppUpdateInfo(
       latestVersion: latest,
       downloadSiteUrl: origin,
-      androidApkUrl: installerUrl(
-        remoteRaw: map['androidUrl'] ?? map['androidApkUrl'],
-        fallback: _githubAndroidApk,
-        localFlag: map['android'],
-        localPath: '/downloads/techren-edu.apk',
+      androidApkUrl: _uriOrFallback(
+        map['androidUrl'] ?? map['androidApkUrl'],
+        _githubAndroidApk,
       ),
-      windowsSetupUrl: installerUrl(
-        remoteRaw: map['windowsUrl'] ?? map['windowsSetupUrl'],
-        fallback: _githubWindowsSetup,
-        localFlag: map['windows'],
-        localPath: '/downloads/TechRenEDU-setup.exe',
+      windowsSetupUrl: _uriOrFallback(
+        map['windowsUrl'] ?? map['windowsSetupUrl'],
+        _githubWindowsSetup,
       ),
-      macosZipUrl: installerUrl(
-        remoteRaw: map['macosUrl'] ?? map['macosZipUrl'],
-        fallback: _githubMacosZip,
-        localFlag: map['macos'],
-        localPath: '/downloads/TechRenEDU-macos.zip',
+      macosZipUrl: _uriOrFallback(
+        map['macosUrl'] ?? map['macosZipUrl'],
+        _githubMacosZip,
       ),
       iosUpdateUrl: _uriOrFallback(
         map['iosUrl'] ?? map['iosUpdateUrl'],

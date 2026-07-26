@@ -45,6 +45,7 @@ dependencies:
   shimmer: ^3.0.0
   just_audio: ^0.9.46
   url_launcher: ^6.3.1
+  path_provider: ^2.1.5
   file_picker: ^8.3.7
 
 dev_dependencies:
