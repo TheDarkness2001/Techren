@@ -45,6 +45,14 @@ class ProgressApi {
     return GroupProgressReport.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<List<GroupProgressReport>> getMyGroupsProgress() async {
+    final response = await _client.dio.get('/progress/my-groups');
+    final data = response.data['data'] as Map<String, dynamic>? ?? {};
+    return (data['items'] as List<dynamic>? ?? [])
+        .map((e) => GroupProgressReport.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<StudentVocabLessonsReport> getStudentVocabLessons(String studentId) async {
     final response = await _client.dio.get('/progress/students/$studentId/vocab-lessons');
     return StudentVocabLessonsReport.fromJson(response.data['data'] as Map<String, dynamic>);

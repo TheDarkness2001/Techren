@@ -25,6 +25,7 @@ import '../../presentation/shells/parent_shell.dart';
 import '../../presentation/features/wallet/screens/wallet_screen.dart';
 import '../../presentation/features/upload/screens/content_import_screen.dart';
 import '../../presentation/features/learning_cms/screens/learning_cms_screen.dart';
+import '../../presentation/features/progress/screens/teacher_progress_screen.dart';
 import 'inactive_student_guard.dart';
 import 'app_page_transitions.dart';
 import 'staff_route_guard.dart';
@@ -119,6 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(path: '/teacher/dashboard', builder: (_, __) => const TeacherDashboardScreen()),
       AppPageTransitions.route(path: '/teacher/classes', builder: (_, __) => const TeacherClassesScreen()),
       AppPageTransitions.route(path: '/teacher/attendance', builder: (_, __) => const TeacherAttendanceScreen()),
+      AppPageTransitions.route(path: '/teacher/progress', builder: (_, __) => const TeacherProgressScreen()),
       AppPageTransitions.route(
         path: '/teacher/competition',
         builder: (_, __) => const CompetitionHubScreen(navItems: teacherNavItems, selectedRoute: '/teacher/competition'),

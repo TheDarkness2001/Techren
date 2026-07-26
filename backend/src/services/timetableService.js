@@ -33,6 +33,7 @@ const formatEntry = (schedule, day) => ({
   teacher: schedule.teacher,
   teacherId: resolveTeacherId(schedule.teacher),
   teacherName: schedule.teacher?.name,
+  groupId: schedule.subjectGroup?._id || schedule.subjectGroup || undefined,
   groupName: schedule.subjectGroup?.groupName,
   studentCount: schedule.enrolledStudents?.length ?? 0,
 });

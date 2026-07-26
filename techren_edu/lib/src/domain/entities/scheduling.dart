@@ -98,7 +98,9 @@ class ClassSchedule extends Equatable {
     required this.className,
     this.teacherId,
     this.teacherName,
+    this.groupId,
     this.groupName,
+    this.subjectName,
     this.scheduledDays = const [],
     this.startTime = '',
     this.endTime = '',
@@ -109,7 +111,9 @@ class ClassSchedule extends Equatable {
   final String className;
   final String? teacherId;
   final String? teacherName;
+  final String? groupId;
   final String? groupName;
+  final String? subjectName;
   final List<String> scheduledDays;
   final String startTime;
   final String endTime;
@@ -123,9 +127,13 @@ class ClassSchedule extends Equatable {
       className: json['className'] as String? ?? '',
       teacherId: teacher is Map
           ? teacher['id']?.toString() ?? teacher['_id']?.toString()
-          : json['teacherId']?.toString(),
+          : json['teacherId']?.toString() ?? teacher?.toString(),
       teacherName: teacher is Map ? teacher['name'] as String? : json['teacherName'] as String?,
+      groupId: group is Map
+          ? group['id']?.toString() ?? group['_id']?.toString()
+          : group?.toString(),
       groupName: group is Map ? group['groupName'] as String? : json['groupName'] as String?,
+      subjectName: json['subjectName'] as String?,
       scheduledDays: (json['scheduledDays'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
       startTime: json['startTime'] as String? ?? '',
       endTime: json['endTime'] as String? ?? '',
@@ -166,6 +174,7 @@ class TimetableEntry extends Equatable {
     this.subject,
     this.teacherName,
     this.teacherId,
+    this.groupId,
     this.groupName,
   });
 
@@ -177,6 +186,7 @@ class TimetableEntry extends Equatable {
   final String? subject;
   final String? teacherName;
   final String? teacherId;
+  final String? groupId;
   final String? groupName;
 
   factory TimetableEntry.fromJson(Map<String, dynamic> json) {
@@ -192,6 +202,7 @@ class TimetableEntry extends Equatable {
       teacherId: teacher is Map
           ? teacher['id']?.toString() ?? teacher['_id']?.toString()
           : json['teacherId']?.toString(),
+      groupId: json['groupId']?.toString(),
       groupName: json['groupName'] as String?,
     );
   }

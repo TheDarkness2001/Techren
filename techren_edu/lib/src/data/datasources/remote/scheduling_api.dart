@@ -27,11 +27,17 @@ class SchedulingApi {
     );
   }
 
-  Future<PaginatedResult<ClassSchedule>> getSchedules({int page = 1, String? search}) async {
+  Future<PaginatedResult<ClassSchedule>> getSchedules({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? teacherId,
+  }) async {
     final response = await _client.dio.get('/class-schedules', queryParameters: {
       'page': page,
-      'limit': 20,
+      'limit': limit,
       if (search != null && search.isNotEmpty) 'search': search,
+      if (teacherId != null && teacherId.isNotEmpty) 'teacherId': teacherId,
     });
     final data = response.data as Map<String, dynamic>;
     final meta = data['meta'] as Map<String, dynamic>? ?? {};

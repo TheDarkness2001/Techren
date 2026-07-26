@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Student = require('../models/Student');
 const ExamGroup = require('../models/ExamGroup');
+const ClassSchedule = require('../models/ClassSchedule');
 const Lesson = require('../models/Lesson');
 const HomeworkProgress = require('../models/HomeworkProgress');
 const StudentVocabProgress = require('../models/StudentVocabProgress');
@@ -13,6 +14,44 @@ const listeningService = require('./listeningService');
 const gamificationService = require('./gamificationService');
 const { getBranchFilter } = require('../utils/branchFilter');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
+
+const resolveTeacherGroupIds = async (req) => {
+  const teacherId = req.user._id;
+  const branch = getBranchFilter(req);
+  const [byTeachers, bySchedule] = await Promise.all([
+    ExamGroup.find({ teachers: teacherId, ...branch }).select('_id'),
+    ClassSchedule.find({
+      teacher: teacherId,
+      ...branch,
+      subjectGroup: { $ne: null },
+    }).select('subjectGroup'),
+  ]);
+
+  const ids = new Set();
+  for (const group of byTeachers) ids.add(String(group._id));
+  for (const schedule of bySchedule) {
+    if (schedule.subjectGroup) ids.add(String(schedule.subjectGroup));
+  }
+  return [...ids];
+};
+
+const assertTeacherCanAccessGroup = async (req, group) => {
+  if (req.userType !== 'teacher') return;
+  const teacherId = String(req.user._id);
+  const listed = (group.teachers || []).some((t) => String(t._id || t) === teacherId);
+  if (listed) return;
+  const linked = await ClassSchedule.exists({
+    teacher: teacherId,
+    subjectGroup: group._id,
+    ...getBranchFilter(req),
+  });
+  if (!linked) {
+    throw Object.assign(new Error('You can only view progress for your own groups'), {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    });
+  }
+};
 
 const resolveStudentId = async (req, studentId) => {
   if (req.userType === 'student') {
@@ -181,12 +220,7 @@ const listStudentsProgress = async (req) => {
   return { items, meta: buildPaginationMeta(page, limit, total) };
 };
 
-const getGroupProgress = async (req, groupId) => {
-  const group = await ExamGroup.findOne({ _id: groupId, ...getBranchFilter(req) });
-  if (!group) {
-    throw Object.assign(new Error('Group not found'), { statusCode: 404, code: 'NOT_FOUND' });
-  }
-
+const buildGroupProgressReport = async (group) => {
   const students = await Student.find({ _id: { $in: group.students } }).sort({ name: 1 });
   const summaries = await Promise.all(students.map((s) => buildStudentSummary(s)));
 
@@ -202,11 +236,58 @@ const getGroupProgress = async (req, groupId) => {
     totalXp: summaries.reduce((sum, s) => sum + s.totalXp, 0),
   };
 
+  const subject = group.subject;
+  const subjectId = subject && typeof subject === 'object'
+    ? subject._id || subject.id
+    : subject;
+  const subjectName = subject && typeof subject === 'object' ? subject.name : undefined;
+
   return {
-    group: { id: group._id, groupName: group.groupName, studentCount: group.students.length },
+    group: {
+      id: group._id,
+      groupName: group.groupName,
+      studentCount: group.students.length,
+      subjectId: subjectId || null,
+      subjectName: subjectName || null,
+    },
     aggregate,
     students: summaries,
   };
+};
+
+const getGroupProgress = async (req, groupId) => {
+  const group = await ExamGroup.findOne({ _id: groupId, ...getBranchFilter(req) })
+    .populate('subject', 'name');
+  if (!group) {
+    throw Object.assign(new Error('Group not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  await assertTeacherCanAccessGroup(req, group);
+  return buildGroupProgressReport(group);
+};
+
+const listMyGroupsProgress = async (req) => {
+  if (req.userType !== 'teacher') {
+    throw Object.assign(new Error('Only teachers can load their group progress'), {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    });
+  }
+
+  const groupIds = await resolveTeacherGroupIds(req);
+  if (groupIds.length === 0) {
+    return { items: [] };
+  }
+
+  const groups = await ExamGroup.find({
+    _id: { $in: groupIds },
+    ...getBranchFilter(req),
+  })
+    .populate('subject', 'name')
+    .sort({ groupName: 1 });
+
+  const items = await Promise.all(groups.map((group) => buildGroupProgressReport(group)));
+  return { items };
 };
 
 const getLessonStudentProgress = async (req, lessonId) => {
@@ -275,6 +356,7 @@ module.exports = {
   getOverview,
   listStudentsProgress,
   getGroupProgress,
+  listMyGroupsProgress,
   getLessonStudentProgress,
   getStudentVocabLessonDetails,
 };

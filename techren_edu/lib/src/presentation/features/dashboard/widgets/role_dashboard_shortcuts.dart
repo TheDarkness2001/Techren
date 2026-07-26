@@ -113,19 +113,13 @@ List<DashboardShortcut> dashboardShortcutsFor({
 
 
   if (role == 'teacher') {
-
     return const [
-
       (label: 'My Classes', icon: Icons.class_outlined, route: '/teacher/classes'),
-
       (label: 'Attendance', icon: Icons.fact_check_outlined, route: '/teacher/attendance'),
-
+      (label: 'Progress', icon: Icons.insights_outlined, route: '/teacher/progress'),
       (label: 'Learning CMS', icon: Icons.menu_book_outlined, route: '/teacher/learning-cms'),
-
       (label: 'Profile', icon: Icons.person_outline, route: '/teacher/profile'),
-
     ];
-
   }
 
 

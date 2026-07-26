@@ -14,6 +14,7 @@ const teacherNavItems = [
   NavItem(label: 'Home', icon: Icons.home_outlined, route: '/teacher/dashboard'),
   NavItem(label: 'Classes', icon: Icons.class_outlined, route: '/teacher/classes'),
   NavItem(label: 'Attendance', icon: Icons.fact_check_outlined, route: '/teacher/attendance'),
+  NavItem(label: 'Progress', icon: Icons.insights_outlined, route: '/teacher/progress'),
   NavItem(label: 'Profile', icon: Icons.person_outline, route: '/teacher/profile'),
 ];
 
@@ -70,7 +71,7 @@ class TeacherProfileScreen extends ConsumerWidget {
     final rolePerms = ref.watch(staffRolePermissionsProvider);
     return AdaptiveScaffold(
       title: 'Profile',
-      selectedIndex: 3,
+      selectedIndex: 4,
       selectedRoute: '/teacher/profile',
       items: teacherNavItems,
       onDestinationSelected: (i) => context.go(teacherNavItems[i].route),

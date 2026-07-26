@@ -369,10 +369,10 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         ),
         const SizedBox(height: AppSpacing.md),
         languagesAsync.when(
-          loading: () => const LinearProgressIndicator(),
+          loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
           error: (e, _) => Text(e.toString()),
           data: (languages) => groupsAsync.when(
-            loading: () => const LinearProgressIndicator(),
+            loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
             error: (e, _) => Text(e.toString()),
             data: (result) {
               final languageNames = languages.map((l) => l.name.trim().toLowerCase()).toSet();
@@ -487,7 +487,7 @@ class _GroupProgressSection extends ConsumerWidget {
     return reportAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        child: LinearProgressIndicator(),
+        child: LoadingState(kind: LoadingSkeletonKind.card),
       ),
       error: (e, _) => Text(e.toString()),
       data: (report) => SentencesProgressTable(

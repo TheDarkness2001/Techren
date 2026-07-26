@@ -33,7 +33,12 @@ const listSchedules = async (req) => {
   const { page, limit, skip } = parsePagination(req.query);
   const filter = { ...getBranchFilter(req) };
 
-  if (req.query.teacherId) filter.teacher = req.query.teacherId;
+  if (req.query.teacherId) {
+    filter.teacher = req.query.teacherId;
+  } else if (req.userType === 'teacher' && req.user.role === 'teacher') {
+    // Plain teachers only see their own classes; admins/managers keep branch-wide list.
+    filter.teacher = req.user._id;
+  }
   if (req.query.search) {
     filter.className = { $regex: req.query.search, $options: 'i' };
   }

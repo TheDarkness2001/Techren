@@ -21,7 +21,17 @@ router.post(
   validate,
   classScheduleController.createFromGroup
 );
-router.get('/', checkPermission('canViewScheduler'), paginationRules, validate, classScheduleController.list);
+router.get(
+  '/',
+  paginationRules,
+  validate,
+  (req, res, next) => {
+    // Teachers can always load their own schedules for attendance/progress UIs.
+    if (req.userType === 'teacher' && req.user.role === 'teacher') return next();
+    return checkPermission('canViewScheduler')(req, res, next);
+  },
+  classScheduleController.list
+);
 router.post(
   '/',
   checkPermission('canManageScheduler'),

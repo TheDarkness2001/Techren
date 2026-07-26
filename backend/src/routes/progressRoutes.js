@@ -11,6 +11,11 @@ router.use(protect);
 
 router.get('/overview', controller.overview);
 router.get(
+  '/my-groups',
+  checkPermission('canViewStudents'),
+  controller.myGroups
+);
+router.get(
   '/students',
   enforceBranchIsolation,
   checkPermission('canViewStudents'),
