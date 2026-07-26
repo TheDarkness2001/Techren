@@ -176,7 +176,7 @@ final progressLessonOptionsProvider =
             options.add(
               ProgressLessonOption(
                 id: lesson.id,
-                label: '${level.name} — ${lesson.name}',
+                label: lesson.name,
                 name: lesson.name,
                 moduleType: moduleType,
                 levelName: level.name,

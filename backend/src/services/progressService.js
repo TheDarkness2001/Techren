@@ -342,7 +342,7 @@ const listLessonOptions = async (req) => {
     const levelName = level?.name || 'Level';
     return {
       id: String(lesson._id),
-      label: `${levelName} — ${lesson.name}`,
+      label: lesson.name,
       name: lesson.name,
       levelId: String(lesson.levelId),
       levelName,
