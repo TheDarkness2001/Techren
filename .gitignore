@@ -38,5 +38,9 @@ website/downloads/*.apk
 website/downloads/*.zip
 website/downloads/*.exe
 
+# Next.js marketing site
+web/.next/
+web/out/
+
 # macOS AppleDouble resource forks (created when copying from Mac)
 **/._*
