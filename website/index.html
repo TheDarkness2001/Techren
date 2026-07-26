@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Download TechRen EDU for Android and Windows. Students and staff install the native app for school learning." />
+  <meta name="description" content="Download TechRen EDU for Android, Windows, and Mac. Students and staff install the native app for school learning." />
   <title>TechRen EDU — Download</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,7 +24,7 @@
   <main class="hero">
     <h1 class="hero-title">TechRen EDU</h1>
     <p class="hero-lead">
-      Download the native app for students and staff. Install once, then sign in with your school account.
+      Download the native app for students and staff. Install once — later updates install over the same app (no delete).
     </p>
 
     <div class="cta-row">
@@ -44,9 +44,21 @@
       >
         Download for Windows
       </a>
-      <button class="btn btn-ghost" type="button" disabled title="iOS apps must be built on a Mac with Xcode">
-        iOS — needs a Mac
-      </button>
+      <a
+        id="dl-macos"
+        class="btn btn-secondary"
+        href="/downloads/TechRenEDU-macos.zip"
+        download="TechRenEDU-macos.zip"
+      >
+        Download for Mac
+      </a>
+      <a
+        id="dl-ios"
+        class="btn btn-ghost"
+        href="https://github.com/TheDarkness2001/Techren/releases/latest"
+      >
+        iPhone — TestFlight / release
+      </a>
     </div>
 
     <p class="hint" id="dl-hint">
@@ -63,6 +75,7 @@
           <li>Tap <strong>Download for Android</strong>.</li>
           <li>Open the APK. If asked, allow installs from this browser/source.</li>
           <li>Open <strong>TechRen EDU</strong> and sign in.</li>
+          <li>Later: tap <strong>Update</strong> in the app — it installs over the same app.</li>
         </ol>
       </article>
       <article class="step">
@@ -70,7 +83,8 @@
         <ol>
           <li>Tap <strong>Download for Windows</strong>.</li>
           <li>Run <code>TechRenEDU-setup.exe</code>.</li>
-          <li>Finish the wizard — a <strong>TechRen EDU</strong> shortcut appears on your Desktop and Start Menu.</li>
+          <li>Finish the wizard — a <strong>TechRen EDU</strong> shortcut appears on the Desktop and Start Menu.</li>
+          <li>Later: tap <strong>Update</strong> in the app — silent upgrade, no uninstall.</li>
         </ol>
         <p class="step-note">
           If <strong>Smart App Control</strong> blocks the setup (only “Okay”, no Run anyway): open
@@ -84,6 +98,22 @@
           <code>techren_edu.exe</code> (same Smart App Control rule applies).
         </p>
       </article>
+      <article class="step">
+        <h3>Mac</h3>
+        <ol>
+          <li>Tap <strong>Download for Mac</strong>.</li>
+          <li>Unzip and move <strong>TechRen EDU.app</strong> to Applications.</li>
+          <li>Open it (right-click → Open the first time if macOS blocks an unsigned build).</li>
+          <li>Later: tap <strong>Update</strong> in the app — it replaces the app and relaunches.</li>
+        </ol>
+      </article>
+      <article class="step">
+        <h3>iPhone</h3>
+        <ol>
+          <li>Use <strong>TestFlight</strong> (recommended) or your school’s install link.</li>
+          <li>Apple does not allow in-app IPA install; the in-app <strong>Update</strong> button opens TestFlight / the release page.</li>
+        </ol>
+      </article>
     </div>
   </section>
 
@@ -93,9 +123,10 @@
   </footer>
 
   <script>
-    // Installers are published to GitHub Releases (too large for git / Railway disk).
     const RELEASE_ANDROID = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk';
     const RELEASE_WINDOWS = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe';
+    const RELEASE_MACOS = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip';
+    const RELEASE_IOS = 'https://github.com/TheDarkness2001/Techren/releases/latest';
 
     async function probe(url) {
       try {
@@ -109,21 +140,31 @@
     (async () => {
       const android = document.getElementById('dl-android');
       const windows = document.getElementById('dl-windows');
+      const macos = document.getElementById('dl-macos');
+      const ios = document.getElementById('dl-ios');
       const hint = document.getElementById('dl-hint');
 
-      const [localAndroid, localWindows] = await Promise.all([
+      const [localAndroid, localWindows, localMacos, status] = await Promise.all([
         probe('/downloads/techren-edu.apk'),
         probe('/downloads/TechRenEDU-setup.exe'),
+        probe('/downloads/TechRenEDU-macos.zip'),
+        fetch('/downloads/status.json', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
 
       android.href = localAndroid ? '/downloads/techren-edu.apk' : RELEASE_ANDROID;
       windows.href = localWindows ? '/downloads/TechRenEDU-setup.exe' : RELEASE_WINDOWS;
+      macos.href = localMacos ? '/downloads/TechRenEDU-macos.zip' : RELEASE_MACOS;
+      if (status && status.iosUrl) ios.href = status.iosUrl;
+      else ios.href = RELEASE_IOS;
 
-      if (localAndroid && localWindows) {
-        hint.textContent = 'Installers are ready on this server. Choose your platform above.';
+      const ready = [localAndroid && 'Android', localWindows && 'Windows', localMacos && 'Mac'].filter(Boolean);
+      if (ready.length) {
+        hint.textContent = 'Ready on this server: ' + ready.join(', ') + '. Missing platforms fall back to GitHub Releases.';
       } else {
         hint.textContent =
-          'Download from GitHub Releases (latest). If a link 404s, the admin still needs to upload the APK/EXE to a Release.';
+          'Download from GitHub Releases (latest). If a link 404s, the admin still needs to upload the installer to a Release.';
       }
     })();
   </script>

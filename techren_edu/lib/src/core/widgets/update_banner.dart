@@ -32,7 +32,7 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
           if (mounted) setState(() => _progress = p);
         },
       );
-      // On Windows the process exits before reaching here.
+      // Windows/macOS exit the process before reaching here; Android/iOS continue.
       if (mounted) setState(() => _updating = false);
     } catch (e) {
       if (!mounted) return;

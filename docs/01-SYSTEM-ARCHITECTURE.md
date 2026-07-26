@@ -7,7 +7,7 @@ TechRen EDU is a **native cross-platform education operations and language-learn
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         FLUTTER CLIENT (All Platforms)                       │
-│  Android │ iOS │ Windows │ Linux                                            │
+│  Android │ iOS │ macOS │ Windows │ Linux                                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────────────────────┐ │
 │  │ Presentation │  │   Domain    │  │  Data (API, cache, secure storage)  │ │
 │  └─────────────┘  └─────────────┘  └──────────────────────────────────────┘ │

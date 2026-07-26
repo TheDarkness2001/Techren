@@ -5,8 +5,8 @@ This project ships a **download website** (not a PWA). Students and staff instal
 ## Download site
 
 - Landing page: `GET /` → [`website/index.html`](../website/index.html)
-- Files: `GET /downloads/techren-edu.apk`, `GET /downloads/TechRenEDU-windows.zip`
-- Served by the Express API ([`backend/src/app.js`](../backend/src/app.js)) from the repo `website/` folder
+- Files: `GET /downloads/techren-edu.apk`, `GET /downloads/TechRenEDU-windows.zip`, `GET /downloads/TechRenEDU-macos.zip`
+- Status: `GET /downloads/status.json` — installed apps compare `version` to their build and show an **Update** button (no uninstall).
 
 Local check (API running on port 5002):
 
@@ -71,14 +71,69 @@ Unzip `TechRenEDU-windows.zip` and run `techren_edu.exe`. Keep the whole Release
 
 ## iOS / iPhone
 
-**Cannot be built on Windows.** Flutter iOS builds require a **Mac with Xcode**.
+Flutter iOS builds require a **Mac with Xcode** (cannot build on Windows).
 
-Options later:
-- Build on a Mac: `flutter build ipa --dart-define=API_BASE_URL=https://...`
-- Or use a cloud Mac CI (Codemagic, GitHub Actions macOS) + Apple Developer account for TestFlight / App Store
+### One-time Mac setup
 
-The download site shows iOS as unavailable until an `.ipa` is produced on macOS and published (or hosted for TestFlight).
+1. Install **Xcode** from the Mac App Store, open it once, and accept the license.
+2. Install Flutter for macOS and ensure `flutter` is on your PATH.
+3. Install CocoaPods: `sudo gem install cocoapods` (or `brew install cocoapods`).
+4. From `techren_edu/`:
+
+```bash
+flutter doctor
+flutter pub get
+cd ios && pod install && cd ..
+```
+
+5. Open `ios/Runner.xcworkspace` in Xcode → **Signing & Capabilities** → select your **Team** (Apple Developer account). Bundle ID: `uz.techren.techrenEdu`.
+
+### Run / build
+
+```bash
+# Simulator or device
+flutter run -d ios --dart-define=API_BASE_URL=https://YOUR_API_HOST/api/v1
+
+# Release IPA (TestFlight / App Store)
+flutter build ipa --dart-define=API_BASE_URL=https://YOUR_API_HOST/api/v1
+```
+
+Or use the helper script from the repo root:
+
+```bash
+./scripts/build-apple-apps.sh --api-base-url "https://YOUR_API_HOST/api/v1"
+```
+
+The download site shows iOS as unavailable until an `.ipa` is produced and published (or hosted for TestFlight).
+
+## macOS (Mac / MacBook)
+
+Same Flutter project; runner lives in `techren_edu/macos/`.
+
+Sandbox entitlements include outbound network (`network.client`), user-selected files, and keychain access for secure token storage.
+
+```bash
+flutter run -d macos --dart-define=API_BASE_URL=https://YOUR_API_HOST/api/v1
+flutter build macos --dart-define=API_BASE_URL=https://YOUR_API_HOST/api/v1
+```
+
+Release app bundle: `techren_edu/build/macos/Build/Products/Release/TechRen EDU.app`
+
+Distribute via notarized `.dmg` / Mac App Store, or zip the `.app` for internal school installs (users may need to allow the app under **Privacy & Security**).
+
+## In-app updates (no uninstall)
+
+Installed clients poll `/downloads/status.json`. When `version` is newer than the build’s `APP_VERSION`, the dashboard shows an **Update** button:
+
+| Platform | What Update does |
+|----------|------------------|
+| Android | Downloads APK → system install prompt over the same package (same signing key) |
+| Windows | Downloads setup → `/SILENT` Inno upgrade (same `AppId`) → relaunches |
+| macOS | Downloads zip → replaces `TechRen EDU.app` → relaunches |
+| iOS | Opens TestFlight / App Store / `iosUrl` (Apple does not allow in-app IPA install) |
+
+Always ship new builds with `--dart-define=APP_VERSION=x.y.z` matching `pubspec.yaml`, then bump `status.json` (build scripts do both).
 
 ## App display name
 
-Launcher / window title is **TechRen EDU** (Android label, Windows product name, iOS display name).
+Launcher / window title is **TechRen EDU** (Android label, Windows product name, iOS display name, macOS product name).

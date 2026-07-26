@@ -88,12 +88,17 @@ const createApp = () => {
       dotfiles: 'deny',
       maxAge: config.isDev ? 0 : '1h',
       setHeaders(res, filePath) {
+        const base = path.basename(filePath);
         if (filePath.endsWith('.apk')) {
           res.setHeader('Content-Type', 'application/vnd.android.package-archive');
           res.setHeader('Content-Disposition', 'attachment; filename="techren-edu.apk"');
+        } else if (filePath.endsWith('.ipa')) {
+          res.setHeader('Content-Type', 'application/octet-stream');
+          res.setHeader('Content-Disposition', 'attachment; filename="techren-edu.ipa"');
         } else if (filePath.endsWith('.zip')) {
           res.setHeader('Content-Type', 'application/zip');
-          res.setHeader('Content-Disposition', 'attachment; filename="TechRenEDU-windows.zip"');
+          const zipName = base.includes('macos') ? 'TechRenEDU-macos.zip' : 'TechRenEDU-windows.zip';
+          res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
         } else if (filePath.endsWith('.exe')) {
           res.setHeader('Content-Type', 'application/octet-stream');
           res.setHeader('Content-Disposition', 'attachment; filename="TechRenEDU-setup.exe"');

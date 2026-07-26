@@ -11,10 +11,10 @@
 ```
 techren_edu/
 ├── android/
-├── ios/
+├── ios/                      # iPhone / iPad
+├── macos/                    # Mac / MacBook desktop app
 ├── windows/
 ├── linux/
-├── macos/                    # optional future
 ├── web/                      # disabled in production; dev preview only
 ├── assets/
 │   ├── images/

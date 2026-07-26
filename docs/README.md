@@ -1,6 +1,6 @@
 # TechRen EDU — Mobile & Desktop Application
 
-**Platform:** Flutter (Android, iOS, Windows, Linux)  
+**Platform:** Flutter (Android, iOS, macOS, Windows, Linux)  
 **Backend:** Node.js + Express + MongoDB Atlas  
 **Source of truth:** `d:\system\TECHREN_SYSTEM_ANALYSIS.md`
 

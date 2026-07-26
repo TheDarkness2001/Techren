@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_constants.dart';
 
-/// Fallback when status.json omits direct installer URLs (Railway has no big APKs).
+/// Fallback when status.json omits direct installer URLs (Railway has no big binaries).
 const _githubAndroidApk =
     'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk';
 const _githubWindowsSetup =
     'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe';
+const _githubMacosZip =
+    'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip';
+const _githubIosPage =
+    'https://github.com/TheDarkness2001/Techren/releases/latest';
 
 class AppUpdateInfo {
   const AppUpdateInfo({
@@ -17,11 +21,13 @@ class AppUpdateInfo {
     required this.downloadSiteUrl,
     required this.androidApkUrl,
     required this.windowsSetupUrl,
+    required this.macosZipUrl,
+    required this.iosUpdateUrl,
   });
 
   final String latestVersion;
 
-  /// Landing page (Railway site).
+  /// Landing page (API host / Railway site).
   final Uri downloadSiteUrl;
 
   /// Direct APK URL (usually GitHub Releases).
@@ -29,6 +35,12 @@ class AppUpdateInfo {
 
   /// Direct Windows setup URL (usually GitHub Releases).
   final Uri windowsSetupUrl;
+
+  /// Direct macOS .app zip URL.
+  final Uri macosZipUrl;
+
+  /// TestFlight / App Store / OTA page for iPhone (cannot sideload IPA in-app).
+  final Uri iosUpdateUrl;
 }
 
 /// scheme://host:port of the API server — the download site is served there too.
@@ -61,16 +73,55 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     final response = await dio.getUri<dynamic>(origin.resolve('/downloads/status.json'));
     final data = response.data;
     final map = data is Map
-        ? data
+        ? Map<String, dynamic>.from(data)
         : throw const FormatException('status.json is not an object');
     final latest = map['version']?.toString();
     if (latest == null || latest.isEmpty) return null;
     if (compareVersions(latest, AppConstants.appVersion) <= 0) return null;
+
+    // Prefer explicit URLs from status.json (usually GitHub Releases — Railway
+    // cannot host large APKs/EXEs). Fall back to same-origin only when flagged
+    // and no remote URL is set.
+    Uri installerUrl({
+      required dynamic remoteRaw,
+      required String fallback,
+      required dynamic localFlag,
+      required String localPath,
+    }) {
+      final remote = remoteRaw?.toString().trim();
+      if (remote != null && remote.isNotEmpty) {
+        return _uriOrFallback(remote, fallback);
+      }
+      final available = localFlag == true || localFlag?.toString().toLowerCase() == 'true';
+      if (available) return origin.resolve(localPath);
+      return Uri.parse(fallback);
+    }
+
     return AppUpdateInfo(
       latestVersion: latest,
       downloadSiteUrl: origin,
-      androidApkUrl: _uriOrFallback(map['androidUrl'] ?? map['androidApkUrl'], _githubAndroidApk),
-      windowsSetupUrl: _uriOrFallback(map['windowsUrl'] ?? map['windowsSetupUrl'], _githubWindowsSetup),
+      androidApkUrl: installerUrl(
+        remoteRaw: map['androidUrl'] ?? map['androidApkUrl'],
+        fallback: _githubAndroidApk,
+        localFlag: map['android'],
+        localPath: '/downloads/techren-edu.apk',
+      ),
+      windowsSetupUrl: installerUrl(
+        remoteRaw: map['windowsUrl'] ?? map['windowsSetupUrl'],
+        fallback: _githubWindowsSetup,
+        localFlag: map['windows'],
+        localPath: '/downloads/TechRenEDU-setup.exe',
+      ),
+      macosZipUrl: installerUrl(
+        remoteRaw: map['macosUrl'] ?? map['macosZipUrl'],
+        fallback: _githubMacosZip,
+        localFlag: map['macos'],
+        localPath: '/downloads/TechRenEDU-macos.zip',
+      ),
+      iosUpdateUrl: _uriOrFallback(
+        map['iosUrl'] ?? map['iosUpdateUrl'],
+        _githubIosPage,
+      ),
     );
   } catch (_) {
     return null;

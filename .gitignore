@@ -37,3 +37,6 @@ backend/tmp/
 website/downloads/*.apk
 website/downloads/*.zip
 website/downloads/*.exe
+
+# macOS AppleDouble resource forks (created when copying from Mac)
+**/._*

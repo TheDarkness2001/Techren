@@ -121,6 +121,13 @@ finally {
   Pop-Location
 }
 
+# Preserve Apple flags if a prior Mac build wrote them.
+$prevStatusPath = Join-Path $downloadsDir 'status.json'
+$prev = $null
+if (Test-Path $prevStatusPath) {
+  try { $prev = Get-Content $prevStatusPath -Raw | ConvertFrom-Json } catch { $prev = $null }
+}
+
 $status = @{
   version = $appVersion
   builtAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -129,9 +136,14 @@ $status = @{
   android = [bool](Test-Path (Join-Path $downloadsDir 'techren-edu.apk'))
   windows = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-setup.exe'))
   windowsZip = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-windows.zip'))
-  # Railway cannot host large installers — apps download these from GitHub Releases.
+  macos = [bool](Test-Path (Join-Path $downloadsDir 'TechRenEDU-macos.zip'))
+  ios = [bool](Test-Path (Join-Path $downloadsDir 'techren-edu.ipa'))
+  # Railway cannot host large installers — apps download these from GitHub Releases
+  # unless the file is also present under /downloads on this server.
   androidUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/techren-edu.apk'
   windowsUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-setup.exe'
+  macosUrl = 'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip'
+  iosUrl = if ($prev -and $prev.iosUrl) { [string]$prev.iosUrl } else { 'https://github.com/TheDarkness2001/Techren/releases/latest' }
 }
 $status | ConvertTo-Json | Set-Content -Path (Join-Path $downloadsDir 'status.json') -Encoding utf8
 
@@ -139,3 +151,5 @@ Write-Host ""
 Write-Host "Done. Built: $($built -join ', ')"
 Write-Host "Android: /downloads/techren-edu.apk"
 Write-Host "Windows: /downloads/TechRenEDU-windows.zip"
+Write-Host "macOS:   /downloads/TechRenEDU-macos.zip (build on Mac)"
+Write-Host "Clients compare APP_VERSION to status.json and offer an in-app Update button."
