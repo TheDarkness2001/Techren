@@ -286,3 +286,67 @@ class GroupProgressReport {
             .toList(),
       );
 }
+
+class GroupLessonStudentProgress {
+  const GroupLessonStudentProgress({
+    required this.studentId,
+    required this.name,
+    this.studentCode,
+    this.profileImage,
+    this.status = 'locked',
+    this.bestExamScore = 0,
+    this.examAttempts = 0,
+    this.practiceAttempts = 0,
+    this.practiceCorrect = 0,
+    this.wordsMemorized = 0,
+    this.wordsTotal = 0,
+  });
+
+  final String studentId;
+  final String name;
+  final String? studentCode;
+  final String? profileImage;
+  final String status;
+  final int bestExamScore;
+  final int examAttempts;
+  final int practiceAttempts;
+  final int practiceCorrect;
+  final int wordsMemorized;
+  final int wordsTotal;
+
+  bool get hasStarted => examAttempts > 0 || practiceAttempts > 0 || status != 'locked';
+
+  factory GroupLessonStudentProgress.fromJson(Map<String, dynamic> json) => GroupLessonStudentProgress(
+        studentId: json['studentId']?.toString() ?? '',
+        name: json['name'] as String? ?? '',
+        studentCode: json['studentCode'] as String?,
+        profileImage: json['profileImage'] as String?,
+        status: json['status'] as String? ?? 'locked',
+        bestExamScore: (json['bestExamScore'] as num?)?.toInt() ?? 0,
+        examAttempts: (json['examAttempts'] as num?)?.toInt() ?? 0,
+        practiceAttempts: (json['practiceAttempts'] as num?)?.toInt() ?? 0,
+        practiceCorrect: (json['practiceCorrect'] as num?)?.toInt() ?? 0,
+        wordsMemorized: (json['wordsMemorized'] as num?)?.toInt() ?? 0,
+        wordsTotal: (json['wordsTotal'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class GroupLessonProgressReport {
+  const GroupLessonProgressReport({
+    required this.group,
+    required this.lesson,
+    required this.students,
+  });
+
+  final Map<String, dynamic> group;
+  final Map<String, dynamic> lesson;
+  final List<GroupLessonStudentProgress> students;
+
+  factory GroupLessonProgressReport.fromJson(Map<String, dynamic> json) => GroupLessonProgressReport(
+        group: json['group'] as Map<String, dynamic>? ?? {},
+        lesson: json['lesson'] as Map<String, dynamic>? ?? {},
+        students: (json['students'] as List<dynamic>? ?? [])
+            .map((e) => GroupLessonStudentProgress.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}

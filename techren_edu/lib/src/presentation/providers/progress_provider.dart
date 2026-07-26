@@ -122,6 +122,16 @@ final staffStudentProgressProvider = FutureProvider.autoDispose.family<ProgressO
   return ref.watch(progressApiProvider).getOverview(studentId: studentId);
 });
 
+typedef GroupLessonProgressQuery = ({String groupId, String lessonId});
+
+final groupLessonProgressProvider =
+    FutureProvider.autoDispose.family<GroupLessonProgressReport, GroupLessonProgressQuery>((ref, query) async {
+  return ref.watch(progressApiProvider).getGroupLessonProgress(
+        groupId: query.groupId,
+        lessonId: query.lessonId,
+      );
+});
+
 final studentVocabLessonsProvider = FutureProvider.autoDispose.family<StudentVocabLessonsReport, String>((ref, studentId) async {
   return ref.watch(progressApiProvider).getStudentVocabLessons(studentId);
 });

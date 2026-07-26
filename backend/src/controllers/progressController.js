@@ -31,6 +31,19 @@ exports.group = asyncHandler(async (req, res) => {
   }
 });
 
+exports.groupLesson = asyncHandler(async (req, res) => {
+  try {
+    const data = await progressService.getGroupLessonProgress(
+      req,
+      req.params.groupId,
+      req.params.lessonId
+    );
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 exports.myGroups = asyncHandler(async (req, res) => {
   try {
     const data = await progressService.listMyGroupsProgress(req);

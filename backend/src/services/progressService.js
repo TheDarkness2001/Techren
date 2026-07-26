@@ -290,6 +290,68 @@ const listMyGroupsProgress = async (req) => {
   return { items };
 };
 
+const getGroupLessonProgress = async (req, groupId, lessonId) => {
+  const group = await ExamGroup.findOne({ _id: groupId, ...getBranchFilter(req) })
+    .populate('subject', 'name');
+  if (!group) {
+    throw Object.assign(new Error('Group not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  await assertTeacherCanAccessGroup(req, group);
+
+  const lesson = await Lesson.findById(lessonId);
+  if (!lesson) {
+    throw Object.assign(new Error('Lesson not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const students = await Student.find({ _id: { $in: group.students } })
+    .select('name studentId status profileImage')
+    .sort({ name: 1 });
+  const records = await StudentVocabProgress.find({
+    lessonId,
+    studentId: { $in: group.students },
+  });
+  const recordMap = new Map(records.map((r) => [String(r.studentId), r]));
+  const wordCount = lesson.wordIds?.length ?? 0;
+
+  const subject = group.subject;
+  const subjectName = subject && typeof subject === 'object' ? subject.name : null;
+
+  return {
+    group: {
+      id: group._id,
+      groupName: group.groupName,
+      studentCount: group.students.length,
+      subjectName,
+    },
+    lesson: {
+      id: lesson._id,
+      name: lesson.name,
+      type: lesson.type,
+      order: lesson.order ?? 0,
+      wordCount,
+    },
+    students: students.map((student) => {
+      const record = recordMap.get(String(student._id));
+      return {
+        studentId: String(student._id),
+        name: student.name,
+        studentCode: student.studentId,
+        status: record?.status || 'locked',
+        profileImage: student.profileImage || null,
+        bestExamScore: record?.bestExamScore ?? 0,
+        examAttempts: record?.examAttempts ?? 0,
+        practiceAttempts: record?.practiceAttempts ?? 0,
+        practiceCorrect: record?.practiceCorrect ?? 0,
+        wordsMemorized: record?.wordsMemorized ?? 0,
+        wordsTotal: record?.wordsTotal ?? wordCount,
+        lastExamDate: record?.lastExamDate || null,
+        lastPracticeDate: record?.lastPracticeDate || null,
+      };
+    }),
+  };
+};
+
 const getLessonStudentProgress = async (req, lessonId) => {
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) {
@@ -357,6 +419,7 @@ module.exports = {
   listStudentsProgress,
   getGroupProgress,
   listMyGroupsProgress,
+  getGroupLessonProgress,
   getLessonStudentProgress,
   getStudentVocabLessonDetails,
 };

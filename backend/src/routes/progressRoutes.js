@@ -32,6 +32,14 @@ router.get(
   controller.studentVocabLessons
 );
 router.get(
+  '/groups/:groupId/lessons/:lessonId',
+  checkPermission('canViewStudents'),
+  objectId('groupId'),
+  objectId('lessonId'),
+  validate,
+  controller.groupLesson
+);
+router.get(
   '/groups/:groupId',
   enforceBranchIsolation,
   checkPermission('canViewStudents'),
