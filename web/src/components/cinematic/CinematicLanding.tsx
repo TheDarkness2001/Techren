@@ -270,15 +270,29 @@ export function CinematicLanding() {
         scrollTrigger: { trigger: "#faq", start: "top 75%" },
       });
 
-      // Download cards
-      gsap.from(".reveal-card", {
-        y: 40,
-        opacity: 0,
-        scale: 0.96,
-        stagger: 0.08,
-        duration: 0.75,
-        scrollTrigger: { trigger: "#download", start: "top 75%" },
-      });
+      // Download cards — fromTo + toggleActions so hash jumps / Lenis don't leave opacity:0
+      gsap.fromTo(
+        ".download-card",
+        { y: 28, opacity: 0, scale: 0.97 },
+        {
+          y: 0,
+          opacity: 1,
+          scale: 1,
+          stagger: 0.08,
+          duration: 0.7,
+          ease: "power3.out",
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: "#download",
+            start: "top 85%",
+            toggleActions: "play none none none",
+          },
+        }
+      );
+
+      // Hash deep-links (#download) + Lenis: refresh triggers after layout
+      requestAnimationFrame(() => ScrollTrigger.refresh());
+      window.setTimeout(() => ScrollTrigger.refresh(), 400);
 
       // Background color storytelling
       gsap.to("body", {
