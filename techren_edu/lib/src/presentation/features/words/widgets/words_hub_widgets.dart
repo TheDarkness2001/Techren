@@ -168,7 +168,7 @@ class WordsLanguageSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         if (languages.isEmpty)
-          const WordsLanguageEmptyCard()
+          WordsLanguageEmptyCard(onAddLanguage: onAddLanguage)
         else
           LayoutBuilder(
             builder: (context, constraints) {
@@ -207,27 +207,48 @@ class WordsLanguageSection extends StatelessWidget {
 }
 
 class WordsLanguageEmptyCard extends StatelessWidget {
-  const WordsLanguageEmptyCard({super.key});
+  const WordsLanguageEmptyCard({super.key, this.onAddLanguage});
+
+  final VoidCallback? onAddLanguage;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1.4,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: AppRadius.card,
-          border: Border.all(color: context.semantic.border),
-          boxShadow: AppShadows.card,
-        ),
-        child: Text(
-          'No languages yet.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: context.semantic.textMuted,
-                fontStyle: FontStyle.italic,
-              ),
-        ),
+    final muted = context.semantic.textMuted;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: context.semantic.border),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.translate_outlined, size: 36, color: muted),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'No languages yet',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            onAddLanguage != null
+                ? 'Create a language to start adding levels, lessons, and words.'
+                : 'Ask an admin to create languages, or open Lessons if you have content permission.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
+          ),
+          if (onAddLanguage != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: onAddLanguage,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add language'),
+            ),
+          ],
+        ],
       ),
     );
   }

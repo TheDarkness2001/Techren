@@ -91,6 +91,8 @@ const isPlatformAdmin = (user) => ['founder', 'admin'].includes(user?.role);
  */
 const isPrivilegedStaff = (user) => ['founder', 'admin', 'manager'].includes(user?.role);
 
+const { DEFAULT_ROLE_PERMISSIONS } = require('../config/permissions');
+
 const resolvePermission = async (req, permission) => {
   if (req.userType !== 'teacher') return false;
   if (req.user.role === 'founder') return true;
@@ -99,6 +101,9 @@ const resolvePermission = async (req, permission) => {
   const rolePerms = settings?.rolePermissions?.[req.user.role];
   if (rolePerms?.[permission] === true) return true;
   if (rolePerms?.[permission] === false) return false;
+
+  // Settings may omit newer keys — fall back to the default role matrix.
+  if (DEFAULT_ROLE_PERMISSIONS[req.user.role]?.[permission] === true) return true;
 
   return req.user.permissions?.get?.(permission) === true
     || req.user.permissions?.[permission] === true;
