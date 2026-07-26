@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/remote/progress_api.dart';
+import '../../domain/entities/learning_cms.dart';
 import '../../domain/entities/paginated_result.dart';
 import '../../domain/entities/student_progress.dart';
+import '../../domain/entities/words.dart';
 import 'auth_provider.dart';
 import 'scheduling_provider.dart';
+import 'sentences_provider.dart';
+import 'words_provider.dart';
 
 final progressApiProvider = Provider<ProgressApi>((ref) {
   return ProgressApi(ref.watch(dioClientProvider));
@@ -130,6 +134,78 @@ final groupLessonProgressProvider =
         groupId: query.groupId,
         lessonId: query.lessonId,
       );
+});
+
+final progressLessonOptionsProvider =
+    FutureProvider.autoDispose.family<List<ProgressLessonOption>, String>((ref, subjectName) async {
+  final progressApi = ref.watch(progressApiProvider);
+  try {
+    return await progressApi.getLessonOptions(subject: subjectName);
+  } catch (_) {
+    // Fallback before Railway deploys /progress/lesson-options: load words + sentences CMS.
+    final homework = ref.watch(homeworkApiProvider);
+    final sentences = ref.watch(sentencesApiProvider);
+    final options = <ProgressLessonOption>[];
+
+    Future<void> addModule({
+      required Future<List<LearningLanguage>> Function() languages,
+      required Future<List<CmsLevel>> Function(String languageId) levels,
+      required Future<List<CmsLesson>> Function(String levelId) lessons,
+      required String moduleType,
+    }) async {
+      final langs = await languages();
+      final needle = subjectName.trim().toLowerCase();
+      var matched = langs.where((l) => l.name.trim().toLowerCase() == needle).toList();
+      if (matched.isEmpty) {
+        matched = langs
+            .where(
+              (l) =>
+                  needle.contains(l.name.trim().toLowerCase()) ||
+                  l.name.trim().toLowerCase().contains(needle),
+            )
+            .toList();
+      }
+      if (matched.isEmpty) matched = langs;
+
+      for (final language in matched) {
+        final levelList = await levels(language.id);
+        for (final level in levelList) {
+          final lessonList = List<CmsLesson>.from(await lessons(level.id))
+            ..sort((a, b) => a.order.compareTo(b.order));
+          for (final lesson in lessonList) {
+            options.add(
+              ProgressLessonOption(
+                id: lesson.id,
+                label: '${level.name} — ${lesson.name}',
+                name: lesson.name,
+                moduleType: moduleType,
+                levelName: level.name,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    await addModule(
+      languages: homework.getLanguages,
+      levels: homework.getLevels,
+      lessons: homework.getLessons,
+      moduleType: 'words',
+    );
+    await addModule(
+      languages: sentences.getCmsLanguages,
+      levels: sentences.getCmsLevels,
+      lessons: sentences.getCmsLessons,
+      moduleType: 'sentences',
+    );
+
+    final seen = <String>{};
+    return [
+      for (final option in options)
+        if (seen.add(option.id)) option,
+    ];
+  }
 });
 
 final studentVocabLessonsProvider = FutureProvider.autoDispose.family<StudentVocabLessonsReport, String>((ref, studentId) async {

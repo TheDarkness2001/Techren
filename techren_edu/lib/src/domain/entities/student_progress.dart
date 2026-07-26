@@ -350,3 +350,27 @@ class GroupLessonProgressReport {
             .toList(),
       );
 }
+
+class ProgressLessonOption {
+  const ProgressLessonOption({
+    required this.id,
+    required this.label,
+    this.name = '',
+    this.moduleType = 'words',
+    this.levelName,
+  });
+
+  final String id;
+  final String label;
+  final String name;
+  final String moduleType;
+  final String? levelName;
+
+  factory ProgressLessonOption.fromJson(Map<String, dynamic> json) => ProgressLessonOption(
+        id: json['id']?.toString() ?? '',
+        label: json['label'] as String? ?? json['name'] as String? ?? 'Lesson',
+        name: json['name'] as String? ?? '',
+        moduleType: json['moduleType'] as String? ?? 'words',
+        levelName: json['levelName'] as String?,
+      );
+}

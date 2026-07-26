@@ -16,6 +16,11 @@ router.get(
   controller.myGroups
 );
 router.get(
+  '/lesson-options',
+  checkPermission('canViewStudents'),
+  controller.lessonOptions
+);
+router.get(
   '/students',
   enforceBranchIsolation,
   checkPermission('canViewStudents'),

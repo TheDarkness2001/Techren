@@ -3,6 +3,9 @@ const Student = require('../models/Student');
 const ExamGroup = require('../models/ExamGroup');
 const ClassSchedule = require('../models/ClassSchedule');
 const Lesson = require('../models/Lesson');
+const Level = require('../models/Level');
+const Language = require('../models/Language');
+const Sentence = require('../models/Sentence');
 const HomeworkProgress = require('../models/HomeworkProgress');
 const StudentVocabProgress = require('../models/StudentVocabProgress');
 const StudentSentenceProgress = require('../models/StudentSentenceProgress');
@@ -290,6 +293,90 @@ const listMyGroupsProgress = async (req) => {
   return { items };
 };
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findLanguagesForSubject = async (subjectName) => {
+  const needle = (subjectName || '').trim();
+  const modules = ['words', 'sentences'];
+
+  if (!needle) {
+    return Language.find({ moduleType: { $in: modules } }).sort({ name: 1 });
+  }
+
+  const exact = await Language.find({
+    moduleType: { $in: modules },
+    name: new RegExp(`^${escapeRegex(needle)}$`, 'i'),
+  }).sort({ name: 1 });
+  if (exact.length) return exact;
+
+  const partial = await Language.find({
+    moduleType: { $in: modules },
+    name: new RegExp(escapeRegex(needle), 'i'),
+  }).sort({ name: 1 });
+  if (partial.length) return partial;
+
+  // Subject may be "English" while CMS languages use the same name under both modules,
+  // or content may live under a single shared language set — fall back to all.
+  return Language.find({ moduleType: { $in: modules } }).sort({ name: 1 });
+};
+
+const listLessonOptions = async (req) => {
+  const subjectName = req.query.subject || '';
+  const languages = await findLanguagesForSubject(subjectName);
+  if (!languages.length) return { items: [] };
+
+  const languageIds = languages.map((l) => l._id);
+  const levels = await Level.find({ languageId: { $in: languageIds } }).sort({ name: 1 });
+  if (!levels.length) return { items: [] };
+
+  const levelMap = new Map(levels.map((l) => [String(l._id), l]));
+  const languageMap = new Map(languages.map((l) => [String(l._id), l]));
+  const lessons = await Lesson.find({
+    levelId: { $in: levels.map((l) => l._id) },
+    type: { $in: ['words', 'sentences'] },
+  }).sort({ order: 1, name: 1 });
+
+  const items = lessons.map((lesson) => {
+    const level = levelMap.get(String(lesson.levelId));
+    const language = level ? languageMap.get(String(level.languageId)) : null;
+    const levelName = level?.name || 'Level';
+    return {
+      id: String(lesson._id),
+      label: `${levelName} — ${lesson.name}`,
+      name: lesson.name,
+      levelId: String(lesson.levelId),
+      levelName,
+      languageId: language ? String(language._id) : null,
+      languageName: language?.name || null,
+      moduleType: lesson.type || 'words',
+      order: lesson.order ?? 0,
+    };
+  });
+
+  return { items };
+};
+
+const buildGroupLessonHeader = (group, lesson, extra = {}) => {
+  const subject = group.subject;
+  const subjectName = subject && typeof subject === 'object' ? subject.name : null;
+  return {
+    group: {
+      id: group._id,
+      groupName: group.groupName,
+      studentCount: group.students.length,
+      subjectName,
+    },
+    lesson: {
+      id: lesson._id,
+      name: lesson.name,
+      type: lesson.type,
+      order: lesson.order ?? 0,
+      wordCount: lesson.wordIds?.length ?? 0,
+      ...extra,
+    },
+  };
+};
+
 const getGroupLessonProgress = async (req, groupId, lessonId) => {
   const group = await ExamGroup.findOne({ _id: groupId, ...getBranchFilter(req) })
     .populate('subject', 'name');
@@ -307,6 +394,52 @@ const getGroupLessonProgress = async (req, groupId, lessonId) => {
   const students = await Student.find({ _id: { $in: group.students } })
     .select('name studentId status profileImage')
     .sort({ name: 1 });
+
+  if (lesson.type === 'sentences') {
+    const sentences = await Sentence.find({ lessonId: lesson._id }).select('_id');
+    const sentenceIds = sentences.map((s) => s._id);
+    const progressRows = sentenceIds.length
+      ? await StudentSentenceProgress.find({
+          studentId: { $in: group.students },
+          sentenceId: { $in: sentenceIds },
+        })
+      : [];
+
+    const byStudent = new Map();
+    for (const row of progressRows) {
+      const key = String(row.studentId);
+      if (!byStudent.has(key)) byStudent.set(key, { attempts: 0, correct: 0 });
+      const entry = byStudent.get(key);
+      entry.attempts += row.attempts || 0;
+      entry.correct += row.correctCount || 0;
+    }
+
+    return {
+      ...buildGroupLessonHeader(group, lesson, { sentenceCount: sentenceIds.length }),
+      students: students.map((student) => {
+        const stats = byStudent.get(String(student._id));
+        const attempts = stats?.attempts ?? 0;
+        const correct = stats?.correct ?? 0;
+        const accuracy = attempts > 0 ? Math.round((correct / attempts) * 100) : 0;
+        return {
+          studentId: String(student._id),
+          name: student.name,
+          studentCode: student.studentId,
+          status: attempts > 0 ? 'available' : 'locked',
+          profileImage: student.profileImage || null,
+          bestExamScore: accuracy,
+          examAttempts: 0,
+          practiceAttempts: attempts,
+          practiceCorrect: correct,
+          wordsMemorized: 0,
+          wordsTotal: sentenceIds.length,
+          lastExamDate: null,
+          lastPracticeDate: null,
+        };
+      }),
+    };
+  }
+
   const records = await StudentVocabProgress.find({
     lessonId,
     studentId: { $in: group.students },
@@ -314,23 +447,8 @@ const getGroupLessonProgress = async (req, groupId, lessonId) => {
   const recordMap = new Map(records.map((r) => [String(r.studentId), r]));
   const wordCount = lesson.wordIds?.length ?? 0;
 
-  const subject = group.subject;
-  const subjectName = subject && typeof subject === 'object' ? subject.name : null;
-
   return {
-    group: {
-      id: group._id,
-      groupName: group.groupName,
-      studentCount: group.students.length,
-      subjectName,
-    },
-    lesson: {
-      id: lesson._id,
-      name: lesson.name,
-      type: lesson.type,
-      order: lesson.order ?? 0,
-      wordCount,
-    },
+    ...buildGroupLessonHeader(group, lesson),
     students: students.map((student) => {
       const record = recordMap.get(String(student._id));
       return {
@@ -419,6 +537,7 @@ module.exports = {
   listStudentsProgress,
   getGroupProgress,
   listMyGroupsProgress,
+  listLessonOptions,
   getGroupLessonProgress,
   getLessonStudentProgress,
   getStudentVocabLessonDetails,
