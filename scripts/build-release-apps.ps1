@@ -60,6 +60,7 @@ try {
   if (-not $SkipAndroid) {
     Write-Host "==> Building Android APK ($buildMode)..."
     & flutter build apk "--$buildMode" "--dart-define=API_BASE_URL=$ApiBaseUrl" "--dart-define=APP_VERSION=$appVersion"
+    if ($LASTEXITCODE -ne 0) { throw "flutter build apk failed (exit $LASTEXITCODE)" }
     $apkSrc = Join-Path $flutterDir "build\app\outputs\flutter-apk\app-$buildMode.apk"
     if (-not (Test-Path $apkSrc)) {
       $apkSrc = Join-Path $flutterDir 'build\app\outputs\flutter-apk\app-release.apk'

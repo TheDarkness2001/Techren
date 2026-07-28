@@ -6,7 +6,7 @@ class AppConstants {
   /// Scripts may still pass `--dart-define=APP_VERSION=…` for builds without package_info.
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '1.0.6',
+    defaultValue: '1.0.7',
   );
   static const double compactBreakpoint = 600;
   static const double expandedBreakpoint = 1024;
