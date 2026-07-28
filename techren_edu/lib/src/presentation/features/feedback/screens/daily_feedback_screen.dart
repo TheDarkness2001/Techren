@@ -98,11 +98,22 @@ class _DailyFeedbackScreenState extends ConsumerState<DailyFeedbackScreen> {
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
-        FilledButton.icon(
-          onPressed: _refresh,
-          icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('Refresh Classes'),
-        ),
+        if (MediaQuery.sizeOf(context).width < 600)
+          IconButton(
+            tooltip: 'Refresh Classes',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          )
+        else
+          FilledButton.tonalIcon(
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Refresh'),
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+          ),
       ],
       body: RefreshIndicator(
         onRefresh: () async => _refresh(),

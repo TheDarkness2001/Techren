@@ -5,7 +5,8 @@ const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
 
 const listTeachers = async (req) => {
   const { page, limit, skip } = parsePagination(req.query);
-  const filter = { ...getBranchFilter(req), role: { $ne: 'founder' } };
+  // Include founder + all staff roles so People → Staff shows everyone.
+  const filter = { ...getBranchFilter(req) };
 
   if (req.query.search) {
     filter.$or = [
@@ -34,7 +35,7 @@ const listTeachers = async (req) => {
 
 const getTeacher = async (req, id) => {
   const teacher = await Teacher.findById(id);
-  if (!teacher || teacher.role === 'founder') {
+  if (!teacher) {
     throw Object.assign(new Error('Teacher not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
   if (!canAccessBranch(req, teacher.branchId)) {
@@ -70,11 +71,24 @@ const createTeacher = async (req, data) => {
 
 const updateTeacher = async (req, id, data) => {
   const teacher = await Teacher.findById(id);
-  if (!teacher || teacher.role === 'founder') {
+  if (!teacher) {
     throw Object.assign(new Error('Teacher not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
   if (!canAccessBranch(req, teacher.branchId)) {
     throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
+  }
+
+  // Founder account is visible in Staff, but cannot be demoted or deactivated here.
+  if (teacher.role === 'founder') {
+    if (req.user.role !== 'founder') {
+      throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
+    }
+    if (data.role !== undefined && data.role !== 'founder') {
+      throw Object.assign(new Error('Founder role cannot be changed'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+    }
+    if (data.status === 'inactive') {
+      throw Object.assign(new Error('Founder cannot be deactivated'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+    }
   }
 
   if (data.email && data.email !== teacher.email) {
@@ -87,7 +101,7 @@ const updateTeacher = async (req, id, data) => {
 
   if (data.name !== undefined) teacher.name = data.name;
   if (data.phone !== undefined) teacher.phone = data.phone;
-  if (data.role !== undefined) teacher.role = data.role;
+  if (data.role !== undefined && teacher.role !== 'founder') teacher.role = data.role;
   if (data.subject !== undefined) teacher.subject = data.subject;
   if (data.status !== undefined) teacher.status = data.status;
   if (data.password) teacher.password = data.password;
@@ -117,7 +131,7 @@ const updateTeacherPermissions = async (req, id, permissions) => {
 
 const updateTeacherPhoto = async (req, id, file) => {
   const teacher = await Teacher.findById(id);
-  if (!teacher || teacher.role === 'founder') {
+  if (!teacher) {
     throw Object.assign(new Error('Teacher not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
 

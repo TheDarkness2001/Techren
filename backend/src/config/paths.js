@@ -20,6 +20,7 @@ const ensureUploadDirs = () => {
     path.join(root, 'images'),
     path.join(root, 'audio'),
     path.join(root, 'listening'),
+    path.join(root, 'ielts'),
   ]) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }

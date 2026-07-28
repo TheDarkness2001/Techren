@@ -282,6 +282,7 @@ class _LearningModulesEditorDialogState extends ConsumerState<_LearningModulesEd
     LearningModuleDef(key: 'words', label: 'Words', category: 'learning', icon: 'spellcheck'),
     LearningModuleDef(key: 'sentences', label: 'Sentences', category: 'learning', icon: 'format_quote'),
     LearningModuleDef(key: 'listening', label: 'Listening', category: 'learning', icon: 'headphones'),
+    LearningModuleDef(key: 'ielts', label: 'IELTS Preparation', category: 'learning', icon: 'school'),
     LearningModuleDef(key: 'video', label: 'Video Lessons', category: 'learning', icon: 'play_circle'),
     LearningModuleDef(key: 'grammar', label: 'Grammar', category: 'learning', icon: 'menu_book'),
     LearningModuleDef(key: 'flashcards', label: 'Flashcards', category: 'learning', icon: 'style'),

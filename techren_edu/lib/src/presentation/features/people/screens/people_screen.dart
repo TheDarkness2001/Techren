@@ -106,7 +106,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
           if (widget.showTeachers)
             TabBar(
               controller: _tabController,
-              tabs: const [Tab(text: 'Students'), Tab(text: 'Teachers')],
+              tabs: const [Tab(text: 'Students'), Tab(text: 'Staff')],
             ),
           Expanded(
             child: widget.showTeachers
@@ -236,12 +236,12 @@ class _TeacherList extends ConsumerWidget {
       withPage: (q, page) => q.copyWith(page: page),
       queryCacheKey: queryCacheKey,
       onInvalidate: (ref, q) => ref.invalidate(teachersProvider(q)),
-      itemLabel: 'teachers',
+      itemLabel: 'staff',
       initialLoadingKind: LoadingSkeletonKind.table,
       empty: ListView(
         children: const [
           SizedBox(height: AppSpacing.emptyStateTop),
-          EmptyState(title: 'No teachers', message: 'Add teachers to manage your branch.'),
+          EmptyState(title: 'No staff', message: 'Add staff to manage your branch.'),
         ],
       ),
       builder: (context, controller, items, state) {

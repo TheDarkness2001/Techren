@@ -46,6 +46,26 @@ class DashboardData extends Equatable {
 
   int stat(String key) => (stats[key] as num?)?.toInt() ?? 0;
 
+  DashboardData copyWith({
+    String? role,
+    Map<String, dynamic>? stats,
+    Branch? branch,
+    List<Branch>? recentBranches,
+    List<Person>? recentStudents,
+    Person? profile,
+    String? greeting,
+  }) {
+    return DashboardData(
+      role: role ?? this.role,
+      stats: stats ?? this.stats,
+      branch: branch ?? this.branch,
+      recentBranches: recentBranches ?? this.recentBranches,
+      recentStudents: recentStudents ?? this.recentStudents,
+      profile: profile ?? this.profile,
+      greeting: greeting ?? this.greeting,
+    );
+  }
+
   @override
   List<Object?> get props => [role, stats, branch?.id];
 }

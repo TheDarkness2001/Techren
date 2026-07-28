@@ -47,10 +47,18 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
-        FilledButton(
-          onPressed: () => _showBranchDialog(context),
-          child: const Text('Add Branch'),
-        ),
+        if (MediaQuery.sizeOf(context).width < 600)
+          IconButton(
+            tooltip: 'Add Branch',
+            onPressed: () => _showBranchDialog(context),
+            icon: const Icon(Icons.add_business_outlined),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () => _showBranchDialog(context),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add Branch'),
+          ),
       ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

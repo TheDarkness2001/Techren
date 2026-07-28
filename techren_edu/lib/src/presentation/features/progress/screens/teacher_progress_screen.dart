@@ -278,69 +278,72 @@ class _GroupProgressTableState extends ConsumerState<_GroupProgressTable> {
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('📁', style: TextStyle(fontSize: 24)),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text(subjectName, style: TextStyle(color: muted, fontSize: 12)),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    const Text('📁', style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(subjectName, style: TextStyle(color: muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${widget.report.students.length} students',
+                      style: TextStyle(color: muted, fontSize: 12),
+                    ),
+                  ],
                 ),
-                Flexible(
-                  child: lessonsAsync.when(
-                    loading: () => _LessonDropdownShell(
-                      child: Text('Loading topics…', style: TextStyle(color: muted, fontSize: 13)),
-                    ),
-                    error: (e, _) => _LessonDropdownShell(
-                      child: Text('Topics unavailable', style: TextStyle(color: muted, fontSize: 13)),
-                    ),
-                    data: (lessons) {
-                      if (lessons.isEmpty) {
-                        return _LessonDropdownShell(
-                          child: Text(
-                            'No topics in CMS',
-                            style: TextStyle(color: muted, fontSize: 13),
-                          ),
-                        );
-                      }
-                      final selected =
-                          _selectedLessonId != null && lessons.any((l) => l.id == _selectedLessonId)
-                              ? _selectedLessonId
-                              : null;
+                const SizedBox(height: AppSpacing.sm),
+                lessonsAsync.when(
+                  loading: () => _LessonDropdownShell(
+                    child: Text('Loading topics…', style: TextStyle(color: muted, fontSize: 13)),
+                  ),
+                  error: (e, _) => _LessonDropdownShell(
+                    child: Text('Topics unavailable', style: TextStyle(color: muted, fontSize: 13)),
+                  ),
+                  data: (lessons) {
+                    if (lessons.isEmpty) {
                       return _LessonDropdownShell(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String?>(
-                            isExpanded: true,
-                            isDense: true,
-                            value: selected,
-                            hint: const Text('All Lessons (Aggregate)', style: TextStyle(fontSize: 13)),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('All Lessons (Aggregate)', overflow: TextOverflow.ellipsis),
-                              ),
-                              for (final lesson in lessons)
-                                DropdownMenuItem<String?>(
-                                  value: lesson.id,
-                                  child: Text(lesson.label, overflow: TextOverflow.ellipsis),
-                                ),
-                            ],
-                            onChanged: (value) => setState(() => _selectedLessonId = value),
-                          ),
+                        child: Text(
+                          'No topics in CMS',
+                          style: TextStyle(color: muted, fontSize: 13),
                         ),
                       );
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Text(
-                  '${widget.report.students.length} students',
-                  style: TextStyle(color: muted, fontSize: 12),
+                    }
+                    final selected =
+                        _selectedLessonId != null && lessons.any((l) => l.id == _selectedLessonId)
+                            ? _selectedLessonId
+                            : null;
+                    return _LessonDropdownShell(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          isExpanded: true,
+                          isDense: true,
+                          value: selected,
+                          hint: const Text('All Lessons (Aggregate)', style: TextStyle(fontSize: 13)),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('All Lessons (Aggregate)'),
+                            ),
+                            for (final lesson in lessons)
+                              DropdownMenuItem<String?>(
+                                value: lesson.id,
+                                child: Text(lesson.label),
+                              ),
+                          ],
+                          onChanged: (value) => setState(() => _selectedLessonId = value),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -369,7 +372,7 @@ class _LessonDropdownShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 280, minWidth: 170),
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         border: Border.all(color: context.semantic.border),

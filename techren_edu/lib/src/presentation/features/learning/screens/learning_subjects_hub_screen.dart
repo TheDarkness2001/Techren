@@ -125,31 +125,47 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
           context.go(widget.navItems[i].route);
         }
       },
-      actions: [
-        if (canManage)
-          FilledButton.icon(
-            onPressed: _addSubject,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Subject'),
-          ),
-      ],
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(learningSubjectsProvider(_query)),
         child: ListView(
           padding: AppSpacing.pagePaddingWide,
           children: [
-            Text(
-              widget.isStudent ? 'My Subjects' : 'Subjects',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              widget.isStudent
-                  ? 'Open a subject classroom to continue learning'
-                  : 'Add, edit, or remove subjects. Open a card to manage modules and content.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.isStudent ? 'My Subjects' : 'Subjects',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        widget.isStudent
+                            ? 'Open a subject classroom to continue learning'
+                            : 'Add, edit, or remove subjects. Open a card to manage modules and content.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
                   ),
+                ),
+                if (canManage) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  FilledButton.tonalIcon(
+                    onPressed: _addSubject,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: AppSpacing.lg),
             TextField(
@@ -183,8 +199,15 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
                     title: 'No subjects yet',
                     message: widget.isStudent
                         ? 'You are not enrolled in any subjects. Ask your school to add you to a group.'
-                        : 'Tap Add Subject to create your first learning classroom.',
+                        : 'Create your first learning classroom to get started.',
                     icon: Icons.auto_stories_outlined,
+                    action: canManage
+                        ? FilledButton.icon(
+                            onPressed: _addSubject,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Subject'),
+                          )
+                        : null,
                   );
                 }
 

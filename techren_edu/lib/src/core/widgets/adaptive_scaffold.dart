@@ -126,25 +126,25 @@ class AdaptiveScaffold extends ConsumerWidget {
         prefix: staffPrefix,
         isFounder: isFounder,
         compactBottomRoutes: [for (final item in navItems) item.route],
-        child: Builder(
-          builder: (scaffoldContext) => Scaffold(
-            backgroundColor: contentBackground,
-            drawer: Drawer(
-              child: StaffSidebar(
-                prefix: staffPrefix,
-                isFounder: isFounder,
-                currentRoute: route,
-                embedded: true,
-              ),
+        child: Scaffold(
+          backgroundColor: contentBackground,
+          drawer: Drawer(
+            child: StaffSidebar(
+              prefix: staffPrefix,
+              isFounder: isFounder,
+              currentRoute: route,
+              embedded: true,
             ),
-            body: Column(
+          ),
+          body: Builder(
+            builder: (bodyContext) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 StaffTopBar(
                   compact: true,
                   title: title.isEmpty ? l10n.academyName : title,
                   actions: actions,
-                  onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
+                  onMenuPressed: () => Scaffold.of(bodyContext).openDrawer(),
                 ),
                 Expanded(
                   child: Padding(
@@ -154,16 +154,16 @@ class AdaptiveScaffold extends ConsumerWidget {
                 ),
               ],
             ),
-            bottomNavigationBar: Semantics(
-              label: l10n.primaryNavigation,
-              child: NavigationBar(
-                selectedIndex: navSelectedIndex,
-                onDestinationSelected: handleNavSelected,
-                destinations: [
-                  for (final item in navItems)
-                    NavigationDestination(icon: Icon(item.icon), label: item.label),
-                ],
-              ),
+          ),
+          bottomNavigationBar: Semantics(
+            label: l10n.primaryNavigation,
+            child: NavigationBar(
+              selectedIndex: navSelectedIndex,
+              onDestinationSelected: handleNavSelected,
+              destinations: [
+                for (final item in navItems)
+                  NavigationDestination(icon: Icon(item.icon), label: item.label),
+              ],
             ),
           ),
         ),

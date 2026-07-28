@@ -73,6 +73,10 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
     final selectedBranchId = ref.watch(staffBranchFilterProvider);
     final isFounder = user?.isFounder ?? false;
     final shell = StaffShellColors.of(context);
+    final hasActions = widget.actions != null && widget.actions!.isNotEmpty;
+    // On narrow bars, prefer actions over the page title to avoid overflow.
+    final showCompactTitle =
+        widget.compact && widget.title != null && !hasActions;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -85,16 +89,19 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
         child: SizedBox(
           height: widget.compact ? 52 : 64,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: widget.compact ? AppSpacing.sm : AppSpacing.lg),
+            padding: EdgeInsets.symmetric(horizontal: widget.compact ? AppSpacing.xs : AppSpacing.lg),
             child: Row(
               children: [
                 if (widget.compact && widget.onMenuPressed != null)
                   IconButton(
                     tooltip: l10n.openNavigation,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                     onPressed: widget.onMenuPressed,
                     icon: Icon(Icons.menu_rounded, color: shell.textPrimary),
                   ),
-                if (widget.compact && widget.title != null)
+                if (showCompactTitle)
                   Expanded(
                     child: Text(
                       widget.title!,
@@ -115,13 +122,24 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                       fontSize: 18,
                       letterSpacing: -0.3,
                     ),
-                  ),
-                const Spacer(),
+                  )
+                else
+                  const Spacer(),
                 if (!widget.compact) const KeyboardShortcutHint(),
-                if (isFounder) _BranchSelector(branchesAsync: branchesAsync, selectedBranchId: selectedBranchId),
+                if (isFounder)
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _BranchSelector(
+                        branchesAsync: branchesAsync,
+                        selectedBranchId: selectedBranchId,
+                        compact: widget.compact,
+                      ),
+                    ),
+                  ),
                 if (!isFounder && user?.branchId != null)
                   _BranchLabel(branchesAsync: branchesAsync, branchId: user!.branchId!),
-                if (widget.actions != null) ...widget.actions!,
+                if (hasActions) ...widget.actions!,
                 if (user != null) ...[
                   NotificationIconButton(
                     route: user.isFounder ? '/founder/notifications' : '/admin/notifications',
@@ -145,10 +163,15 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
 }
 
 class _BranchSelector extends ConsumerWidget {
-  const _BranchSelector({required this.branchesAsync, required this.selectedBranchId});
+  const _BranchSelector({
+    required this.branchesAsync,
+    required this.selectedBranchId,
+    this.compact = false,
+  });
 
   final AsyncValue<PaginatedResult<Branch>> branchesAsync;
   final String selectedBranchId;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -160,10 +183,11 @@ class _BranchSelector extends ConsumerWidget {
         final branches = result.items;
         if (branches.isEmpty) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.md),
+          padding: EdgeInsets.only(right: compact ? AppSpacing.xs : AppSpacing.md),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            height: 38,
+            padding: EdgeInsets.symmetric(horizontal: compact ? AppSpacing.sm : AppSpacing.md),
+            height: compact ? 34 : 38,
+            constraints: BoxConstraints(maxWidth: compact ? 132 : 220),
             decoration: BoxDecoration(
               color: shell.dropdownBackground,
               borderRadius: BorderRadius.circular(12),
@@ -172,19 +196,16 @@ class _BranchSelector extends ConsumerWidget {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: selectedBranchId,
+                isExpanded: true,
                 dropdownColor: shell.dropdownBackground,
                 icon: Icon(Icons.expand_more, color: shell.textMuted, size: 18),
                 style: TextStyle(color: shell.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 items: [
                   DropdownMenuItem(
                     value: 'all',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.apartment_outlined, size: 16, color: shell.textMuted),
-                        const SizedBox(width: AppSpacing.sm),
-                        const Text('All Branches'),
-                      ],
+                    child: Text(
+                      compact ? 'All' : 'All Branches',
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   ...branches.map(

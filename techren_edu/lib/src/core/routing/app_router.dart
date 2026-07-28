@@ -26,6 +26,9 @@ import '../../presentation/features/wallet/screens/wallet_screen.dart';
 import '../../presentation/features/upload/screens/content_import_screen.dart';
 import '../../presentation/features/learning_cms/screens/learning_cms_screen.dart';
 import '../../presentation/features/progress/screens/teacher_progress_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
 import 'inactive_student_guard.dart';
 import 'app_page_transitions.dart';
 import 'staff_route_guard.dart';
@@ -80,6 +83,68 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/student/learn/:subjectId',
         builder: (_, state) => StudentLearningSubjectScreen(
           subjectId: state.pathParameters['subjectId']!,
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts',
+        builder: (_, state) => IeltsHubScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/exams',
+        builder: (_, state) => IeltsExamListScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/listening',
+        builder: (_, state) => IeltsExamListScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          mode: 'listening',
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/reading',
+        builder: (_, state) => IeltsExamListScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          mode: 'reading',
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/writing',
+        builder: (_, state) => IeltsExamListScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          mode: 'writing',
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/history',
+        builder: (_, state) => IeltsHistoryScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/play/:examId',
+        builder: (_, state) => IeltsExamPlayerScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          examId: state.pathParameters['examId']!,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/results/:attemptId',
+        builder: (_, state) => IeltsResultsScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          attemptId: state.pathParameters['attemptId']!,
+          routePrefix: '/student',
         ),
       ),
       AppPageTransitions.route(

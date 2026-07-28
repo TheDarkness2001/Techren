@@ -80,7 +80,7 @@ exports.getNotificationSettings = asyncHandler(async (req, res) => {
   try {
     await studentService.getStudent(req, req.params.id);
     const settings = await notificationService.getParentSettings(req.params.id);
-    sendSuccess(res, { settings: notificationService.formatSettings(settings.toObject()) });
+    sendSuccess(res, { settings: notificationService.formatSettings(settings) });
   } catch (error) {
     handleServiceError(res, error);
   }

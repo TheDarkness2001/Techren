@@ -11,7 +11,26 @@ final identityApiProvider = Provider<IdentityApi>((ref) {
 });
 
 final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async {
-  return ref.watch(identityApiProvider).getDashboard();
+  final api = ref.watch(identityApiProvider);
+  final data = await api.getDashboard();
+
+  // Founder production API may omit activeStudents — fill from /students?status=active.
+  const staffRoles = {'founder', 'admin', 'manager', 'sales', 'receptionist'};
+  if (staffRoles.contains(data.role) && !data.stats.containsKey('activeStudents')) {
+    try {
+      final active = await api.getStudents(const PageMeta(page: 1, limit: 1, status: 'active'));
+      return data.copyWith(
+        stats: {
+          ...data.stats,
+          'activeStudents': active.total,
+        },
+      );
+    } catch (_) {
+      return data;
+    }
+  }
+
+  return data;
 });
 
 final branchesProvider = FutureProvider.autoDispose.family<PaginatedResult<Branch>, PageMeta>((ref, meta) async {

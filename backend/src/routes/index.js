@@ -32,6 +32,7 @@ const walletRoutes = require('./walletRoutes');
 const uploadRoutes = require('./uploadRoutes');
 const progressRoutes = require('./progressRoutes');
 const learningRoutes = require('./learningRoutes');
+const ieltsRoutes = require('./ieltsRoutes');
 
 const router = express.Router();
 
@@ -68,6 +69,7 @@ router.use('/wallet', walletRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/progress', progressRoutes);
 router.use('/learning', learningRoutes);
+router.use('/ielts', ieltsRoutes);
 
 const { getConnectionInfo } = require('../config/database');
 

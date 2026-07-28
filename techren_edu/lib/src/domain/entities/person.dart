@@ -13,6 +13,7 @@ class Person extends Equatable {
     this.parentName,
     this.parentPhone,
     this.examEligibility,
+    this.ieltsAccess,
     this.userType = 'student',
     this.profileImage,
     this.subjects = const [],
@@ -29,6 +30,7 @@ class Person extends Equatable {
   final String? parentName;
   final String? parentPhone;
   final bool? examEligibility;
+  final bool? ieltsAccess;
   final String userType;
   final String? profileImage;
   final List<String> subjects;
@@ -49,6 +51,7 @@ class Person extends Equatable {
         parentName: json['parentName'] as String?,
         parentPhone: json['parentPhone'] as String?,
         examEligibility: json['examEligibility'] as bool?,
+        ieltsAccess: json['ieltsAccess'] as bool?,
         userType: json['userType'] as String? ?? 'student',
         profileImage: json['profileImage'] as String?,
         subjects: (json['subject'] as List<dynamic>? ?? json['subjects'] as List<dynamic>? ?? [])
@@ -56,7 +59,7 @@ class Person extends Equatable {
             .toList(),
       );
 
-  Person copyWith({String? profileImage, String? status}) => Person(
+  Person copyWith({String? profileImage, String? status, bool? ieltsAccess}) => Person(
         id: id,
         name: name,
         email: email,
@@ -68,6 +71,7 @@ class Person extends Equatable {
         parentName: parentName,
         parentPhone: parentPhone,
         examEligibility: examEligibility,
+        ieltsAccess: ieltsAccess ?? this.ieltsAccess,
         userType: userType,
         profileImage: profileImage ?? this.profileImage,
       );

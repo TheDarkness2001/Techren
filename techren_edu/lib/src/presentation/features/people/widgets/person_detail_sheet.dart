@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_bottom_sheet.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
+import '../../../providers/ielts_provider.dart';
 import '../../../providers/settings_provider.dart';
 import 'person_edit_dialog.dart';
 import 'profile_photo_picker.dart';
@@ -50,7 +51,7 @@ Future<void> showPersonDetailSheet({
                     }
                   },
                   icon: const Icon(Icons.edit_outlined),
-                  label: Text(person.isStudent ? 'Edit student' : 'Edit teacher'),
+                  label: Text(person.isStudent ? 'Edit student' : 'Edit staff'),
                 )
               : null,
           secondary: canManageStatus
@@ -68,8 +69,8 @@ Future<void> showPersonDetailSheet({
                   },
                   child: Text(
                     person.isActive
-                        ? 'Deactivate ${person.isStudent ? 'student' : 'teacher'}'
-                        : 'Activate ${person.isStudent ? 'student' : 'teacher'}',
+                        ? 'Deactivate ${person.isStudent ? 'student' : 'staff'}'
+                        : 'Activate ${person.isStudent ? 'student' : 'staff'}',
                   ),
                 )
               : null,
@@ -99,6 +100,23 @@ Future<void> showPersonDetailSheet({
               Text('Parent: ${person.parentName}', style: Theme.of(sheetContext).textTheme.bodyMedium),
             if (person.parentPhone != null)
               Text(person.parentPhone!, style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(color: muted)),
+          ],
+          if (person.isStudent && (user?.isFounder ?? false)) ...[
+            const SizedBox(height: AppSpacing.lg),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('IELTS Preparation access'),
+              subtitle: Text(
+                person.ieltsAccess == true ? 'Unlocked' : 'Locked',
+                style: TextStyle(color: muted),
+              ),
+              value: person.ieltsAccess == true,
+              onChanged: (enabled) async {
+                await ref.read(ieltsApiProvider).setStudentAccess(person.id, enabled);
+                if (sheetContext.mounted) Navigator.pop(sheetContext);
+                onChanged();
+              },
+            ),
           ],
         ],
       );

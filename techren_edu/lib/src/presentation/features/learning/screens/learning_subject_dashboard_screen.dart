@@ -8,6 +8,7 @@ import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/learning_subject.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/learning_provider.dart';
 import '../widgets/learning_subject_editor.dart';
 import '../widgets/learning_subject_widgets.dart';
@@ -34,7 +35,16 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
     return '/admin';
   }
 
-  void _openModule(BuildContext context, LearningModuleDef module) {
+  void _openModule(BuildContext context, WidgetRef ref, LearningModuleDef module) {
+    if (module.key == 'ielts' && isStudent) {
+      final access = ref.read(authProvider).user?.ieltsAccess == true;
+      if (!access) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('IELTS Preparation is locked. Ask your founder to unlock it.')),
+        );
+        // Still open hub so they see the lock screen.
+      }
+    }
     final route = _routeForModule(module.key);
     if (route == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -51,6 +61,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
       'sentences' => isStudent ? '/student/sentences' : '$_prefix/sentences',
       'listening' => isStudent ? '/student/listening' : null,
       'video' => isStudent ? '/student/video' : null,
+      'ielts' => isStudent ? '/student/learn/$subjectId/ielts' : '$_prefix/learning/$subjectId/ielts',
       'cms' => isStudent ? null : '$_prefix/learning-cms',
       'import' => isStudent ? null : '$_prefix/content-import',
       'progress' => isStudent ? '/student/progress' : '$_prefix/progress',
@@ -155,6 +166,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
                 dash.modules.where((m) => m.category == 'management').toList();
             final statistics = dash.modulesByCategory['statistics'] ??
                 dash.modules.where((m) => m.category == 'statistics').toList();
+            final ieltsLocked = isStudent && ref.watch(authProvider).user?.ieltsAccess != true;
 
             return ListView(
               padding: EdgeInsets.zero,
@@ -188,25 +200,30 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
                 if (learning.isNotEmpty) ...[
                   const _SectionTitle(title: 'Learning'),
                   const SizedBox(height: AppSpacing.sm),
-                  _ModuleGrid(modules: learning, accent: accent, onTap: (m) => _openModule(context, m)),
+                  _ModuleGrid(
+                    modules: learning,
+                    accent: accent,
+                    ieltsLocked: ieltsLocked,
+                    onTap: (m) => _openModule(context, ref, m),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                 ],
                 if (assessment.isNotEmpty) ...[
                   const _SectionTitle(title: 'Assessment'),
                   const SizedBox(height: AppSpacing.sm),
-                  _ModuleGrid(modules: assessment, accent: accent, onTap: (m) => _openModule(context, m)),
+                  _ModuleGrid(modules: assessment, accent: accent, onTap: (m) => _openModule(context, ref, m)),
                   const SizedBox(height: AppSpacing.lg),
                 ],
                 if (management.isNotEmpty) ...[
                   const _SectionTitle(title: 'Content'),
                   const SizedBox(height: AppSpacing.sm),
-                  _ModuleGrid(modules: management, accent: accent, onTap: (m) => _openModule(context, m)),
+                  _ModuleGrid(modules: management, accent: accent, onTap: (m) => _openModule(context, ref, m)),
                   const SizedBox(height: AppSpacing.lg),
                 ],
                 if (statistics.isNotEmpty) ...[
                   const _SectionTitle(title: 'Statistics'),
                   const SizedBox(height: AppSpacing.sm),
-                  _ModuleGrid(modules: statistics, accent: accent, onTap: (m) => _openModule(context, m)),
+                  _ModuleGrid(modules: statistics, accent: accent, onTap: (m) => _openModule(context, ref, m)),
                 ],
               ],
             );
@@ -302,11 +319,13 @@ class _ModuleGrid extends StatelessWidget {
     required this.modules,
     required this.accent,
     required this.onTap,
+    this.ieltsLocked = false,
   });
 
   final List<LearningModuleDef> modules;
   final Color accent;
   final void Function(LearningModuleDef) onTap;
+  final bool ieltsLocked;
 
   @override
   Widget build(BuildContext context) {
@@ -328,6 +347,7 @@ class _ModuleGrid extends StatelessWidget {
                 child: LearningModuleTile(
                   module: module,
                   accent: accent,
+                  locked: module.key == 'ielts' && ieltsLocked,
                   onTap: () => onTap(module),
                 ),
               ),

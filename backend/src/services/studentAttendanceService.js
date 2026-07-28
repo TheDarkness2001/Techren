@@ -150,6 +150,8 @@ const markBulk = async (req, { classScheduleId, date, records }) => {
   const markDate = date || getTashkentParts().dateString;
   const results = [];
 
+  const { emit } = require('../utils/notificationWorker');
+
   for (const record of records) {
     const attendance = await StudentAttendance.findOneAndUpdate(
       { student: record.studentId, classSchedule: classScheduleId, date: markDate },
@@ -164,6 +166,14 @@ const markBulk = async (req, { classScheduleId, date, records }) => {
       { upsert: true, new: true }
     );
     results.push(attendance);
+
+    emit('attendance:marked', {
+      studentId: record.studentId,
+      status: record.status,
+      className: schedule.className,
+      date: markDate,
+      branchId: schedule.branchId,
+    });
 
     if (record.status === 'absent') {
       await updateExamEligibility(record.studentId);

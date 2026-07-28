@@ -2,11 +2,11 @@ class AppConstants {
   static const String appName = 'TechRen EDU';
   static const String appTagline = 'Learn smarter, anywhere';
 
-  /// Injected by scripts/build-release-apps.ps1 from pubspec.yaml.
-  /// Compared against the server's /downloads/status.json to offer updates.
+  /// Fallback only. Prefer [PackageInfo.version] (from pubspec) for update checks.
+  /// Scripts may still pass `--dart-define=APP_VERSION=…` for builds without package_info.
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '1.0.5',
+    defaultValue: '1.0.6',
   );
   static const double compactBreakpoint = 600;
   static const double expandedBreakpoint = 1024;

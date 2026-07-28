@@ -76,7 +76,7 @@ router.get(
   validate,
   (req, res, next) => {
     if (req.userType === 'student' && String(req.params.id) === String(req.user._id)) return next();
-    return checkPermission('canManageStudents')(req, res, next);
+    return checkPermission('canViewStudents')(req, res, next);
   },
   studentController.getNotificationSettings
 );

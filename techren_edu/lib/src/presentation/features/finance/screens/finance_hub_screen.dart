@@ -8,7 +8,6 @@ import '../../../../core/widgets/app_data_table.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/notification_icon_button.dart';
 import '../../../../core/widgets/staff_permissions.dart';
 import '../../../../domain/entities/finance.dart';
 import '../../../../domain/entities/paginated_result.dart';
@@ -48,7 +47,6 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
     final prefix = isFounder ? '/founder' : '/admin';
     final user = ref.watch(authProvider).user;
     final rolePerms = ref.watch(staffRolePermissionsProvider);
-    final notificationsRoute = isFounder ? '/founder/notifications' : '/admin/notifications';
     final canManagePayments = user != null && canAccessStaffRoute(user, '$prefix/more', rolePerms);
 
     return AdaptiveScaffold(
@@ -57,9 +55,6 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
-      actions: [
-        NotificationIconButton(route: notificationsRoute),
-      ],
       body: _PaymentsTab(
         search: _paymentsSearch,
         searchController: _paymentsSearchController,

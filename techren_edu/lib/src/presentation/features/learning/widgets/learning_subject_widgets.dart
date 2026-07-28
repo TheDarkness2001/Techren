@@ -38,7 +38,7 @@ IconData iconForLearningKey(String key) {
     'lightbulb' || 'examples' => Icons.lightbulb_outline,
     'science' => Icons.science_outlined,
     'eco' => Icons.eco_outlined,
-    'school' => Icons.school_outlined,
+    'school' || 'ielts' => Icons.school_outlined,
     'translate' => Icons.translate_outlined,
     'record_voice_over' || 'speaking' => Icons.record_voice_over_outlined,
     'forum' || 'dialogues' => Icons.forum_outlined,
@@ -224,11 +224,13 @@ class LearningModuleTile extends StatefulWidget {
     required this.module,
     required this.accent,
     required this.onTap,
+    this.locked = false,
   });
 
   final LearningModuleDef module;
   final Color accent;
   final VoidCallback onTap;
+  final bool locked;
 
   @override
   State<LearningModuleTile> createState() => _LearningModuleTileState();
@@ -265,7 +267,13 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(iconForLearningKey(widget.module.icon), color: widget.accent, size: 28),
+                  Row(
+                    children: [
+                      Icon(iconForLearningKey(widget.module.icon), color: widget.accent, size: 28),
+                      const Spacer(),
+                      if (widget.locked) Icon(Icons.lock_outline, size: 18, color: semantic.textMuted),
+                    ],
+                  ),
                   const Spacer(),
                   Text(
                     widget.module.label,
@@ -276,7 +284,7 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.module.category,
+                    widget.locked ? 'Locked' : widget.module.category,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: semantic.textMuted),
                   ),
                 ],

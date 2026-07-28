@@ -32,6 +32,7 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
   final _parentNameController = TextEditingController();
   final _parentPhoneController = TextEditingController();
   final _phoneController = TextEditingController();
+  bool _obscurePassword = true;
   bool _saving = false;
 
   @override
@@ -90,7 +91,7 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
     final isTeacher = widget.isTeacher;
 
     return AppDialog(
-      title: isTeacher ? 'Add teacher' : 'Add student',
+      title: isTeacher ? 'Add staff' : 'Add student',
       icon: isTeacher ? Icons.person_add_outlined : Icons.school_outlined,
       content: SingleChildScrollView(
         child: AppFormColumn(
@@ -107,8 +108,15 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
             ),
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              obscureText: _obscurePassword,
             ),
             if (isTeacher)
               TextField(

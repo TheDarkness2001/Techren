@@ -294,7 +294,27 @@ class _CheckInCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: checkInAsync.when(
-          loading: () => const CircularProgressIndicator(),
+          loading: () => Row(
+            children: [
+              Icon(Icons.badge_outlined, color: Theme.of(context).colorScheme.primary, size: 28),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Staff Check-in', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Loading check-in status…',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           error: (e, _) => Text(e.toString()),
           data: (status) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,

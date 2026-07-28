@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/routing/student_navigation.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/go_back_icon_button.dart';
+import '../../../../core/widgets/student_leaderboard_list.dart';
 import '../../../providers/words_provider.dart';
 
 class WordsLeaderboardScreen extends ConsumerWidget {
@@ -23,78 +23,49 @@ class WordsLeaderboardScreen extends ConsumerWidget {
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
       actions: [
-        IconButton(
-          tooltip: 'Go back',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/student/words'),
-        ),
+        GoBackIconButton(fallbackRoute: '/student/words'),
       ],
       body: boardAsync.when(
-
         loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-
         error: (e, _) => Center(child: Text(e.toString())),
-
         data: (board) {
+          final me = board.currentStudent;
+          final top10 = board.leaderboard.take(10).toList();
 
-          return RefreshIndicator(
-
+          return StudentLeaderboardList(
             onRefresh: () async => ref.invalidate(wordsLeaderboardProvider),
-
-            child: ListView(
-
-              padding: AppSpacing.listGutter,
-
-              children: [
-
-                if (board.currentStudent != null)
-
-                  LeaderboardHubCard(
-
-                    rank: board.currentStudent!.rank,
-
-                    title: 'You — ${board.currentStudent!.name}',
-
-                    subtitle: board.currentStudent!.studentCode,
-
-                    trailing: '${board.currentStudent!.accuracy}%',
-
-                    highlighted: true,
-
+            currentRank: me?.rank,
+            currentName: me?.name,
+            currentCode: me?.studentCode,
+            emptyMessage: 'No rankings yet — complete a words practice to appear here.',
+            entries: [
+              for (final entry in top10)
+                LeaderboardHubCard(
+                  rank: entry.rank,
+                  title: compactLeaderboardName(entry.name, entry.studentCode),
+                  subtitle: '${entry.studentCode} · ${entry.correctAnswers} correct',
+                  trailing: '${entry.accuracy}%',
+                  highlighted: isCurrentLeaderboardEntry(
+                    entryName: entry.name,
+                    entryCode: entry.studentCode,
+                    entryRank: entry.rank,
+                    meName: me?.name,
+                    meCode: me?.studentCode,
+                    meRank: me?.rank,
                   ),
-
-                if (board.currentStudent != null) const SizedBox(height: AppSpacing.xs),
-
-                ...board.leaderboard.map(
-
-                  (entry) => LeaderboardHubCard(
-
-                    rank: entry.rank,
-
-                    title: entry.name,
-
-                    subtitle: entry.studentCode,
-
-                    trailing: '${entry.accuracy}%',
-
-                  ),
-
                 ),
-
-              ],
-
-            ),
-
+            ],
+            outsideTopBuilder: me == null
+                ? null
+                : () => buildOutsideTopCard(
+                      rank: me.rank,
+                      title: compactLeaderboardName(me.name, me.studentCode),
+                      subtitle: '${me.studentCode} · ${me.correctAnswers} correct',
+                      trailing: '${me.accuracy}%',
+                    ),
           );
-
         },
-
       ),
-
     );
-
   }
-
 }
-
-

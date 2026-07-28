@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_constants.dart';
@@ -74,6 +75,18 @@ Uri _uriOrFallback(dynamic raw, String fallback) {
   return Uri.parse(fallback);
 }
 
+/// Installed app version from the platform package (pubspec), with dart-define fallback.
+Future<String> installedAppVersion() async {
+  try {
+    final info = await PackageInfo.fromPlatform();
+    final v = info.version.trim();
+    if (v.isNotEmpty) return v;
+  } catch (_) {
+    // Fall through — e.g. tests / unsupported platform.
+  }
+  return AppConstants.appVersion;
+}
+
 /// Resolves to update info when the server has a newer build, otherwise null.
 /// Never throws — a failed check silently means "no update".
 final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
@@ -82,6 +95,7 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
 
   final origin = _serverOrigin();
   try {
+    final current = await installedAppVersion();
     final dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 5),
       receiveTimeout: const Duration(seconds: 5),
@@ -93,7 +107,8 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
         : throw const FormatException('status.json is not an object');
     final latest = map['version']?.toString();
     if (latest == null || latest.isEmpty) return null;
-    if (compareVersions(latest, AppConstants.appVersion) <= 0) return null;
+    // Hide banner when installed version is already >= server version.
+    if (compareVersions(latest, current) <= 0) return null;
 
     // Always use explicit remote installer URLs (GitHub Releases). Never point
     // the app at Railway /downloads/*.apk — those files are not deployed there.

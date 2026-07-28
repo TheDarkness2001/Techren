@@ -209,14 +209,16 @@ class _FilterChip extends StatelessWidget {
     final semantic = context.semantic;
     return OutlinedButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 18, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-      label: Text(label),
+      icon: Icon(icon, size: 14, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       style: OutlinedButton.styleFrom(
         foregroundColor: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
         side: BorderSide(color: selected ? scheme.primary : semantic.border, width: selected ? 1.5 : 1),
         backgroundColor: selected ? scheme.primaryContainer : semantic.surfaceContainer,
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       ),
     );
   }
@@ -287,17 +289,11 @@ class ClassFeedbackPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                _InfoLine(icon: Icons.person_outline, label: 'Teacher', value: schedule.teacherName ?? '—'),
-                _InfoLine(
-                  icon: Icons.access_time,
-                  label: 'Time',
-                  value: '${schedule.startTime} - ${schedule.endTime}',
-                ),
-                _InfoLine(icon: Icons.meeting_room_outlined, label: 'Room', value: schedule.room ?? '—'),
-                _InfoLine(
-                  icon: Icons.groups_outlined,
-                  label: 'Students',
-                  value: '${schedule.studentCount}',
+                Text(
+                  '${schedule.teacherName ?? '—'} · ${schedule.startTime}–${schedule.endTime}'
+                  '${schedule.room != null && schedule.room!.isNotEmpty ? ' · ${schedule.room}' : ''}'
+                  ' · ${schedule.studentCount} students',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.semantic.textMuted),
                 ),
               ],
             ),
@@ -328,30 +324,6 @@ class ClassFeedbackPanel extends StatelessWidget {
   }
 }
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.label, required this.value});
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = context.semantic.textMuted;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: muted),
-          const SizedBox(width: AppSpacing.sm),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          Expanded(child: Text(value, style: TextStyle(color: muted, fontSize: 13))),
-        ],
-      ),
-    );
-  }
-}
-
 class _StudentFeedbackRow extends StatelessWidget {
   const _StudentFeedbackRow({required this.student, required this.onAdd});
 
@@ -360,32 +332,42 @@ class _StudentFeedbackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final code = student.studentId != null ? 'ID: #${student.studentId}' : '';
+    final code = student.studentId != null ? '#${student.studentId}' : '';
+    final muted = context.semantic.textMuted;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
           PersonAvatar(
             name: student.name,
             profileImage: student.profileImage,
-            radius: 16,
+            radius: 14,
             isStudent: true,
           ),
-          const SizedBox(width: AppSpacing.xs),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(student.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                if (code.isNotEmpty)
-                  Text(code, style: TextStyle(color: context.semantic.textMuted, fontSize: 11)),
-              ],
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: student.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  if (code.isNotEmpty)
+                    TextSpan(
+                      text: '  $code',
+                      style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w500),
+                    ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (student.hasFeedback)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.micro),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: context.semantic.successContainer,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -395,20 +377,22 @@ class _StudentFeedbackRow extends StatelessWidget {
                 style: TextStyle(
                   color: context.semantic.onSuccessContainer,
                   fontWeight: FontWeight.w600,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
             )
           else
-            OutlinedButton(
+            IconButton(
+              tooltip: 'Add feedback',
               onPressed: onAdd,
-              style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.micro),
+                side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)),
               ),
-              child: const Text('+ Add'),
+              icon: const Icon(Icons.add_rounded, size: 18),
             ),
         ],
       ),

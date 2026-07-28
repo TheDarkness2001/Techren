@@ -14,6 +14,7 @@ class AppUser extends Equatable {
     this.branchId,
     this.status,
     this.profileImage,
+    this.ieltsAccess,
     this.permissions = const {},
   });
 
@@ -22,6 +23,7 @@ class AppUser extends Equatable {
     String? email,
     String? status,
     String? profileImage,
+    bool? ieltsAccess,
     Map<String, bool>? permissions,
   }) =>
       AppUser(
@@ -33,6 +35,7 @@ class AppUser extends Equatable {
         branchId: branchId,
         status: status ?? this.status,
         profileImage: profileImage ?? this.profileImage,
+        ieltsAccess: ieltsAccess ?? this.ieltsAccess,
         permissions: permissions ?? this.permissions,
       );
 
@@ -44,6 +47,7 @@ class AppUser extends Equatable {
   final String? branchId;
   final String? status;
   final String? profileImage;
+  final bool? ieltsAccess;
   final Map<String, bool> permissions;
 
   bool get isStudent => userType == UserType.student;
@@ -93,6 +97,7 @@ class AppUser extends Equatable {
       branchId: json['branchId']?.toString(),
       status: json['status'] as String?,
       profileImage: json['profileImage'] as String?,
+      ieltsAccess: json['ieltsAccess'] as bool?,
       permissions: (json['permissions'] as Map<String, dynamic>? ?? {})
           .map((k, v) => MapEntry(k, v == true)),
     );
@@ -107,6 +112,7 @@ class AppUser extends Equatable {
         'branchId': branchId,
         'status': status,
         'profileImage': profileImage,
+        'ieltsAccess': ieltsAccess,
         'permissions': permissions,
       };
 

@@ -169,6 +169,7 @@ class _ClassAttendancePanelState extends State<ClassAttendancePanel> {
   Widget build(BuildContext context) {
     final schedule = widget.session.schedule;
     final levelLabel = schedule.className;
+    final muted = context.semantic.textMuted;
 
     return Container(
       decoration: BoxDecoration(
@@ -183,9 +184,9 @@ class _ClassAttendancePanelState extends State<ClassAttendancePanel> {
         children: [
           Container(
             decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: AppColors.primary, width: 4)),
+              border: Border(left: BorderSide(color: AppColors.primary, width: 3)),
             ),
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -194,45 +195,22 @@ class _ClassAttendancePanelState extends State<ClassAttendancePanel> {
                     Expanded(
                       child: Text(
                         levelLabel,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEDE9FE),
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                    TextButton(
+                      onPressed: widget.onToggle,
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                       ),
-                      child: Text(
-                        levelLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF7C3AED),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
+                      child: Text(widget.expanded ? 'Close' : 'Mark'),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                _InfoLine(icon: Icons.menu_book_outlined, label: 'Subject', value: 'English'),
-                _InfoLine(
-                  icon: Icons.access_time,
-                  label: 'Time',
-                  value: '${schedule.startTime} - ${schedule.endTime}',
-                ),
-                _InfoLine(
-                  icon: Icons.groups_outlined,
-                  label: 'Students',
-                  value: '${schedule.studentCount}',
-                ),
-                const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: widget.onToggle,
-                    child: Text(widget.expanded ? 'Close' : 'Mark Attendance'),
-                  ),
+                Text(
+                  'English · ${schedule.startTime}–${schedule.endTime} · ${schedule.studentCount} students',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
                 ),
               ],
             ),
@@ -240,20 +218,30 @@ class _ClassAttendancePanelState extends State<ClassAttendancePanel> {
           if (widget.expanded) ...[
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Students List', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Text('Students', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      Text(
+                        '${widget.session.students.length}',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: muted),
+                      ),
+                    ],
+                  ),
                   if (!widget.session.isWithinWindow)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      padding: const EdgeInsets.only(top: 4, bottom: 6),
                       child: Text(
                         'Outside class window — admin override may apply.',
-                        style: TextStyle(color: context.semantic.warning, fontSize: 12),
+                        style: TextStyle(color: context.semantic.warning, fontSize: 11),
                       ),
-                    ),
+                    )
+                  else
+                    const SizedBox(height: AppSpacing.xs),
                   for (final student in widget.session.students)
                     StudentAttendanceCard(
                       student: student,
@@ -270,31 +258,7 @@ class _ClassAttendancePanelState extends State<ClassAttendancePanel> {
   }
 }
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.label, required this.value});
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = context.semantic.textMuted;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: muted),
-          const SizedBox(width: AppSpacing.sm),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          Expanded(child: Text(value, style: TextStyle(color: muted, fontSize: 13))),
-        ],
-      ),
-    );
-  }
-}
-
-/// Single student attendance row — status toggles, notes, save.
+/// Compact student attendance row — status chips, one-line notes, icon save.
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({
     super.key,
@@ -341,15 +305,17 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
   @override
   Widget build(BuildContext context) {
     final code = widget.student.studentId != null ? '#${widget.student.studentId}' : '';
+    final muted = context.semantic.textMuted;
+    final semantic = context.semantic;
 
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.all(AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: AppRadius.card,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _focused ? AppColors.primary : AppColors.border),
         ),
         child: Column(
@@ -358,49 +324,84 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    widget.student.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: widget.student.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        if (code.isNotEmpty)
+                          TextSpan(
+                            text: '  $code',
+                            style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w500),
+                          ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (code.isNotEmpty)
-                  Text(code, style: TextStyle(color: context.semantic.textMuted, fontSize: 12)),
-                if (widget.onFeedback != null) ...[
-                  const SizedBox(width: AppSpacing.xs),
+                if (widget.onFeedback != null)
                   IconButton(
-                    icon: const Icon(Icons.rate_review_outlined, size: 18),
+                    icon: const Icon(Icons.rate_review_outlined, size: 16),
                     tooltip: 'Feedback',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                     onPressed: widget.onFeedback,
                   ),
-                ],
+                IconButton(
+                  tooltip: 'Save',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                  padding: EdgeInsets.zero,
+                  onPressed: _saving ? null : _save,
+                  style: IconButton.styleFrom(
+                    backgroundColor: semantic.success.withValues(alpha: 0.12),
+                    foregroundColor: semantic.success,
+                  ),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded, size: 18),
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(child: _StatusButton(label: 'Present', value: 'present', groupValue: _status, onSelect: (v) => setState(() => _status = v))),
-                const SizedBox(width: AppSpacing.xs),
+                const SizedBox(width: 4),
                 Expanded(child: _StatusButton(label: 'Absent', value: 'absent', groupValue: _status, onSelect: (v) => setState(() => _status = v))),
-                const SizedBox(width: AppSpacing.xs),
+                const SizedBox(width: 4),
                 Expanded(child: _StatusButton(label: 'Late', value: 'late', groupValue: _status, onSelect: (v) => setState(() => _status = v))),
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 6),
             TextField(
               controller: _notesController,
-              decoration: const InputDecoration(hintText: 'Notes', isDense: true),
-              onTap: () => setState(() => _focused = true),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(
-                backgroundColor: context.semantic.success,
-                foregroundColor: Colors.white,
+              style: const TextStyle(fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'Notes (optional)',
+                hintStyle: TextStyle(fontSize: 12, color: muted),
+                isDense: true,
+                filled: true,
+                fillColor: semantic.surfaceContainer.withValues(alpha: 0.55),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: semantic.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: semantic.border),
+                ),
               ),
-              child: _saving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save'),
+              onTap: () => setState(() => _focused = true),
             ),
           ],
         ),
@@ -441,9 +442,17 @@ class _StatusButton extends StatelessWidget {
         foregroundColor: selected ? onContainer : scheme.onSurfaceVariant,
         backgroundColor: selected ? container : semantic.surfaceContainer,
         side: BorderSide(color: selected ? accent : semantic.border),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        minimumSize: const Size(0, 30),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

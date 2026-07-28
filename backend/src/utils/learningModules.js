@@ -4,6 +4,7 @@ const LANGUAGE_MODULES = [
   { key: 'words', label: 'Words', category: 'learning', icon: 'spellcheck', audience: 'all' },
   { key: 'sentences', label: 'Sentences', category: 'learning', icon: 'format_quote', audience: 'all' },
   { key: 'listening', label: 'Listening', category: 'learning', icon: 'headphones', audience: 'all' },
+  { key: 'ielts', label: 'IELTS Preparation', category: 'learning', icon: 'school', audience: 'all' },
   { key: 'video', label: 'Video Lessons', category: 'learning', icon: 'play_circle', audience: 'all' },
   { key: 'grammar', label: 'Grammar', category: 'learning', icon: 'menu_book', audience: 'all' },
   { key: 'flashcards', label: 'Flashcards', category: 'learning', icon: 'style', audience: 'all' },
@@ -96,9 +97,20 @@ const defaultIconForSubject = (name = '') => {
 
 const ensureSubjectLearningFields = (subject) => {
   const name = subject.name || 'Subject';
-  const modules = Array.isArray(subject.modules) && subject.modules.length
-    ? subject.modules
+  let modules = Array.isArray(subject.modules) && subject.modules.length
+    ? subject.modules.map((m) => (m.toObject ? m.toObject() : { ...m }))
     : defaultModulesForSubject(name);
+
+  // Merge newly added catalog keys (e.g. ielts) onto existing language subjects.
+  if (inferProfile(name) === 'language') {
+    const keys = new Set(modules.map((m) => m.key));
+    for (const def of LANGUAGE_MODULES) {
+      if (!keys.has(def.key)) {
+        modules = [...modules, { ...def, enabled: true }];
+      }
+    }
+  }
+
   return {
     icon: subject.icon || defaultIconForSubject(name),
     color: subject.color || defaultColorForSubject(name),

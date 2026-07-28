@@ -24,15 +24,26 @@ const formatNotification = (doc) => ({
   createdAt: doc.createdAt,
 });
 
-const formatSettings = (doc) => ({
-  studentId: doc.studentId,
-  channels: doc.channels,
-  events: doc.events,
-  quietHoursStart: doc.quietHoursStart,
-  quietHoursEnd: doc.quietHoursEnd,
-  timezone: doc.timezone,
-  updatedAt: doc.updatedAt,
-});
+const formatSettings = (doc) => {
+  const o = doc && typeof doc.toObject === 'function' ? doc.toObject() : doc || {};
+  return {
+    studentId: String(o.studentId || ''),
+    channels: {
+      push: o.channels?.push !== false,
+      inApp: o.channels?.inApp !== false,
+    },
+    events: {
+      feedback: o.events?.feedback !== false,
+      attendance: o.events?.attendance !== false,
+      payment: o.events?.payment !== false,
+      exam: o.events?.exam !== false,
+    },
+    quietHoursStart: o.quietHoursStart || '22:00',
+    quietHoursEnd: o.quietHoursEnd || '08:00',
+    timezone: o.timezone || 'Asia/Tashkent',
+    updatedAt: o.updatedAt,
+  };
+};
 
 const isQuietHours = (settings, parts = getTashkentParts()) => {
   const start = toMinutes(settings.quietHoursStart || '22:00');
@@ -42,10 +53,34 @@ const isQuietHours = (settings, parts = getTashkentParts()) => {
   return now >= start || now < end;
 };
 
+const eventEnabledKey = (eventType) => {
+  const raw = String(eventType || '');
+  if (raw.startsWith('feedback')) return 'feedback';
+  if (raw.startsWith('attendance')) return 'attendance';
+  if (raw.startsWith('payment')) return 'payment';
+  if (raw.startsWith('exam')) return 'exam';
+  return raw.split('_')[0];
+};
+
 const getParentSettings = async (studentId) => {
   let settings = await ParentNotificationSettings.findOne({ studentId });
   if (!settings) {
-    settings = await ParentNotificationSettings.create({ studentId });
+    try {
+      settings = await ParentNotificationSettings.create({ studentId });
+    } catch (error) {
+      // Race: another request created settings — re-read.
+      if (error?.code === 11000) {
+        settings = await ParentNotificationSettings.findOne({ studentId });
+      } else {
+        throw error;
+      }
+    }
+  }
+  if (!settings) {
+    throw Object.assign(new Error('Could not load notification settings'), {
+      statusCode: 500,
+      code: 'SETTINGS_ERROR',
+    });
   }
   return settings;
 };
@@ -62,9 +97,9 @@ const updateParentSettings = async (studentId, data) => {
         ...(data.timezone ? { timezone: data.timezone } : {}),
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true }
   );
-  return formatSettings(settings.toObject());
+  return formatSettings(settings);
 };
 
 const registerFcmToken = async (studentId, token) => {
@@ -163,8 +198,29 @@ const createInAppNotification = async ({
   eventType,
   data,
   branchId,
+  dedupe = false,
+  date,
 }) => {
+  if (studentId) {
+    const student = await Student.findById(studentId).select('status');
+    if (student && student.status === 'inactive') {
+      return null;
+    }
+  }
+
   const parts = getTashkentParts();
+  const dateKey = date || parts.dateString;
+
+  if (dedupe && studentId) {
+    const existing = await NotificationLog.findOne({
+      studentId,
+      eventType,
+      date: dateKey,
+      channel: 'in_app',
+    });
+    if (existing) return formatNotification(existing.toObject());
+  }
+
   const notification = await NotificationLog.create({
     userId,
     userType,
@@ -173,7 +229,7 @@ const createInAppNotification = async ({
     body,
     eventType,
     channel: 'in_app',
-    date: parts.dateString,
+    date: dateKey,
     data: data || {},
     branchId,
     pushStatus: 'skipped',
@@ -181,9 +237,28 @@ const createInAppNotification = async ({
   return formatNotification(notification.toObject());
 };
 
+const formatMoney = (amount) => {
+  const value = Math.round(Number(amount) || 0);
+  return `${value.toLocaleString('en-US')} UZS`;
+};
+
+const monthLabel = (month, year) => {
+  const names = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  return `${names[Math.max(0, Math.min(11, month - 1))] || month} ${year}`;
+};
+
 const sendParentPush = async ({ student, title, body, eventType, data }) => {
-  const settings = await getParentSettings(student._id);
-  if (!settings.channels?.push || !settings.events?.[eventType.split('_')[0]]) {
+  if (!student || student.status === 'inactive') {
+    return { status: 'skipped', reason: 'inactive' };
+  }
+
+  const settingsDoc = await getParentSettings(student._id);
+  const settings = formatSettings(settingsDoc);
+  const eventKey = eventEnabledKey(eventType);
+  if (!settings.channels.push || !settings.events[eventKey]) {
     return { status: 'skipped', reason: 'disabled' };
   }
   if (isQuietHours(settings)) {
@@ -222,11 +297,16 @@ const sendParentPush = async ({ student, title, body, eventType, data }) => {
 const notifyFeedbackSubmitted = async (feedback) => {
   try {
     const student = await Student.findById(feedback.student?._id || feedback.student);
-    if (!student) return;
+    if (!student || student.status === 'inactive') return;
 
     const className = feedback.className || feedback.classSchedule?.className || 'class';
-    const title = 'New feedback received';
-    const body = `${student.name}: homework ${feedback.homework}%, behavior ${feedback.behavior}% for ${className}`;
+    const homework = feedback.homework ?? 0;
+    const behavior = feedback.behavior ?? 0;
+    const participation = feedback.participation ?? 0;
+    const title = 'Daily feedback';
+    const body =
+      `Daily feedback for ${className}: homework ${homework}%, ` +
+      `behavior ${behavior}%, participation ${participation}%.`;
 
     await createInAppNotification({
       userId: student._id,
@@ -235,20 +315,166 @@ const notifyFeedbackSubmitted = async (feedback) => {
       title,
       body,
       eventType: 'feedback_submitted',
-      data: { feedbackId: String(feedback.id || feedback._id), className },
+      data: {
+        feedbackId: String(feedback.id || feedback._id),
+        className,
+        kind: 'daily_feedback',
+      },
       branchId: student.branchId,
     });
 
     await sendParentPush({
       student,
-      title: 'Class feedback update',
-      body: `${student.name} received new feedback for ${className}`,
+      title: 'Daily feedback update',
+      body: `${student.name} received daily feedback for ${className}`,
       eventType: 'feedback_submitted',
       data: { feedbackId: String(feedback.id || feedback._id) },
     });
   } catch (error) {
     logger.warn(`notifyFeedbackSubmitted failed: ${error.message}`);
   }
+};
+
+const notifyAttendanceMarked = async ({ studentId, status, className, date, branchId }) => {
+  try {
+    const student = await Student.findById(studentId);
+    if (!student || student.status === 'inactive') return;
+
+    const statusLabel = String(status || 'present').replace(/_/g, ' ');
+    const lesson = className || 'class';
+    const title = 'Attendance update';
+    const body = `Attendance: you were marked ${statusLabel} for ${lesson}${date ? ` on ${date}` : ''}.`;
+
+    await createInAppNotification({
+      userId: student._id,
+      userType: 'student',
+      studentId: student._id,
+      title,
+      body,
+      eventType: 'attendance_marked',
+      data: {
+        status,
+        className: lesson,
+        date,
+        kind: 'attendance',
+      },
+      branchId: branchId || student.branchId,
+    });
+
+    await sendParentPush({
+      student,
+      title: 'Attendance update',
+      body: `${student.name} was marked ${statusLabel} for ${lesson}`,
+      eventType: 'attendance_marked',
+      data: { status, className: lesson, date },
+    });
+  } catch (error) {
+    logger.warn(`notifyAttendanceMarked failed: ${error.message}`);
+  }
+};
+
+/**
+ * Send monthly payment reminders to unpaid students.
+ * Days 1–7: once/day (morning). Days 8–10: 3×/day. Skip after full payment.
+ */
+const runPaymentDueReminders = async (forcedSlot = null) => {
+  const parts = getTashkentParts();
+  const [yearStr, monthStr, dayStr] = parts.dateString.split('-');
+  const day = Number(dayStr);
+  const month = Number(monthStr);
+  const year = Number(yearStr);
+  const hour = Number(parts.time.slice(0, 2));
+  const minute = Number(parts.time.slice(3, 5));
+
+  if (day < 1 || day > 10) {
+    return { skipped: true, reason: 'outside_reminder_window' };
+  }
+
+  const slotByHour = {
+    9: 'payment_due_am',
+    14: 'payment_due_mid',
+    19: 'payment_due_pm',
+  };
+
+  let eventType = forcedSlot;
+  if (!eventType) {
+    // Run only in the first 8 minutes of a reminder hour so a 1-minute ticker fires once.
+    if (minute > 7) return { skipped: true, reason: 'outside_slot_minute' };
+    eventType = slotByHour[hour];
+  }
+
+  if (!eventType) return { skipped: true, reason: 'no_slot' };
+
+  if (day <= 7 && eventType !== 'payment_due_am') {
+    return { skipped: true, reason: 'early_month_once_daily' };
+  }
+
+  const { buildDuesByStudent } = require('./paymentService');
+  const students = await Student.find({ status: 'active' }).select('_id name branchId');
+  if (!students.length) return { sent: 0 };
+
+  const duesMap = await buildDuesByStudent({
+    studentIds: students.map((s) => s._id),
+    month,
+    year,
+  });
+
+  let sent = 0;
+  let skippedPaid = 0;
+  let skippedDedup = 0;
+
+  for (const student of students) {
+    const dues = duesMap.get(String(student._id));
+    if (!dues || !dues.courses.length) continue;
+    if (dues.overallStatus === 'paid' || dues.amountRemaining <= 0) {
+      skippedPaid += 1;
+      continue;
+    }
+
+    const amountText = formatMoney(dues.amountRemaining);
+    const period = monthLabel(month, year);
+    const title = 'Monthly payment reminder';
+    const body =
+      `Payment due for ${period}: ${amountText}. ` +
+      `Please pay between the 1st and 10th. ` +
+      `If you don't pay, TechRen App will be locked and you cannot use the system.`;
+
+    const before = await NotificationLog.findOne({
+      studentId: student._id,
+      eventType,
+      date: parts.dateString,
+      channel: 'in_app',
+    });
+    if (before) {
+      skippedDedup += 1;
+      continue;
+    }
+
+    await createInAppNotification({
+      userId: student._id,
+      userType: 'student',
+      studentId: student._id,
+      title,
+      body,
+      eventType,
+      data: {
+        kind: 'payment',
+        month,
+        year,
+        amountRemaining: dues.amountRemaining,
+        courses: dues.courses,
+      },
+      branchId: student.branchId,
+      dedupe: true,
+      date: parts.dateString,
+    });
+    sent += 1;
+  }
+
+  logger.info(
+    `payment due reminders slot=${eventType} day=${day} sent=${sent} skippedPaid=${skippedPaid} dedup=${skippedDedup}`
+  );
+  return { sent, skippedPaid, skippedDedup, eventType, day };
 };
 
 module.exports = {
@@ -261,4 +487,6 @@ module.exports = {
   markAllRead,
   createInAppNotification,
   notifyFeedbackSubmitted,
+  notifyAttendanceMarked,
+  runPaymentDueReminders,
 };

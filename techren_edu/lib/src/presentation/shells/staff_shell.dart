@@ -33,12 +33,6 @@ class FounderDashboardScreen extends ConsumerWidget {
       selectedRoute: '/founder/dashboard',
       items: founderNavItems,
       onDestinationSelected: (i) => context.go(founderNavItems[i].route),
-      actions: [
-        FilledButton(
-          onPressed: () => context.go('/founder/people'),
-          child: const Text('View Students'),
-        ),
-      ],
       body: RoleDashboardBody(dashboardAsync: dashboard),
     );
   }
@@ -104,13 +98,6 @@ class AdminDashboardScreen extends ConsumerWidget {
       selectedRoute: '/admin/dashboard',
       items: adminNavItems,
       onDestinationSelected: (i) => context.go(adminNavItems[i].route),
-      actions: [
-        if (user != null && canAccessStaffRoute(user, '/admin/people', rolePerms))
-          FilledButton(
-            onPressed: () => context.go('/admin/people'),
-            child: const Text('View Students'),
-          ),
-      ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

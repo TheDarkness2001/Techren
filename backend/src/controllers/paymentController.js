@@ -19,6 +19,18 @@ exports.roster = asyncHandler(async (req, res) => {
   } catch (e) { handle(res, e); }
 });
 
+exports.myDues = asyncHandler(async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return sendError(res, 403, 'FORBIDDEN', 'Students only');
+    }
+    const month = Math.min(12, Math.max(1, Number(req.query.month) || new Date().getMonth() + 1));
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const result = await paymentService.getStudentDues(req.user._id, month, year);
+    sendSuccess(res, result);
+  } catch (e) { handle(res, e); }
+});
+
 exports.getOne = asyncHandler(async (req, res) => {
   try {
     const filter = { ...getBranchFilter(req) };

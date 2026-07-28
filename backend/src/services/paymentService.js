@@ -175,32 +175,12 @@ const termFromMonth = (month) => {
 };
 
 /**
- * Monthly student × course payment matrix for staff "accept money" UI.
+ * Build course dues for one or many students for a given month/year.
+ * @returns {Map<string, { courses: object[], overallStatus: string, amountRemaining: number }>}
  */
-const listRoster = async (req) => {
-  const month = Math.min(12, Math.max(1, Number(req.query.month) || new Date().getMonth() + 1));
-  const year = Number(req.query.year) || new Date().getFullYear();
-  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-  const branchFilter = getBranchFilter(req);
+const buildDuesByStudent = async ({ studentIds, month, year, branchFilter = {} }) => {
+  if (!studentIds.length) return new Map();
 
-  const studentFilter = {
-    status: 'active',
-    ...branchFilter,
-  };
-  if (search) {
-    studentFilter.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { studentId: { $regex: search, $options: 'i' } },
-    ];
-  }
-
-  const students = await Student.find(studentFilter).sort({ name: 1 }).limit(200);
-  if (!students.length) {
-    return { items: [], meta: { month, year, total: 0 } };
-  }
-
-  const studentIds = students.map((s) => s._id);
   const groups = await ExamGroup.find({
     students: { $in: studentIds },
     ...branchFilter,
@@ -247,8 +227,9 @@ const listRoster = async (req) => {
     }
   }
 
-  const items = students.map((student) => {
-    const sid = String(student._id);
+  const result = new Map();
+  for (const studentId of studentIds) {
+    const sid = String(studentId);
     const courseMap = coursesByStudent.get(sid) || new Map();
     const courses = [...courseMap.values()].map((course) => {
       const paidKey = `${sid}::${course.subjectName.toLowerCase()}`;
@@ -270,13 +251,80 @@ const listRoster = async (req) => {
 
     const overallStatus =
       courses.length > 0 && courses.every((c) => c.status === 'paid') ? 'paid' : 'unpaid';
+    const amountRemaining = courses.reduce((sum, course) => {
+      if (course.status === 'paid') return sum;
+      return sum + Math.max(0, Number(course.amountDue || 0) - Number(course.amountPaid || 0));
+    }, 0);
 
+    result.set(sid, { courses, overallStatus, amountRemaining });
+  }
+
+  return result;
+};
+
+const getStudentDues = async (studentId, month, year) => {
+  const duesMap = await buildDuesByStudent({
+    studentIds: [studentId],
+    month,
+    year,
+  });
+  const dues = duesMap.get(String(studentId)) || {
+    courses: [],
+    overallStatus: 'paid',
+    amountRemaining: 0,
+  };
+  return {
+    month,
+    year,
+    courses: dues.courses,
+    overallStatus: dues.overallStatus,
+    amountRemaining: dues.amountRemaining,
+    isPaid: dues.overallStatus === 'paid' || dues.amountRemaining <= 0,
+  };
+};
+
+/**
+ * Monthly student × course payment matrix for staff "accept money" UI.
+ */
+const listRoster = async (req) => {
+  const month = Math.min(12, Math.max(1, Number(req.query.month) || new Date().getMonth() + 1));
+  const year = Number(req.query.year) || new Date().getFullYear();
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const branchFilter = getBranchFilter(req);
+
+  const studentFilter = {
+    status: 'active',
+    ...branchFilter,
+  };
+  if (search) {
+    studentFilter.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { studentId: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const students = await Student.find(studentFilter).sort({ name: 1 }).limit(200);
+  if (!students.length) {
+    return { items: [], meta: { month, year, total: 0 } };
+  }
+
+  const studentIds = students.map((s) => s._id);
+  const duesMap = await buildDuesByStudent({ studentIds, month, year, branchFilter });
+
+  const items = students.map((student) => {
+    const dues = duesMap.get(String(student._id)) || {
+      courses: [],
+      overallStatus: 'unpaid',
+      amountRemaining: 0,
+    };
     return {
       id: student._id,
       studentCode: student.studentId,
       name: student.name,
-      courses,
-      overallStatus,
+      courses: dues.courses,
+      overallStatus: dues.overallStatus,
+      amountRemaining: dues.amountRemaining,
     };
   });
 
@@ -298,4 +346,16 @@ const listRoster = async (req) => {
   };
 };
 
-module.exports = { list, getOne, create, update, remove, listRoster, format, generateReceipt, termFromMonth };
+module.exports = {
+  list,
+  getOne,
+  create,
+  update,
+  remove,
+  listRoster,
+  getStudentDues,
+  buildDuesByStudent,
+  format,
+  generateReceipt,
+  termFromMonth,
+};

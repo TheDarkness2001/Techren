@@ -12,6 +12,8 @@ const studentSchema = new mongoose.Schema(
     parentPhone: { type: String, trim: true },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     examEligibility: { type: Boolean, default: true },
+    /** Founder-gated premium IELTS Preparation module under English. */
+    ieltsAccess: { type: Boolean, default: false },
     branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     profileImage: { type: String },
     fcmTokens: [{ type: String }],
@@ -60,6 +62,7 @@ studentSchema.methods.toPublicJSON = function toPublicJSON() {
     parentPhone: this.parentPhone,
     status: this.status,
     examEligibility: this.examEligibility,
+    ieltsAccess: this.ieltsAccess === true,
     branchId: this.branchId,
     profileImage: this.profileImage,
     userType: 'student',

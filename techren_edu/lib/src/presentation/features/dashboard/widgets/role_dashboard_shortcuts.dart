@@ -237,11 +237,9 @@ String dashboardRoleLabel(String role) {
 
 
 String dashboardPrefixForRole(String role) {
-
   if (role == 'founder') return '/founder';
-
+  if (role == 'teacher') return '/teacher';
   return '/admin';
-
 }
 
 

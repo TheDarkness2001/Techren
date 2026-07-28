@@ -144,7 +144,7 @@ class DashboardStatRow extends StatelessWidget {
   }
 }
 
-/// Quick-action grid — replaces plain [ActionChip] wraps on the dashboard.
+/// Quick-action grid — medium tiles (not giant squares, not flat chips).
 class QuickActionGrid extends StatelessWidget {
   const QuickActionGrid({
     super.key,
@@ -157,40 +157,30 @@ class QuickActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (compact) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final tileWidth = constraints.maxWidth >= 900 ? 118.0 : 104.0;
-          return Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              for (final action in actions)
-                SizedBox(
-                  width: tileWidth,
-                  child: _CompactQuickActionTile(action: action),
-                ),
-            ],
-          );
-        },
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width >= 700 ? 4 : width >= 420 ? 3 : 2;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisSpacing: AppSpacing.sm,
-            crossAxisSpacing: AppSpacing.sm,
-            childAspectRatio: 1.35,
-          ),
-          itemCount: actions.length,
-          itemBuilder: (context, index) => _QuickActionTile(action: actions[index]),
+        final columns = width >= 1100
+            ? 4
+            : width >= 800
+                ? 3
+                : width >= 480
+                    ? 2
+                    : 1;
+        const gap = 10.0;
+        final tileWidth = (width - gap * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final action in actions)
+              SizedBox(
+                width: tileWidth,
+                height: compact ? 72 : 80,
+                child: _QuickActionTile(action: action),
+              ),
+          ],
         );
       },
     );
@@ -203,74 +193,6 @@ class QuickAction {
   final String label;
   final IconData icon;
   final String route;
-}
-
-class _CompactQuickActionTile extends StatefulWidget {
-  const _CompactQuickActionTile({required this.action});
-
-  final QuickAction action;
-
-  @override
-  State<_CompactQuickActionTile> createState() => _CompactQuickActionTileState();
-}
-
-class _CompactQuickActionTileState extends State<_CompactQuickActionTile> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final muted = context.semantic.textMuted;
-    final border = context.semantic.border;
-
-    return Semantics(
-      label: widget.action.label,
-      button: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          curve: AppCurves.standard,
-          height: 88,
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: AppRadius.card,
-            border: Border.all(color: _hovered ? scheme.primary.withValues(alpha: 0.25) : border),
-            boxShadow: _hovered ? AppShadows.cardHover : AppShadows.card,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.go(widget.action.route),
-              borderRadius: AppRadius.card,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(widget.action.icon, color: scheme.primary, size: 22),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      widget.action.label,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: muted,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
-                          ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _QuickActionTile extends StatefulWidget {
@@ -296,35 +218,47 @@ class _QuickActionTileState extends State<_QuickActionTile> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          curve: AppCurves.standard,
-          decoration: BoxDecoration(
-            color: _hovered ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surface,
-            borderRadius: AppRadius.card,
-            border: Border.all(color: _hovered ? scheme.primary.withValues(alpha: 0.3) : border),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.go(widget.action.route),
-              borderRadius: AppRadius.card,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(widget.action.icon, color: scheme.primary, size: 22),
-                    const Spacer(),
-                    Text(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.go(widget.action.route),
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: AppDurations.fast,
+              curve: AppCurves.standard,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: _hovered ? scheme.primaryContainer.withValues(alpha: 0.45) : scheme.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _hovered ? scheme.primary.withValues(alpha: 0.35) : border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(widget.action.icon, color: scheme.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
                       widget.action.label,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurface),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: scheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -341,17 +275,20 @@ class DashboardWelcomePanel extends StatelessWidget {
     required this.userName,
     required this.roleLabel,
     required this.prefix,
+    this.role = 'admin',
   });
 
   final String userName;
   final String roleLabel;
   final String prefix;
+  final String role;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final muted = context.semantic.textMuted;
     final border = context.semantic.border;
+    final cards = _cardsForRole(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -380,26 +317,6 @@ class DashboardWelcomePanel extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 720;
-              final cards = [
-                _OverviewMiniCard(
-                  title: "Today's Overview",
-                  description: "Check today's attendance, upcoming exams, and pending payments.",
-                  icon: Icons.calendar_today_outlined,
-                  onTap: () => context.go('$prefix/attendance'),
-                ),
-                _OverviewMiniCard(
-                  title: 'Reports',
-                  description: 'Generate detailed reports on student performance, payments, and attendance.',
-                  icon: Icons.bar_chart_outlined,
-                  onTap: () => context.go('$prefix/revenue-reports'),
-                ),
-                _OverviewMiniCard(
-                  title: 'Settings',
-                  description: 'Configure system preferences and manage user permissions.',
-                  icon: Icons.settings_outlined,
-                  onTap: () => context.go('$prefix/settings'),
-                ),
-              ];
               if (wide) {
                 return Row(
                   children: [
@@ -423,6 +340,52 @@ class DashboardWelcomePanel extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<_OverviewMiniCard> _cardsForRole(BuildContext context) {
+    if (role == 'teacher') {
+      return [
+        _OverviewMiniCard(
+          title: 'My Classes',
+          description: 'Open your timetable and see today’s lessons.',
+          icon: Icons.class_outlined,
+          onTap: () => context.go('/teacher/classes'),
+        ),
+        _OverviewMiniCard(
+          title: 'Attendance',
+          description: 'Mark attendance and leave feedback for your students.',
+          icon: Icons.fact_check_outlined,
+          onTap: () => context.go('/teacher/attendance'),
+        ),
+        _OverviewMiniCard(
+          title: 'Progress',
+          description: 'Review student progress by class and topic.',
+          icon: Icons.insights_outlined,
+          onTap: () => context.go('/teacher/progress'),
+        ),
+      ];
+    }
+
+    return [
+      _OverviewMiniCard(
+        title: "Today's Overview",
+        description: "Check today's attendance, upcoming exams, and pending payments.",
+        icon: Icons.calendar_today_outlined,
+        onTap: () => context.go('$prefix/attendance'),
+      ),
+      _OverviewMiniCard(
+        title: 'Reports',
+        description: 'Generate detailed reports on student performance, payments, and attendance.',
+        icon: Icons.bar_chart_outlined,
+        onTap: () => context.go('$prefix/revenue-reports'),
+      ),
+      _OverviewMiniCard(
+        title: 'Settings',
+        description: 'Configure system preferences and manage user permissions.',
+        icon: Icons.settings_outlined,
+        onTap: () => context.go('$prefix/settings'),
+      ),
+    ];
   }
 }
 

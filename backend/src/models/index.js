@@ -43,4 +43,9 @@ module.exports = {
   Parent: require('./Parent'),
   Wallet: require('./Wallet'),
   WalletTransaction: require('./WalletTransaction'),
+  IeltsExam: require('./IeltsExam'),
+  IeltsSection: require('./IeltsSection'),
+  IeltsQuestion: require('./IeltsQuestion'),
+  IeltsAttempt: require('./IeltsAttempt'),
+  IeltsWritingReview: require('./IeltsWritingReview'),
 };

@@ -15,6 +15,7 @@ import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
 import 'dashboard_header.dart';
+import 'dashboard_portfolio_panel.dart';
 import 'dashboard_widgets.dart';
 import 'role_dashboard_shortcuts.dart';
 import 'student_home_panels.dart';
@@ -48,12 +49,17 @@ class RoleDashboardBody extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               RoleDashboardShortcuts(role: data.role),
             ],
+            if (_isStaffRole(data.role)) ...[
+              const SizedBox(height: AppSpacing.xl),
+              DashboardPortfolioPanel(roleLabel: dashboardRoleLabel(data.role)),
+            ],
             if (_showWelcomePanel(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),
               DashboardWelcomePanel(
                 userName: _displayName(ref, data),
                 roleLabel: dashboardRoleLabel(data.role),
                 prefix: dashboardPrefixForRole(data.role),
+                role: data.role,
               ),
             ],
             if (data.recentStudents.isNotEmpty) ...[
@@ -103,8 +109,15 @@ class RoleDashboardBody extends ConsumerWidget {
 
 
 
-  bool _showWelcomePanel(String role) =>
-      role == 'founder' || role == 'admin' || role == 'manager' || role == 'sales' || role == 'receptionist';
+  bool _isStaffRole(String role) =>
+      role == 'founder' ||
+      role == 'admin' ||
+      role == 'manager' ||
+      role == 'sales' ||
+      role == 'receptionist' ||
+      role == 'teacher';
+
+  bool _showWelcomePanel(String role) => _isStaffRole(role);
 
 
 
@@ -131,33 +144,6 @@ class RoleDashboardBody extends ConsumerWidget {
 
     switch (data.role) {
       case 'founder':
-        final inactiveBranches = data.stat('branches') - data.stat('activeBranches');
-        return [
-          DashboardStatCard(
-            label: 'Total Students',
-            value: '${data.stat('students')}',
-            icon: Icons.school_outlined,
-            accentColor: AppColors.primary,
-          ),
-          DashboardStatCard(
-            label: 'Total Teachers',
-            value: '${data.stat('teachers')}',
-            icon: Icons.groups_outlined,
-            accentColor: const Color(0xFF38BDF8),
-          ),
-          DashboardStatCard(
-            label: 'Inactive Branches',
-            value: '$inactiveBranches',
-            icon: Icons.apartment_outlined,
-            accentColor: semantic.danger,
-          ),
-          DashboardStatCard(
-            label: 'Active Branches',
-            value: '${data.stat('activeBranches')}',
-            icon: Icons.check_circle_outline,
-            accentColor: semantic.success,
-          ),
-        ];
       case 'admin':
       case 'manager':
       case 'sales':
@@ -176,9 +162,9 @@ class RoleDashboardBody extends ConsumerWidget {
             accentColor: const Color(0xFF38BDF8),
           ),
           DashboardStatCard(
-            label: 'Inactive Students',
-            value: '${data.stat('inactiveStudents')}',
-            icon: Icons.warning_amber_outlined,
+            label: 'Unpaid Students',
+            value: '${data.stat('unpaidStudents')}',
+            icon: Icons.payments_outlined,
             accentColor: semantic.danger,
           ),
           DashboardStatCard(

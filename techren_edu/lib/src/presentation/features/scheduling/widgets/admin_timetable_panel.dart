@@ -81,6 +81,13 @@ class AdminTimetablePanel extends ConsumerStatefulWidget {
 class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
   String? _selectedTeacherId;
   bool _showWeekGrid = false;
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   List<TimetableEntry> _lessonsForTeacher(TimetableData data) {
     final lessons = <TimetableEntry>[];
@@ -93,6 +100,32 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
       return a.startTime.compareTo(b.startTime);
     });
     return lessons;
+  }
+
+  void _ensureTeacherSelection(List<Person> teachers, String? currentUserId) {
+    final selected = _selectedTeacherId;
+    if (selected != null && teachers.any((t) => t.id == selected)) return;
+
+    final preferred = teachers.where((t) => t.id == currentUserId).firstOrNull;
+    final nextId = preferred?.id ?? teachers.first.id;
+    if (_selectedTeacherId == nextId) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _selectedTeacherId = nextId);
+    });
+  }
+
+  void _toggleWeekGrid(bool showGrid) {
+    setState(() => _showWeekGrid = showGrid);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -116,15 +149,10 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
         }
 
         final currentUserId = ref.watch(authProvider).user?.id;
-        if (_selectedTeacherId == null) {
-          final preferred = teachers.where((t) => t.id == currentUserId).firstOrNull;
-          _selectedTeacherId = preferred?.id ?? teachers.first.id;
-        } else if (!teachers.any((t) => t.id == _selectedTeacherId)) {
-          _selectedTeacherId = teachers.first.id;
-        }
+        _ensureTeacherSelection(teachers, currentUserId);
 
         final selected = teachers.firstWhere(
-          (t) => t.id == _selectedTeacherId,
+          (t) => t.id == (_selectedTeacherId ?? teachers.first.id),
           orElse: () => teachers.first,
         );
         final filtered = filterTimetableForTeacher(
@@ -135,6 +163,7 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
         final lessons = _lessonsForTeacher(filtered);
 
         return ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.only(bottom: AppSpacing.lg),
           children: [
             _TeacherFilterBar(
@@ -142,11 +171,11 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
               selectedId: selected.id,
               onChanged: (id) => setState(() => _selectedTeacherId = id),
               showWeekGrid: _showWeekGrid,
-              onToggleWeekGrid: (value) => setState(() => _showWeekGrid = value),
+              onToggleWeekGrid: _toggleWeekGrid,
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              "${selected.name}'s lessons",
+              _showWeekGrid ? "${selected.name}'s week grid" : "${selected.name}'s lessons",
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
@@ -160,16 +189,11 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.semantic.textMuted),
             ),
             const SizedBox(height: AppSpacing.md),
-            _TeacherLessonsTable(lessons: lessons),
-            if (_showWeekGrid) ...[
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                'Weekly grid',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TimetableWeekGrid(data: filtered),
-            ],
+            // Toggle replaces the view (list ↔ grid), not appends below.
+            if (_showWeekGrid)
+              TimetableWeekGrid(data: filtered)
+            else
+              _TeacherLessonsTable(lessons: lessons),
           ],
         );
       },
@@ -243,15 +267,13 @@ class _TeacherFilterBar extends StatelessWidget {
             ],
           );
 
-          final toggle = FilterChip(
-            avatar: Icon(
-              showWeekGrid ? Icons.grid_on_outlined : Icons.table_rows_outlined,
+          final toggle = FilledButton.tonalIcon(
+            onPressed: () => onToggleWeekGrid(!showWeekGrid),
+            icon: Icon(
+              showWeekGrid ? Icons.table_rows_outlined : Icons.grid_on_outlined,
               size: 18,
-              color: showWeekGrid ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
             ),
-            label: Text(showWeekGrid ? 'Hide week grid' : 'Show week grid'),
-            selected: showWeekGrid,
-            onSelected: onToggleWeekGrid,
+            label: Text(showWeekGrid ? 'Show list' : 'Show week grid'),
           );
 
           if (stacked) {

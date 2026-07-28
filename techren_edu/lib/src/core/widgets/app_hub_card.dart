@@ -111,10 +111,14 @@ class _AppHubCardState extends State<AppHubCard> {
       curve: AppCurves.standard,
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: widget.emphasized
+            ? accent.withValues(alpha: 0.12)
+            : scheme.surface,
         borderRadius: AppRadius.card,
         border: Border.all(
-          color: _hovered && enabled ? accent.withValues(alpha: 0.35) : semantic.border,
+          color: widget.emphasized
+              ? accent.withValues(alpha: 0.45)
+              : (_hovered && enabled ? accent.withValues(alpha: 0.35) : semantic.border),
         ),
         boxShadow: _hovered && enabled
             ? [BoxShadow(color: accent.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 3))]
@@ -142,9 +146,19 @@ class _AppHubCardState extends State<AppHubCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.title, style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(height: AppSpacing.micro),
-                        Text(widget.subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
+                        Text(
+                          widget.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+                        ),
                         if (widget.progressPercent != null && widget.icon == null) ...[
                           const SizedBox(height: AppSpacing.sm),
                           ClipRRect(
@@ -327,9 +341,19 @@ class _AppHubMediaCardState extends State<AppHubMediaCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.title, style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(height: AppSpacing.micro),
-                        Text(widget.subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
+                        Text(
+                          widget.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+                        ),
                         const SizedBox(height: AppSpacing.sm),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -394,6 +418,7 @@ class LeaderboardHubCard extends StatelessWidget {
       subtitle: subtitle,
       accentColor: accent,
       leadingLabel: '#$rank',
+      emphasized: highlighted,
       trailing: Text(
         trailing,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(

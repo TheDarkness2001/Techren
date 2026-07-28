@@ -9,13 +9,56 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
+import '../../../../domain/entities/paginated_result.dart';
+import '../../../../domain/entities/person.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../../domain/entities/paginated_result.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/scheduling_provider.dart';
 import '../widgets/admin_timetable_panel.dart';
 import '../widgets/scheduling_widgets.dart';
+
+/// Active students available for a group:
+/// - exclude inactive students (unless already in [editingGroupId])
+/// - exclude students already assigned to another group
+List<Person> studentsAvailableForGroup({
+  required List<Person> students,
+  required List<ExamGroup> groups,
+  String? editingGroupId,
+  List<ExamGroupMember> currentMembers = const [],
+}) {
+  final takenElsewhere = <String>{};
+  for (final group in groups) {
+    if (editingGroupId != null && group.id == editingGroupId) continue;
+    for (final member in group.students) {
+      takenElsewhere.add(member.id);
+    }
+  }
+
+  final currentIds = {for (final member in currentMembers) member.id};
+  final byId = <String, Person>{
+    for (final student in students.where((s) => s.isActive)) student.id: student,
+  };
+
+  for (final member in currentMembers) {
+    byId.putIfAbsent(
+      member.id,
+      () => Person(
+        id: member.id,
+        name: member.name,
+        displayId: member.studentCode,
+        profileImage: member.profileImage,
+        status: 'active',
+        userType: 'student',
+      ),
+    );
+  }
+
+  return byId.values
+      .where((student) => currentIds.contains(student.id) || !takenElsewhere.contains(student.id))
+      .toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+}
 
 /// Groups management (sidebar "Groups") — create/list class groups.
 class GroupsHubScreen extends ConsumerStatefulWidget {
@@ -113,13 +156,17 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
   Future<void> _showCreateUnified(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    List teachers;
-    List students;
+    List<Person> teachers;
+    List<Person> students;
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 50)).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 100)).future);
-      teachers = teachersResult.items;
-      students = studentsResult.items;
+      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
+      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
+      final groups = await ref.read(examGroupsProvider.future);
+      teachers = teachersResult.items.where((t) => t.isActive).toList();
+      students = studentsAvailableForGroup(
+        students: studentsResult.items,
+        groups: groups,
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
       return;
@@ -133,7 +180,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
     final subjectController = TextEditingController();
     final groupController = TextEditingController();
-    String? teacherId = teachers.first.id as String;
+    String? teacherId = teachers.first.id;
     final startController = TextEditingController(text: '10:00');
     final endController = TextEditingController(text: '11:30');
     final selectedDays = <String>{'Mon', 'Wed', 'Fri'};
@@ -153,7 +200,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   value: teacherId,
                   decoration: const InputDecoration(labelText: 'Teacher'),
                   items: teachers
-                      .map((t) => DropdownMenuItem(value: t.id as String, child: Text(t.name as String)))
+                      .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
@@ -177,17 +224,22 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   }).toList(),
                 ),
                 Text('Students', style: Theme.of(context).textTheme.titleSmall),
+                if (students.isEmpty)
+                  Text(
+                    'No available students. Only active students who are not already in a group can be added.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 for (final s in students)
                   CheckboxListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: selectedStudentIds.contains(s.id),
-                    title: Text(s.name as String),
+                    title: Text(s.name),
                     onChanged: (v) => setDialogState(() {
                       if (v == true) {
-                        selectedStudentIds.add(s.id as String);
+                        selectedStudentIds.add(s.id);
                       } else {
-                        selectedStudentIds.remove(s.id as String);
+                        selectedStudentIds.remove(s.id);
                       }
                     }),
                   ),
@@ -235,13 +287,19 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
   Future<void> _showEditGroup(BuildContext context, UnifiedGroupView view) async {
     final messenger = ScaffoldMessenger.of(context);
-    List teachers;
-    List students;
+    List<Person> teachers;
+    List<Person> students;
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 50)).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 100)).future);
-      teachers = teachersResult.items;
-      students = studentsResult.items;
+      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
+      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
+      final groups = await ref.read(examGroupsProvider.future);
+      teachers = teachersResult.items.where((t) => t.isActive).toList();
+      students = studentsAvailableForGroup(
+        students: studentsResult.items,
+        groups: groups,
+        editingGroupId: view.group.id,
+        currentMembers: view.group.students,
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
       return;
@@ -271,9 +329,9 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     };
     if (selectedDays.isEmpty) selectedDays.addAll(['Mon', 'Wed', 'Fri']);
 
-    String? teacherId = view.schedule?.teacherId ?? teachers.first.id as String;
+    String? teacherId = view.schedule?.teacherId ?? teachers.first.id;
     if (!teachers.any((t) => t.id == teacherId)) {
-      teacherId = teachers.first.id as String;
+      teacherId = teachers.first.id;
     }
     final selectedStudentIds = <String>{for (final s in view.group.students) s.id};
 
@@ -290,7 +348,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   value: teacherId,
                   decoration: const InputDecoration(labelText: 'Teacher'),
                   items: teachers
-                      .map((t) => DropdownMenuItem(value: t.id as String, child: Text(t.name as String)))
+                      .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
@@ -314,17 +372,22 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   }).toList(),
                 ),
                 Text('Students', style: Theme.of(context).textTheme.titleSmall),
+                if (students.isEmpty)
+                  Text(
+                    'No available students. Only active students who are not already in another group can be added.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 for (final s in students)
                   CheckboxListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: selectedStudentIds.contains(s.id),
-                    title: Text(s.name as String),
+                    title: Text(s.name),
                     onChanged: (v) => setDialogState(() {
                       if (v == true) {
-                        selectedStudentIds.add(s.id as String);
+                        selectedStudentIds.add(s.id);
                       } else {
-                        selectedStudentIds.remove(s.id as String);
+                        selectedStudentIds.remove(s.id);
                       }
                     }),
                   ),
