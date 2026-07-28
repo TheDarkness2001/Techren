@@ -39,7 +39,7 @@ body {
   background: var(--bg);
   font-family: var(--font-body), system-ui, sans-serif;
   overflow-x: hidden;
-  cursor: none;
+  cursor: default;
 }
 
 body.is-touch {
@@ -52,13 +52,17 @@ body.is-touch {
 }
 
 a,
-button {
-  cursor: none;
+button,
+.magnetic,
+.cursor-grow,
+summary {
+  cursor: pointer;
 }
 
-body.is-touch a,
-body.is-touch button {
-  cursor: pointer;
+a:active,
+button:active,
+.magnetic:active {
+  cursor: grabbing;
 }
 
 .noise {
@@ -345,19 +349,80 @@ body.is-touch button {
     cursor: auto;
   }
 
-  .custom-cursor,
-  .custom-cursor-ring {
-    display: none !important;
-  }
-
   .light-rays {
     animation: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .light-rays,
-  .particle {
-    animation: none !important;
+@keyframes programmer-glow {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: translateY(0);
+    filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.35));
   }
+  50% {
+    opacity: 1;
+    transform: translateY(-8px);
+    filter: drop-shadow(0 0 22px rgba(108, 99, 255, 0.55));
+  }
+}
+
+@keyframes programmer-shine {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.programmer-cta {
+  background: linear-gradient(120deg, #ffffff 8%, #8b84ff 45%, #00d4ff 92%);
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    programmer-glow 2.8s ease-in-out infinite,
+    programmer-shine 5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .programmer-cta {
+    animation: none;
+    opacity: 1;
+    color: #fff;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+  }
+}
+
+@keyframes course-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.course-reveal {
+  animation: course-reveal 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-reveal {
+    animation: none;
+  }
+}
+
+html.site-loading,
+html.site-loading body {
+  overflow: hidden;
 }

@@ -1,12 +1,13 @@
 import { CinematicLanding } from "@/components/cinematic/CinematicLanding";
-import { CustomCursor } from "@/components/cinematic/CustomCursor";
+import { SiteLoader } from "@/components/cinematic/SiteLoader";
 import { SmoothScroll } from "@/components/cinematic/SmoothScroll";
 
 export default function HomePage() {
   return (
-    <SmoothScroll>
-      <CustomCursor />
-      <CinematicLanding />
-    </SmoothScroll>
+    <SiteLoader>
+      <SmoothScroll>
+        <CinematicLanding />
+      </SmoothScroll>
+    </SiteLoader>
   );
 }
