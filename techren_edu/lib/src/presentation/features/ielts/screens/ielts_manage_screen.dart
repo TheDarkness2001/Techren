@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -9,9 +10,14 @@ import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 
 class IeltsManageScreen extends ConsumerStatefulWidget {
-  const IeltsManageScreen({super.key, required this.subjectId});
+  const IeltsManageScreen({
+    super.key,
+    required this.subjectId,
+    this.routePrefix = '/admin',
+  });
 
   final String subjectId;
+  final String routePrefix;
 
   @override
   ConsumerState<IeltsManageScreen> createState() => _IeltsManageScreenState();
@@ -125,6 +131,13 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                 trailing: Wrap(
                   spacing: 4,
                   children: [
+                    IconButton(
+                      tooltip: 'Edit content',
+                      onPressed: () => context.go(
+                        '${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage/${exam.id}',
+                      ),
+                      icon: const Icon(Icons.edit_note),
+                    ),
                     IconButton(
                       tooltip: exam.published ? 'Unpublish' : 'Publish',
                       onPressed: () => _togglePublish(exam),

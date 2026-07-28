@@ -157,6 +157,16 @@ exports.streamSectionAudio = asyncHandler(async (req, res) => {
   }
 });
 
+exports.signedSectionAudio = asyncHandler(async (req, res) => {
+  try {
+    await ieltsExamService.resolveAudioPath(req.params.id);
+    const token = ieltsExamService.createAudioAccessToken(req.user._id, req.params.id);
+    sendSuccess(res, { url: `/api/v1/ielts/sections/${req.params.id}/audio?token=${token}` });
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 // —— Attempts ——
 exports.startAttempt = asyncHandler(async (req, res) => {
   try {

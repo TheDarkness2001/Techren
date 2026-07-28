@@ -1,9 +1,12 @@
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
+const config = require('../config');
 const IeltsExam = require('../models/IeltsExam');
 const IeltsSection = require('../models/IeltsSection');
 const IeltsQuestion = require('../models/IeltsQuestion');
 const { getUploadsRoot } = require('../config/paths');
+const recycleBinService = require('./recycleBinService');
 
 const notFound = (msg = 'Not found') =>
   Object.assign(new Error(msg), { statusCode: 404, code: 'NOT_FOUND' });
@@ -72,17 +75,18 @@ const updateExam = async (id, body) => {
 const removeExam = async (id, deletedBy) => {
   const exam = await IeltsExam.findById(id);
   if (!exam) throw notFound('Exam not found');
-  exam.isDeleted = true;
-  exam.deletedAt = new Date();
-  exam.deletedBy = deletedBy ? String(deletedBy) : null;
-  await exam.save();
+  const by = deletedBy ? String(deletedBy) : 'staff';
+  await recycleBinService.softDelete('ieltsexams', id, {
+    deletedBy: by,
+    moduleType: 'ielts',
+  });
   await IeltsSection.updateMany(
     { examId: id },
-    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: exam.deletedBy } }
+    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: by } }
   );
   await IeltsQuestion.updateMany(
     { examId: id },
-    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: exam.deletedBy } }
+    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: by } }
   );
   return { id, deleted: true };
 };
@@ -187,6 +191,17 @@ const resolveAudioPath = async (sectionId) => {
   return { section, filePath };
 };
 
+const createAudioAccessToken = (userId, sectionId) =>
+  jwt.sign({ id: userId, sectionId, scope: 'ielts-audio' }, config.jwt.secret, { expiresIn: '30m' });
+
+const verifyAudioAccessToken = (token, sectionId) => {
+  const decoded = jwt.verify(token, config.jwt.secret);
+  if (decoded.scope !== 'ielts-audio' || String(decoded.sectionId) !== String(sectionId)) {
+    throw new Error('Invalid audio token');
+  }
+  return decoded;
+};
+
 module.exports = {
   listExams,
   getExam,
@@ -201,4 +216,6 @@ module.exports = {
   removeQuestion,
   formatExamBundle,
   resolveAudioPath,
+  createAudioAccessToken,
+  verifyAudioAccessToken,
 };

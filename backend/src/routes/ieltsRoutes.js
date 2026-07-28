@@ -7,8 +7,28 @@ const { upload } = require('../middleware/ieltsAudioUpload');
 const validate = require('../middleware/validate');
 const { objectId } = require('../validators/commonValidators');
 const { body } = require('express-validator');
+const { sendError } = require('../utils/apiResponse');
+const ieltsExamService = require('../services/ieltsExamService');
 
 const router = express.Router();
+
+const streamAuth = async (req, res, next) => {
+  try {
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      return protect(req, res, () => requireIeltsAccess(req, res, next));
+    }
+    const token = req.query.token;
+    if (!token) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required for audio stream');
+    }
+    ieltsExamService.verifyAudioAccessToken(token, req.params.id);
+    next();
+  } catch (error) {
+    return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or expired audio token');
+  }
+};
+
+router.get('/sections/:id/audio', streamAuth, objectId('id'), validate, controller.streamSectionAudio);
 
 router.use(protect);
 
@@ -34,7 +54,7 @@ router.patch(
 router.get('/exams', requireIeltsAccess, controller.listExams);
 router.get('/exams/:id', requireIeltsAccess, objectId('id'), validate, controller.getExam);
 
-// Staff CMS — any staff (founder/admin/teacher); access grant stays founder-only
+// Staff CMS
 router.post('/exams', requireStaff, controller.createExam);
 router.put('/exams/:id', requireStaff, objectId('id'), validate, controller.updateExam);
 router.delete('/exams/:id', requireStaff, objectId('id'), validate, controller.removeExam);
@@ -56,7 +76,7 @@ router.put(
   controller.updateSection
 );
 router.delete('/sections/:id', requireStaff, objectId('id'), validate, controller.removeSection);
-router.get('/sections/:id/audio', requireIeltsAccess, objectId('id'), validate, controller.streamSectionAudio);
+router.get('/sections/:id/signed-url', requireIeltsAccess, objectId('id'), validate, controller.signedSectionAudio);
 
 router.post(
   '/sections/:sectionId/questions',

@@ -10,6 +10,7 @@ import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
+import '../widgets/ielts_audio_once_player.dart';
 
 class IeltsExamPlayerScreen extends ConsumerStatefulWidget {
   const IeltsExamPlayerScreen({
@@ -467,9 +468,13 @@ class _ObjectivePane extends StatelessWidget {
                 Text(section.instructions, style: TextStyle(color: muted)),
                 const SizedBox(height: 8),
                 if (section.hasAudio)
-                  _AudioOnceControl(played: audioPlayed, onPlay: onAudioPlayed)
+                  IeltsAudioOncePlayer(
+                    sectionId: section.id,
+                    alreadyPlayed: audioPlayed,
+                    onPlayed: onAudioPlayed,
+                  )
                 else
-                  Text('Audio sample may be text-only for this demo.', style: TextStyle(color: muted)),
+                  Text('No audio uploaded for this section.', style: TextStyle(color: muted)),
                 const SizedBox(height: 16),
               ],
               Row(
@@ -515,40 +520,6 @@ class _ObjectivePane extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AudioOnceControl extends StatelessWidget {
-  const _AudioOnceControl({required this.played, required this.onPlay});
-  final bool played;
-  final VoidCallback onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.headphones, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              played
-                  ? 'Audio marked as played (single play).'
-                  : 'Tap to mark audio as played. In production, seeking back is disabled after finish.',
-            ),
-          ),
-          FilledButton.tonal(
-            onPressed: played ? null : onPlay,
-            child: Text(played ? 'Played' : 'Play once'),
-          ),
-        ],
-      ),
     );
   }
 }

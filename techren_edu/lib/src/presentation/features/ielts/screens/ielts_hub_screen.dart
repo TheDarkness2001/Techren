@@ -22,7 +22,9 @@ class IeltsHubScreen extends ConsumerWidget {
   final bool isStudent;
   final String routePrefix;
 
-  String get _base => '$routePrefix/learn/$subjectId/ielts';
+  String get _base => isStudent
+      ? '$routePrefix/learn/$subjectId/ielts'
+      : '$routePrefix/learning/$subjectId/ielts';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,6 +71,8 @@ class IeltsHubScreen extends ConsumerWidget {
       if (!isStudent) ...[
         _HubTile('Manage Exams', Icons.settings_outlined, '$_base/manage', 'Create & publish'),
         _HubTile('Writing Review', Icons.rate_review_outlined, '$_base/writing-review', 'Score submissions'),
+        if (user?.isFounder == true)
+          _HubTile('IELTS Access', Icons.lock_open_outlined, '$_base/access', 'Founder unlock/lock'),
       ],
     ];
 
@@ -230,9 +234,14 @@ class IeltsExamListScreen extends ConsumerWidget {
                   '${exam.published ? '' : ' · draft'}',
                 ),
                 trailing: const Icon(Icons.play_arrow),
-                onTap: isStudent
-                    ? () => context.go('$routePrefix/learn/$subjectId/ielts/play/${exam.id}')
-                    : () => context.go('$routePrefix/learn/$subjectId/ielts/manage/${exam.id}'),
+                onTap: () {
+                  final root = isStudent ? 'learn' : 'learning';
+                  if (isStudent) {
+                    context.go('$routePrefix/$root/$subjectId/ielts/play/${exam.id}');
+                  } else {
+                    context.go('$routePrefix/$root/$subjectId/ielts/manage/${exam.id}');
+                  }
+                },
               );
             },
           );

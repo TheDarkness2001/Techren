@@ -1,3 +1,6 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../domain/entities/ielts.dart';
 import '../../../domain/entities/paginated_result.dart';
@@ -34,6 +37,50 @@ class IeltsApi {
 
   Future<void> deleteExam(String id) async {
     await _client.dio.delete('/ielts/exams/$id');
+  }
+
+  Future<IeltsSection> createSection(String examId, Map<String, dynamic> fields, {String? audioPath}) async {
+    final form = FormData.fromMap({
+      ...fields,
+      if (audioPath != null) 'audio': await MultipartFile.fromFile(audioPath),
+    });
+    final response = await _client.dio.post('/ielts/exams/$examId/sections', data: form);
+    return IeltsSection.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<IeltsSection> updateSection(String sectionId, Map<String, dynamic> fields, {String? audioPath}) async {
+    final form = FormData.fromMap({
+      ...fields,
+      if (audioPath != null) 'audio': await MultipartFile.fromFile(audioPath),
+    });
+    final response = await _client.dio.put('/ielts/sections/$sectionId', data: form);
+    return IeltsSection.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteSection(String sectionId) async {
+    await _client.dio.delete('/ielts/sections/$sectionId');
+  }
+
+  Future<IeltsQuestion> createQuestion(String sectionId, Map<String, dynamic> body) async {
+    final response = await _client.dio.post('/ielts/sections/$sectionId/questions', data: body);
+    return IeltsQuestion.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<IeltsQuestion> updateQuestion(String questionId, Map<String, dynamic> body) async {
+    final response = await _client.dio.put('/ielts/questions/$questionId', data: body);
+    return IeltsQuestion.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteQuestion(String questionId) async {
+    await _client.dio.delete('/ielts/questions/$questionId');
+  }
+
+  Future<String> getSignedAudioUrl(String sectionId) async {
+    final response = await _client.dio.get('/ielts/sections/$sectionId/signed-url');
+    final path = response.data['data']['url'] as String;
+    final base = Uri.parse(ApiConstants.baseUrl);
+    final origin = '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}';
+    return path.startsWith('http') ? path : '$origin$path';
   }
 
   Future<IeltsAttemptBundle> startAttempt(String examId) async {
@@ -121,21 +168,37 @@ class IeltsApi {
     await _client.dio.patch('/ielts/access/$studentId', data: {'enabled': enabled});
   }
 
-  Future<void> bulkAccess({
+  Future<Map<String, dynamic>> bulkAccess({
     required bool enabled,
     List<String>? studentIds,
     String? examGroupId,
     String? classScheduleId,
     bool allEnglish = false,
   }) async {
-    await _client.dio.post('/ielts/access/bulk', data: {
+    final response = await _client.dio.post('/ielts/access/bulk', data: {
       'enabled': enabled,
       if (studentIds != null) 'studentIds': studentIds,
       if (examGroupId != null) 'examGroupId': examGroupId,
       if (classScheduleId != null) 'classScheduleId': classScheduleId,
       if (allEnglish) 'allEnglish': true,
     });
+    return response.data['data'] as Map<String, dynamic>;
   }
 
-  String sectionAudioUrl(String sectionId) => '/ielts/sections/$sectionId/audio';
+  Future<PaginatedResult<dynamic>> listAccess({int page = 1, String search = ''}) async {
+    final response = await _client.dio.get('/ielts/access', queryParameters: {
+      'page': page,
+      'limit': 50,
+      if (search.isNotEmpty) 'search': search,
+    });
+    final items = response.data['data'] as List<dynamic>? ?? [];
+    final meta = response.data['meta'] as Map<String, dynamic>? ?? {};
+    return PaginatedResult(
+      items: items,
+      page: meta['page'] as int? ?? page,
+      limit: meta['limit'] as int? ?? 50,
+      total: meta['total'] as int? ?? items.length,
+      totalPages: meta['totalPages'] as int? ?? 1,
+    );
+  }
 }

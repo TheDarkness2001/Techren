@@ -21,6 +21,8 @@ import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_manage_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_exam_editor_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_access_screen.dart';
 import '../widgets/adaptive_scaffold.dart';
 import 'app_page_transitions.dart';
 
@@ -185,7 +187,21 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/manage'),
-      builder: (_, state) => IeltsManageScreen(subjectId: state.pathParameters['subjectId']!),
+      builder: (_, state) => IeltsManageScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/manage/:examId'),
+      builder: (_, state) => IeltsExamEditorScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        examId: state.pathParameters['examId']!,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/access'),
+      builder: (_, state) => IeltsAccessScreen(subjectId: state.pathParameters['subjectId']),
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/writing-review'),
