@@ -12,6 +12,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
+import '../ielts_nav.dart';
 import '../widgets/ielts_audio_once_player.dart';
 import '../widgets/questions/ielts_question_widgets.dart';
 
@@ -198,7 +199,7 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     try {
       final result = await ref.read(ieltsApiProvider).submitAttempt(_bundle!.attempt.id);
       if (!mounted) return;
-      context.go('${widget.routePrefix}/learn/${widget.subjectId}/ielts/results/${result.attempt.id}');
+      context.go('${ieltsHubRoute(widget.routePrefix, widget.subjectId)}/results/${result.attempt.id}');
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -230,14 +231,55 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     return value.toString().trim().isNotEmpty;
   }
 
+  String get _hub => ieltsHubRoute(widget.routePrefix, widget.subjectId);
+
+  Future<void> _goBack() async {
+    if (_bundle == null || _bundle!.attempt.isInProgress != true) {
+      if (mounted) context.go(_hub);
+      return;
+    }
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave exam?'),
+        content: const Text(
+          'Your answers are autosaved. You can resume this attempt later from the exam list.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Leave')),
+        ],
+      ),
+    );
+    if (leave == true && mounted) {
+      await _save();
+      if (mounted) context.go(_hub);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: LoadingState(message: 'Starting exam...'));
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('IELTS Exam'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(_hub),
+          ),
+        ),
+        body: const LoadingState(message: 'Starting exam...'),
+      );
     }
     if (_error != null || _bundle == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('IELTS Exam')),
+        appBar: AppBar(
+          title: const Text('IELTS Exam'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(_hub),
+          ),
+        ),
         body: ErrorState(message: _error ?? 'Unable to start', onRetry: _bootstrap),
       );
     }
@@ -254,9 +296,20 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
       _markQuestionActive(currentQid);
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _goBack();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(exam.title),
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _goBack,
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -376,6 +429,7 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 }

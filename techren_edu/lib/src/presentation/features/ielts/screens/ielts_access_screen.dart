@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -8,12 +9,18 @@ import '../../../../domain/entities/person.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../providers/scheduling_provider.dart';
+import '../ielts_nav.dart';
 
 /// Founder-only: unlock/lock IELTS for groups or all English students.
 class IeltsAccessScreen extends ConsumerStatefulWidget {
-  const IeltsAccessScreen({super.key, this.subjectId});
+  const IeltsAccessScreen({
+    super.key,
+    this.subjectId,
+    this.routePrefix = '/founder',
+  });
 
   final String? subjectId;
+  final String routePrefix;
 
   @override
   ConsumerState<IeltsAccessScreen> createState() => _IeltsAccessScreenState();
@@ -23,6 +30,11 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
   bool _busy = false;
   List<dynamic> _unlocked = const [];
   String? _error;
+
+  String? get _hub =>
+      widget.subjectId == null || widget.subjectId!.isEmpty
+          ? null
+          : ieltsHubRoute(widget.routePrefix, widget.subjectId!);
 
   @override
   void initState() {
@@ -104,7 +116,15 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
   Widget build(BuildContext context) {
     final muted = context.semantic.textMuted;
     return Scaffold(
-      appBar: AppBar(title: const Text('IELTS access')),
+      appBar: AppBar(
+        title: const Text('IELTS access'),
+        leading: _hub == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.go(_hub!),
+              ),
+      ),
       body: ListView(
         padding: AppSpacing.pagePaddingWide,
         children: [

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
+import '../ielts_nav.dart';
 
 class IeltsResultsScreen extends ConsumerStatefulWidget {
   const IeltsResultsScreen({
@@ -30,6 +31,9 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
   IeltsAttemptBundle? _bundle;
   String? _error;
   bool _loading = true;
+
+  String get _hub => ieltsHubRoute(widget.routePrefix, widget.subjectId);
+  String get _history => '$_hub/history';
 
   @override
   void initState() {
@@ -58,10 +62,21 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: LoadingState(message: 'Loading results...'));
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Results'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go(_hub)),
+        ),
+        body: const LoadingState(message: 'Loading results...'),
+      );
+    }
     if (_error != null || _bundle == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Results')),
+        appBar: AppBar(
+          title: const Text('Results'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go(_hub)),
+        ),
         body: ErrorState(message: _error ?? 'Missing', onRetry: _load),
       );
     }
@@ -76,7 +91,7 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
         title: const Text('Results'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('${widget.routePrefix}/learn/${widget.subjectId}/ielts'),
+          onPressed: () => context.go(_hub),
         ),
       ),
       body: ListView(
@@ -170,7 +185,7 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
           ],
           const SizedBox(height: AppSpacing.xl),
           OutlinedButton(
-            onPressed: () => context.go('${widget.routePrefix}/learn/${widget.subjectId}/ielts/history'),
+            onPressed: () => context.go(_history),
             child: const Text('Exam history'),
           ),
         ],
@@ -222,11 +237,19 @@ class IeltsHistoryScreen extends ConsumerWidget {
   final String subjectId;
   final String routePrefix;
 
+  String get _hub => ieltsHubRoute(routePrefix, subjectId);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(ieltsHistoryProvider(subjectId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Exam history')),
+      appBar: AppBar(
+        title: const Text('Exam history'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(_hub),
+        ),
+      ),
       body: async.when(
         loading: () => const LoadingState(message: 'Loading history...'),
         error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(ieltsHistoryProvider)),
@@ -256,7 +279,7 @@ class IeltsHistoryScreen extends ConsumerWidget {
                   overall == null ? '—' : overall.toStringAsFixed(overall % 1 == 0 ? 0 : 1),
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                 ),
-                onTap: () => context.go('$routePrefix/learn/$subjectId/ielts/results/${a.id}'),
+                onTap: () => context.go('$_hub/results/${a.id}'),
               );
             },
           );

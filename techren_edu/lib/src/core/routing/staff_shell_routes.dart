@@ -226,7 +226,10 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/access'),
-      builder: (_, state) => IeltsAccessScreen(subjectId: state.pathParameters['subjectId']),
+      builder: (_, state) => IeltsAccessScreen(
+        subjectId: state.pathParameters['subjectId'],
+        routePrefix: prefix,
+      ),
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/sources'),
@@ -258,7 +261,10 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/writing-review'),
-      builder: (_, state) => IeltsWritingReviewScreen(subjectId: state.pathParameters['subjectId']!),
+      builder: (_, state) => IeltsWritingReviewScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+      ),
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/play/:examId'),

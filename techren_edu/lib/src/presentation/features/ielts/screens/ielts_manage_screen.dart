@@ -10,6 +10,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
+import '../ielts_nav.dart';
 
 class IeltsManageScreen extends ConsumerStatefulWidget {
   const IeltsManageScreen({
@@ -253,9 +254,14 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
 }
 
 class IeltsWritingReviewScreen extends ConsumerStatefulWidget {
-  const IeltsWritingReviewScreen({super.key, required this.subjectId});
+  const IeltsWritingReviewScreen({
+    super.key,
+    required this.subjectId,
+    this.routePrefix = '/admin',
+  });
 
   final String subjectId;
+  final String routePrefix;
 
   @override
   ConsumerState<IeltsWritingReviewScreen> createState() => _IeltsWritingReviewScreenState();
@@ -333,8 +339,15 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(ieltsWritingQueueProvider(widget.subjectId));
+    final hub = ieltsHubRoute(widget.routePrefix, widget.subjectId);
     return Scaffold(
-      appBar: AppBar(title: const Text('Writing review')),
+      appBar: AppBar(
+        title: const Text('Writing review'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(hub),
+        ),
+      ),
       body: async.when(
         loading: () => const LoadingState(message: 'Loading queue...'),
         error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(ieltsWritingQueueProvider)),
