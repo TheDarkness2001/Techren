@@ -33,6 +33,7 @@ const uploadRoutes = require('./uploadRoutes');
 const progressRoutes = require('./progressRoutes');
 const learningRoutes = require('./learningRoutes');
 const ieltsRoutes = require('./ieltsRoutes');
+const learningQuizRoutes = require('./learningQuizRoutes');
 
 const router = express.Router();
 
@@ -70,6 +71,7 @@ router.use('/upload', uploadRoutes);
 router.use('/progress', progressRoutes);
 router.use('/learning', learningRoutes);
 router.use('/ielts', ieltsRoutes);
+router.use('/quizzes', learningQuizRoutes);
 
 const { getConnectionInfo } = require('../config/database');
 

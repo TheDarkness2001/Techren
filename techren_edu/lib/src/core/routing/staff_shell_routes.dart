@@ -23,6 +23,10 @@ import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_manage_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_editor_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_access_screen.dart';
+import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
+import '../../presentation/features/quiz/screens/quiz_manage_screen.dart';
+import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
+import '../../presentation/features/video/screens/video_learning_hub_screen.dart';
 import '../widgets/adaptive_scaffold.dart';
 import 'app_page_transitions.dart';
 
@@ -127,20 +131,25 @@ List<GoRoute> buildSharedStaffOpsRoutes({
       path: r('/learning'),
       builder: (_, __) => LearningSubjectsHubScreen(navItems: navItems, selectedRoute: r('/learning')),
     ),
-    AppPageTransitions.route(
-      path: r('/learning/:subjectId'),
-      builder: (_, state) => LearningSubjectDashboardScreen(
-        navItems: navItems,
-        selectedRoute: r('/learning'),
-        subjectId: state.pathParameters['subjectId']!,
-      ),
-    ),
+    // Deep subject routes before `/learning/:subjectId` for reliable matching.
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts'),
       builder: (_, state) => IeltsHubScreen(
         subjectId: state.pathParameters['subjectId']!,
         isStudent: false,
         routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/video'),
+      builder: (_, state) => VideoLearningHubScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        isStudent: false,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
       ),
     ),
     AppPageTransitions.route(
@@ -149,6 +158,8 @@ List<GoRoute> buildSharedStaffOpsRoutes({
         subjectId: state.pathParameters['subjectId']!,
         isStudent: false,
         routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
       ),
     ),
     AppPageTransitions.route(
@@ -158,6 +169,8 @@ List<GoRoute> buildSharedStaffOpsRoutes({
         mode: 'listening',
         isStudent: false,
         routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
       ),
     ),
     AppPageTransitions.route(
@@ -167,6 +180,8 @@ List<GoRoute> buildSharedStaffOpsRoutes({
         mode: 'reading',
         isStudent: false,
         routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
       ),
     ),
     AppPageTransitions.route(
@@ -176,6 +191,8 @@ List<GoRoute> buildSharedStaffOpsRoutes({
         mode: 'writing',
         isStudent: false,
         routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
       ),
     ),
     AppPageTransitions.route(
@@ -221,6 +238,54 @@ List<GoRoute> buildSharedStaffOpsRoutes({
         subjectId: state.pathParameters['subjectId']!,
         attemptId: state.pathParameters['attemptId']!,
         routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/quiz'),
+      builder: (_, state) => QuizHubScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        isStudent: false,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/quiz/manage'),
+      builder: (_, state) => QuizManageScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/quiz/manage/:quizId'),
+      builder: (_, state) => QuizManageScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+        quizId: state.pathParameters['quizId'],
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/quiz/play/:quizId'),
+      builder: (_, state) => QuizPlayerScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        quizId: state.pathParameters['quizId']!,
+        isStudent: false,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/quiz/results/:attemptId'),
+      builder: (_, state) => QuizResultsScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        attemptId: state.pathParameters['attemptId']!,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId'),
+      builder: (_, state) => LearningSubjectDashboardScreen(
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+        subjectId: state.pathParameters['subjectId']!,
       ),
     ),
     AppPageTransitions.route(

@@ -38,30 +38,50 @@ class VideoLessonSummary {
     required this.levelName,
     required this.requireWatchPercent,
     required this.hasTest,
+    this.topic = '',
+    this.levelId = '',
+    this.languageId = '',
+    this.subjectId,
+    this.order = 1,
+    this.watchUnlockedFor = const [],
     this.progress,
   });
 
   final String id;
   final String title;
   final String description;
+  final String topic;
   final String thumbnail;
   final String youtubeUrl;
   final String youtubeVideoId;
   final String levelName;
+  final String levelId;
+  final String languageId;
+  final String? subjectId;
+  final int order;
   final int requireWatchPercent;
   final bool hasTest;
+  final List<String> watchUnlockedFor;
   final VideoProgress? progress;
+
+  bool isUnlockedFor(String groupId) => watchUnlockedFor.contains(groupId);
 
   factory VideoLessonSummary.fromJson(Map<String, dynamic> json, {bool hasTest = false}) => VideoLessonSummary(
         id: json['id']?.toString() ?? '',
         title: json['title'] as String? ?? '',
         description: json['description'] as String? ?? '',
+        topic: json['topic'] as String? ?? '',
         thumbnail: json['thumbnail'] as String? ?? '',
         youtubeUrl: json['youtubeUrl'] as String? ?? '',
         youtubeVideoId: json['youtubeVideoId'] as String? ?? '',
         levelName: json['levelName'] as String? ?? '',
+        levelId: json['levelId']?.toString() ?? '',
+        languageId: json['languageId']?.toString() ?? '',
+        subjectId: json['subjectId']?.toString(),
+        order: (json['order'] as num?)?.toInt() ?? 1,
         requireWatchPercent: json['requireWatchPercent'] as int? ?? 70,
         hasTest: hasTest,
+        watchUnlockedFor: (json['watchUnlockedFor'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
         progress: json['progress'] != null ? VideoProgress.fromJson(json['progress'] as Map<String, dynamic>) : null,
       );
 }

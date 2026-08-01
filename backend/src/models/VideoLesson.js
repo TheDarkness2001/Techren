@@ -24,6 +24,10 @@ const videoLessonSchema = new mongoose.Schema(
     languageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Language', required: true },
     levelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Level', required: true },
     lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
+    /** Learning subject this video belongs to (optional for legacy rows). */
+    subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', default: null, index: true },
+    /** Class number within the level (1–11). */
+    order: { type: Number, default: 1, min: 1, max: 20 },
     difficulty: { type: String, enum: ['beginner', 'intermediate', 'advanced'], default: 'beginner' },
     topic: { type: String, default: '', trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', default: null },
@@ -35,8 +39,9 @@ const videoLessonSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-videoLessonSchema.index({ levelId: 1, createdAt: -1 });
+videoLessonSchema.index({ levelId: 1, order: 1 });
 videoLessonSchema.index({ languageId: 1, levelId: 1 });
+videoLessonSchema.index({ subjectId: 1, levelId: 1, order: 1 });
 
 videoLessonSchema.pre('save', function preSave(next) {
   if (this.isModified('youtubeUrl') || !this.youtubeVideoId) {

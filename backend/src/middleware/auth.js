@@ -18,6 +18,8 @@ const INACTIVE_STUDENT_PREFIXES = [
   '/notifications',
   '/gamification',
   '/wallet',
+  '/quizzes',
+  '/learning',
 ];
 
 const protect = async (req, res, next) => {

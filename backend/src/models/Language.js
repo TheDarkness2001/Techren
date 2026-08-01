@@ -4,7 +4,7 @@ const softDeletePlugin = require('../plugins/softDeletePlugin');
 const languageSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    moduleType: { type: String, enum: ['words', 'sentences', 'listening'], required: true },
+    moduleType: { type: String, enum: ['words', 'sentences', 'listening', 'video'], required: true },
   },
   { timestamps: true }
 );

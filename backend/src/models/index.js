@@ -48,4 +48,6 @@ module.exports = {
   IeltsQuestion: require('./IeltsQuestion'),
   IeltsAttempt: require('./IeltsAttempt'),
   IeltsWritingReview: require('./IeltsWritingReview'),
+  LearningQuiz: require('./LearningQuiz'),
+  LearningQuizAttempt: require('./LearningQuizAttempt'),
 };

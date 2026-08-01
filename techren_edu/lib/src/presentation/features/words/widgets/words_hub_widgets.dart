@@ -173,13 +173,13 @@ class WordsLanguageSection extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth >= 900
-                  ? 4
-                  : constraints.maxWidth >= 640
-                      ? 3
-                      : constraints.maxWidth >= 420
-                          ? 2
-                          : 1;
-              final spacing = AppSpacing.md;
+                  ? 5
+                  : constraints.maxWidth >= 700
+                      ? 4
+                      : constraints.maxWidth >= 480
+                          ? 3
+                          : 2;
+              final spacing = AppSpacing.sm;
               final cardWidth = columns == 1
                   ? constraints.maxWidth
                   : (constraints.maxWidth - spacing * (columns - 1)) / columns;
@@ -191,6 +191,7 @@ class WordsLanguageSection extends StatelessWidget {
                   for (final language in languages)
                     SizedBox(
                       width: cardWidth,
+                      height: 88,
                       child: WordsLanguageCard(
                         language: language,
                         selected: selectedLanguageId == language.id,
@@ -268,32 +269,31 @@ class WordsLanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Material(
-        color: Theme.of(context).colorScheme.surface,
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: AppRadius.card,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: AppRadius.card,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.card,
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.card,
-              border: Border.all(
-                color: selected ? AppColors.primary : AppColors.border,
-                width: selected ? 2 : 1,
-              ),
-              boxShadow: AppShadows.card,
-              color: selected ? AppColors.primaryContainer.withValues(alpha: 0.25) : Theme.of(context).colorScheme.surface,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.card,
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border,
+              width: selected ? 2 : 1,
             ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  language.name,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
+            boxShadow: AppShadows.card,
+            color: selected ? AppColors.primaryContainer.withValues(alpha: 0.25) : Theme.of(context).colorScheme.surface,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                language.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
           ),

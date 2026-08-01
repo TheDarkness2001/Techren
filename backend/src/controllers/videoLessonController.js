@@ -63,7 +63,28 @@ exports.complete = asyncHandler(async (req, res) => {
 
 exports.toggleWatchUnlock = asyncHandler(async (req, res) => {
   try {
-    const data = await videoLessonService.toggleWatchUnlock(req.params.id, req.body.groupId);
+    const data = await videoLessonService.toggleWatchUnlock(
+      req.params.id,
+      req.body.groupId,
+      req.body.unlock
+    );
     sendSuccess(res, data);
+  } catch (e) { handle(res, e); }
+});
+
+exports.ensureTree = asyncHandler(async (req, res) => {
+  try {
+    const subjectId = req.query.subjectId || req.body.subjectId;
+    const data = await videoLessonService.ensureVideoTreeForSubject(subjectId, {
+      createIfMissing: req.userType === 'teacher',
+    });
+    sendSuccess(res, data);
+  } catch (e) { handle(res, e); }
+});
+
+exports.createLevel = asyncHandler(async (req, res) => {
+  try {
+    const data = await videoLessonService.createVideoLevel(req.body);
+    sendSuccess(res, data, 201);
   } catch (e) { handle(res, e); }
 });

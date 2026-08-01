@@ -9,6 +9,16 @@ final studentVideosProvider = FutureProvider.autoDispose<List<VideoLessonSummary
   return ref.watch(videoApiProvider).listVideos();
 });
 
+final videoSubjectTreeProvider =
+    FutureProvider.autoDispose.family<VideoSubjectTree, String>((ref, subjectId) async {
+  return ref.watch(videoApiProvider).ensureTree(subjectId);
+});
+
+final videoLevelClassesProvider =
+    FutureProvider.autoDispose.family<List<VideoLessonSummary>, ({String? subjectId, String levelId})>((ref, args) async {
+  return ref.watch(videoApiProvider).listVideos(subjectId: args.subjectId, levelId: args.levelId);
+});
+
 final videoDetailProvider = FutureProvider.autoDispose.family<VideoLessonDetail, String>((ref, id) async {
   return ref.watch(videoApiProvider).getVideo(id);
 });

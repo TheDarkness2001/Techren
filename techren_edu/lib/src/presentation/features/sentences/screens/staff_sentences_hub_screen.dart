@@ -18,6 +18,17 @@ import '../../learning/widgets/module_content_manager.dart';
 import '../widgets/sentences_hub_widgets.dart';
 import '../widgets/sentences_practice_view.dart';
 
+String _friendlyProgressError(Object error) {
+  final text = error.toString();
+  if (text.contains('403') || text.contains('FORBIDDEN') || text.contains('permission')) {
+    return 'You do not have access to this group’s progress.';
+  }
+  if (text.contains('connection') || text.contains('SocketException') || text.contains('CONNECTION')) {
+    return 'Cannot reach the server. Check your connection and try again.';
+  }
+  return 'Could not load progress. Please try again.';
+}
+
 class StaffSentencesHubScreen extends ConsumerStatefulWidget {
   const StaffSentencesHubScreen({
     super.key,
@@ -39,14 +50,39 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
   String? _levelId;
   String? _lessonId;
   String? _levelName;
-  DateTime? _progressDate;
-
-  /// Permissions: language first, then all related groups.
   String? _permissionsLanguageId;
   String? _permissionsLanguageName;
-  final Set<String> _permissionsBusyIds = {};
-  /// Which group’s lesson toggles are expanded (null = show group list only).
   String? _permissionsExpandedGroupId;
+  final Set<String> _permissionsBusyIds = {};
+  DateTime? _progressDate;
+
+  String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
+
+  void _goBack() {
+    if (_tab == SentencesHubTab.practice) {
+      if (_practiceStep == SentencesPracticeStep.practice) {
+        setState(() => _practiceStep = SentencesPracticeStep.classes);
+        return;
+      }
+      if (_practiceStep == SentencesPracticeStep.classes) {
+        setState(() {
+          _practiceStep = SentencesPracticeStep.levels;
+          _levelId = null;
+          _lessonId = null;
+        });
+        return;
+      }
+      if (_practiceStep == SentencesPracticeStep.levels) {
+        _resetPractice();
+        return;
+      }
+    }
+    if (_tab == SentencesHubTab.permissions && _permissionsLanguageId != null) {
+      _resetPermissions();
+      return;
+    }
+    context.go('$_prefix/learning');
+  }
 
   void _resetPractice() {
     setState(() {
@@ -127,11 +163,18 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
 
     return AdaptiveScaffold(
-      title: '',
+      title: 'Sentences',
       selectedIndex: selectedIndex < 0 ? 3 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
+      actions: [
+        IconButton(
+          tooltip: 'Go back',
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ],
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(cmsSentencesLanguagesProvider);
@@ -217,7 +260,12 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (_practiceStep == SentencesPracticeStep.languages)
+        if (_practiceStep == SentencesPracticeStep.languages) ...[
+          SentencesBackButton(
+            label: 'Back to Learning',
+            onPressed: () => context.go('$_prefix/learning'),
+          ),
+          const SizedBox(height: AppSpacing.md),
           SentencesLanguageGrid(
             languages: languages,
             onLanguageTap: (language) => setState(() {
@@ -225,6 +273,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
               _practiceStep = SentencesPracticeStep.levels;
             }),
           ),
+        ],
         if (_practiceStep == SentencesPracticeStep.levels && levelsAsync != null)
           levelsAsync.when(
             loading: () => const LinearProgressIndicator(),
@@ -261,7 +310,11 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
   ) {
     return languagesAsync.when(
       loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-      error: (e, _) => Text(e.toString()),
+      error: (e, _) => EmptyState(
+        title: 'Could not load',
+        message: _friendlyProgressError(e),
+        icon: Icons.error_outline,
+      ),
       data: (languages) {
         if (_permissionsLanguageId == null) {
           return Column(
@@ -370,10 +423,29 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         const SizedBox(height: AppSpacing.md),
         languagesAsync.when(
           loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-          error: (e, _) => Text(e.toString()),
+          error: (e, _) => EmptyState(
+            title: 'Could not load progress',
+            message: _friendlyProgressError(e),
+            icon: Icons.error_outline,
+            action: FilledButton(
+              onPressed: () {
+                ref.invalidate(cmsSentencesLanguagesProvider);
+                ref.invalidate(unifiedGroupsProvider((page: 1, search: '')));
+              },
+              child: const Text('Retry'),
+            ),
+          ),
           data: (languages) => groupsAsync.when(
             loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => EmptyState(
+              title: 'Could not load groups',
+              message: _friendlyProgressError(e),
+              icon: Icons.error_outline,
+              action: FilledButton(
+                onPressed: () => ref.invalidate(unifiedGroupsProvider((page: 1, search: ''))),
+                child: const Text('Retry'),
+              ),
+            ),
             data: (result) {
               final languageNames = languages.map((l) => l.name.trim().toLowerCase()).toSet();
               var groups = result.items;
@@ -448,7 +520,13 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
       );
     }
 
-    if (error != null) return Text(error.toString());
+    if (error != null) {
+      return EmptyState(
+        title: 'Could not load lessons',
+        message: _friendlyProgressError(error!),
+        icon: Icons.error_outline,
+      );
+    }
     if (stillLoading && lessonsByLevel.length < levels.length) {
       return const Padding(
         padding: EdgeInsets.only(top: AppSpacing.md),
@@ -489,7 +567,14 @@ class _GroupProgressSection extends ConsumerWidget {
         padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: LoadingState(kind: LoadingSkeletonKind.card),
       ),
-      error: (e, _) => Text(e.toString()),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: EmptyState(
+          title: fallbackGroupName,
+          message: _friendlyProgressError(e),
+          icon: Icons.lock_outline,
+        ),
+      ),
       data: (report) => SentencesProgressTable(
         groupName: report.group['groupName'] as String? ?? fallbackGroupName,
         subjectName: subjectName,

@@ -222,6 +222,17 @@ const getLearningSubject = async (req, id) => {
   }
 
   const base = formatSubject(subject);
+  // Persist newly merged catalog modules (e.g. ielts) so tiles stay available.
+  const mergedKeys = (base.modules || []).map((m) => m.key).sort().join(',');
+  const rawKeys = (subject.modules || []).map((m) => (m.key || m)).sort().join(',');
+  if (mergedKeys && mergedKeys !== rawKeys) {
+    subject.modules = base.modules;
+    subject.icon = base.icon;
+    subject.color = base.color;
+    if (!subject.description) subject.description = base.description;
+    await subject.save().catch(() => {});
+  }
+
   const audience = req.userType === 'student' ? 'student' : 'staff';
   const modules = (base.modules || []).filter((m) => {
     if (m.enabled === false) return false;

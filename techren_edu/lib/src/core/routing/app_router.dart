@@ -29,6 +29,9 @@ import '../../presentation/features/progress/screens/teacher_progress_screen.dar
 import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
+import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
+import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
+import '../../presentation/features/video/screens/video_learning_hub_screen.dart';
 import 'inactive_student_guard.dart';
 import 'app_page_transitions.dart';
 import 'staff_route_guard.dart';
@@ -90,6 +93,43 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => IeltsHubScreen(
           subjectId: state.pathParameters['subjectId']!,
           isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/video',
+        builder: (_, state) => VideoLearningHubScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/quiz',
+        builder: (_, state) => QuizHubScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/quiz/history',
+        builder: (_, state) => QuizHistoryScreen(subjectId: state.pathParameters['subjectId']!),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/quiz/play/:quizId',
+        builder: (_, state) => QuizPlayerScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          quizId: state.pathParameters['quizId']!,
+          isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/quiz/results/:attemptId',
+        builder: (_, state) => QuizResultsScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          attemptId: state.pathParameters['attemptId']!,
           routePrefix: '/student',
         ),
       ),

@@ -77,23 +77,23 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedScale(
-        scale: _hovered ? 1.015 : 1,
-        duration: AppDurations.fast,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onContinue,
-            borderRadius: AppRadius.card,
-            child: AnimatedContainer(
-              duration: AppDurations.fast,
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                borderRadius: AppRadius.card,
-                border: Border.all(color: _hovered ? accent.withValues(alpha: 0.55) : semantic.border),
-                boxShadow: _hovered ? AppShadows.cardHover : AppShadows.card,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onContinue,
+          borderRadius: AppRadius.card,
+          child: AnimatedContainer(
+            duration: AppDurations.fast,
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: AppRadius.card,
+              border: Border.all(
+                color: _hovered ? accent.withValues(alpha: 0.55) : semantic.border,
+                width: _hovered ? 1.5 : 1,
               ),
-              clipBehavior: Clip.antiAlias,
+              boxShadow: _hovered ? AppShadows.cardHover : AppShadows.card,
+            ),
+            clipBehavior: Clip.antiAlias,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -206,7 +206,6 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -244,51 +243,52 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
 
+    // No scale transform — it overflows the fixed tile and gets clipped under
+    // the section title / adjacent cards (hover border looks cut off).
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedScale(
-        scale: _hovered ? 1.03 : 1,
-        duration: AppDurations.fast,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: AppRadius.card,
-            child: AnimatedContainer(
-              duration: AppDurations.fast,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: _hovered ? widget.accent.withValues(alpha: 0.1) : scheme.surface,
-                borderRadius: AppRadius.card,
-                border: Border.all(color: _hovered ? widget.accent : semantic.border),
-                boxShadow: AppShadows.card,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: AppRadius.card,
+          child: AnimatedContainer(
+            duration: AppDurations.fast,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: _hovered ? widget.accent.withValues(alpha: 0.1) : scheme.surface,
+              borderRadius: AppRadius.card,
+              border: Border.all(
+                color: _hovered ? widget.accent : semantic.border,
+                width: _hovered ? 1.5 : 1,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(iconForLearningKey(widget.module.icon), color: widget.accent, size: 28),
-                      const Spacer(),
-                      if (widget.locked) Icon(Icons.lock_outline, size: 18, color: semantic.textMuted),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    widget.module.label,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.locked ? 'Locked' : widget.module.category,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: semantic.textMuted),
-                  ),
-                ],
-              ),
+              boxShadow: _hovered ? AppShadows.cardHover : AppShadows.card,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(iconForLearningKey(widget.module.icon), color: widget.accent, size: 28),
+                    const Spacer(),
+                    if (widget.locked) Icon(Icons.lock_outline, size: 18, color: semantic.textMuted),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  widget.module.label,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.locked ? 'Locked' : widget.module.category,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: semantic.textMuted),
+                ),
+              ],
             ),
           ),
         ),

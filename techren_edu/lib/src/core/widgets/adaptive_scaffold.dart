@@ -129,11 +129,13 @@ class AdaptiveScaffold extends ConsumerWidget {
         child: Scaffold(
           backgroundColor: contentBackground,
           drawer: Drawer(
-            child: StaffSidebar(
-              prefix: staffPrefix,
-              isFounder: isFounder,
-              currentRoute: route,
-              embedded: true,
+            child: SafeArea(
+              child: StaffSidebar(
+                prefix: staffPrefix,
+                isFounder: isFounder,
+                currentRoute: route,
+                embedded: true,
+              ),
             ),
           ),
           body: Builder(

@@ -16,6 +16,32 @@ import '../../../providers/scheduling_provider.dart';
 import '../../../providers/gamification_provider.dart';
 import '../widgets/student_progress_hub.dart';
 
+String _friendlyProgressError(Object error) {
+  final text = error.toString();
+  if (text.contains('403') || text.contains('FORBIDDEN') || text.contains('permission')) {
+    return 'You do not have access to this group’s progress.';
+  }
+  if (text.contains('connection') || text.contains('SocketException') || text.contains('CONNECTION')) {
+    return 'Cannot reach the server. Check your connection and try again.';
+  }
+  return 'Could not load progress. Please try again.';
+}
+
+Widget _progressErrorState(Object error, {VoidCallback? onRetry}) {
+  return EmptyState(
+    title: 'Unable to load',
+    message: _friendlyProgressError(error),
+    icon: Icons.lock_outline,
+    action: onRetry == null
+        ? null
+        : FilledButton.tonalIcon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+  );
+}
+
 class StudentProgressScreen extends ConsumerWidget {
   const StudentProgressScreen({
     super.key,
@@ -50,7 +76,13 @@ class StudentProgressScreen extends ConsumerWidget {
       ],
       body: overviewAsync.when(
         loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-        error: (e, _) => Center(child: Text(e.toString())),
+        error: (e, _) => _progressErrorState(
+          e,
+          onRetry: () {
+            ref.invalidate(studentProgressOverviewProvider);
+            ref.invalidate(practiceRecommendationProvider);
+          },
+        ),
         data: (overview) => RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(studentProgressOverviewProvider);
@@ -233,7 +265,10 @@ class _GroupProgressTab extends ConsumerWidget {
 
     return groupsAsync.when(
       loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-      error: (e, _) => Center(child: Text(e.toString())),
+      error: (e, _) => _progressErrorState(
+        e,
+        onRetry: () => ref.invalidate(examGroupsProvider),
+      ),
       data: (groups) {
         if (groups.isEmpty) {
           return const EmptyState(
@@ -289,7 +324,10 @@ class _GroupProgressBody extends ConsumerWidget {
 
     return reportAsync.when(
       loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-      error: (e, _) => Center(child: Text(e.toString())),
+      error: (e, _) => _progressErrorState(
+        e,
+        onRetry: () => ref.invalidate(groupProgressProvider(groupId)),
+      ),
       data: (report) {
         final aggregate = report.aggregate;
         final groupName = report.group['groupName'] as String? ?? 'Group';
@@ -476,7 +514,7 @@ class _StaffStudentProgressScreenState extends ConsumerState<StaffStudentProgres
               children: [
                 overviewAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-                  error: (e, _) => Center(child: Text(e.toString())),
+                  error: (e, _) => _progressErrorState(e, onRetry: _refresh),
                   data: (overview) => RefreshIndicator(
                     onRefresh: () async => _refresh(),
                     child: ProgressHubBody(
@@ -488,7 +526,7 @@ class _StaffStudentProgressScreenState extends ConsumerState<StaffStudentProgres
                 ),
                 lessonsAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-                  error: (e, _) => Center(child: Text(e.toString())),
+                  error: (e, _) => _progressErrorState(e, onRetry: _refresh),
                   data: (report) => RefreshIndicator(
                     onRefresh: () async => _refresh(),
                     child: StudentVocabLessonsList(lessons: report.lessons),

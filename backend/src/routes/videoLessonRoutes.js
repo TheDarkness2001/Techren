@@ -11,6 +11,8 @@ const manageHomework = checkPermission('canManageHomework');
 router.use(protect);
 
 router.get('/', videoController.list);
+router.get('/tree', videoController.ensureTree);
+router.post('/levels', manageHomework, videoController.createLevel);
 router.post('/', manageHomework, videoController.create);
 router.get('/:id', objectId('id'), validate, videoController.getById);
 router.put('/:id', manageHomework, objectId('id'), validate, videoController.update);

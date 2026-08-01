@@ -51,7 +51,7 @@ router.put('/words/:id', manageHomework, objectId('id'), validate, homeworkContr
 router.delete('/words/:id', manageHomework, objectId('id'), validate, homeworkController.removeWord);
 
 router.get('/languages', learningController.listLanguages);
-router.post('/languages', manageHomework, body('name').trim().notEmpty(), body('moduleType').optional().isIn(['words', 'sentences', 'listening']), validate, learningController.createLanguage);
+router.post('/languages', manageHomework, body('name').trim().notEmpty(), body('moduleType').optional().isIn(['words', 'sentences', 'listening', 'video']), validate, learningController.createLanguage);
 router.put('/languages/:id', manageHomework, objectId('id'), validate, learningController.updateLanguage);
 router.delete('/languages/:id', manageHomework, objectId('id'), validate, learningController.removeLanguage);
 

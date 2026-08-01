@@ -28,10 +28,11 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
   final String subjectId;
   final bool isStudent;
 
-  String get _prefix {
+  String _prefixOf(BuildContext context) {
     if (isStudent) return '/student';
-    if (selectedRoute.startsWith('/founder')) return '/founder';
-    if (selectedRoute.startsWith('/teacher')) return '/teacher';
+    final loc = GoRouterState.of(context).uri.path;
+    if (loc.startsWith('/founder') || selectedRoute.startsWith('/founder')) return '/founder';
+    if (loc.startsWith('/teacher') || selectedRoute.startsWith('/teacher')) return '/teacher';
     return '/admin';
   }
 
@@ -42,10 +43,26 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('IELTS Preparation is locked. Ask your founder to unlock it.')),
         );
-        // Still open hub so they see the lock screen.
       }
     }
-    final route = _routeForModule(module.key);
+    final prefix = _prefixOf(context);
+    final route = switch (module.key) {
+      'words' => isStudent ? '/student/words' : '$prefix/words',
+      'sentences' => isStudent ? '/student/sentences' : '$prefix/sentences',
+      'listening' => isStudent ? '/student/listening' : null,
+      'video' => isStudent
+          ? '/student/learn/$subjectId/video'
+          : '$prefix/learning/$subjectId/video',
+      'ielts' => isStudent ? '/student/learn/$subjectId/ielts' : '$prefix/learning/$subjectId/ielts',
+      'cms' => isStudent ? null : '$prefix/learning-cms',
+      'import' => isStudent ? null : '$prefix/content-import',
+      'progress' => isStudent ? '/student/progress' : '$prefix/progress',
+      'exam' => isStudent ? null : '$prefix/exams',
+      'quiz' => isStudent
+          ? '/student/learn/$subjectId/quiz'
+          : '$prefix/learning/$subjectId/quiz',
+      _ => null,
+    };
     if (route == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${module.label} is coming soon for this subject')),
@@ -53,21 +70,6 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
       return;
     }
     context.go(route);
-  }
-
-  String? _routeForModule(String key) {
-    return switch (key) {
-      'words' => isStudent ? '/student/words' : '$_prefix/words',
-      'sentences' => isStudent ? '/student/sentences' : '$_prefix/sentences',
-      'listening' => isStudent ? '/student/listening' : null,
-      'video' => isStudent ? '/student/video' : null,
-      'ielts' => isStudent ? '/student/learn/$subjectId/ielts' : '$_prefix/learning/$subjectId/ielts',
-      'cms' => isStudent ? null : '$_prefix/learning-cms',
-      'import' => isStudent ? null : '$_prefix/content-import',
-      'progress' => isStudent ? '/student/progress' : '$_prefix/progress',
-      'quiz' || 'exam' => isStudent ? null : '$_prefix/exams',
-      _ => null,
-    };
   }
 
   Future<void> _editSubject(BuildContext context, WidgetRef ref, LearningSubjectDashboard dash) async {
@@ -110,7 +112,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
     try {
       await ref.read(learningApiProvider).deleteSubject(dash.id);
       if (context.mounted) {
-        context.go(isStudent ? '$_prefix/learn' : '$_prefix/learning');
+        context.go(isStudent ? '${_prefixOf(context)}/learn' : '${_prefixOf(context)}/learning');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${dash.name} removed')));
       }
     } catch (e) {
@@ -143,7 +145,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
       actions: [
         IconButton(
           tooltip: 'Back to subjects',
-          onPressed: () => context.go(isStudent ? '/student/learn' : '$_prefix/learning'),
+          onPressed: () => context.go(isStudent ? '/student/learn' : '${_prefixOf(context)}/learning'),
           icon: const Icon(Icons.grid_view_outlined),
         ),
       ],

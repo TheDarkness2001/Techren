@@ -11,6 +11,7 @@ const {
   ListeningExercise,
   VideoLesson,
   IeltsExam,
+  LearningQuiz,
 } = require('../models');
 
 const MODEL_MAP = {
@@ -22,6 +23,7 @@ const MODEL_MAP = {
   listeningexercises: ListeningExercise,
   videolessons: VideoLesson,
   ieltsexams: IeltsExam,
+  learningquizzes: LearningQuiz,
 };
 
 const MODULE_BY_COLLECTION = {
@@ -33,6 +35,7 @@ const MODULE_BY_COLLECTION = {
   listeningexercises: 'listening',
   videolessons: 'video',
   ieltsexams: 'ielts',
+  learningquizzes: 'quiz',
 };
 
 const inferLabel = (snapshot, collectionName) => {
@@ -45,6 +48,9 @@ const inferLabel = (snapshot, collectionName) => {
   if (collectionName === 'listeningexercises') return snapshot.title || 'Listening exercise';
   if (collectionName === 'videolessons') return snapshot.title || 'Video lesson';
   if (collectionName === 'ieltsexams') return snapshot.title || 'IELTS exam';
+  if (collectionName === 'learningquizzes') {
+    return snapshot.title || `${snapshot.topic || ''} (${snapshot.level || ''})`.trim() || 'Quiz';
+  }
   return collectionName;
 };
 

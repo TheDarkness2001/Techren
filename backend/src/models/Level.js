@@ -10,7 +10,7 @@ const levelSchema = new mongoose.Schema(
     examTimeLimit: { type: Number, default: 300, min: 30 },
     minPassScore: { type: Number, default: 70, min: 1, max: 100 },
     practiceUnlockedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ExamGroup' }],
-    moduleType: { type: String, enum: ['words', 'sentences', 'listening'], default: 'words' },
+    moduleType: { type: String, enum: ['words', 'sentences', 'listening', 'video'], default: 'words' },
     order: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }

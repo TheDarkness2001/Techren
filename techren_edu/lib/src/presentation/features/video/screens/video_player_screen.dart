@@ -73,15 +73,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 ),
               const SizedBox(height: AppSpacing.md),
               Text(video.title, style: Theme.of(context).textTheme.headlineSmall),
-              if (video.description.isNotEmpty) ...[
+              if (video.topic.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xs),
-                Text(video.description),
+                Text(
+                  video.topic,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+              if (video.description.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'About this topic',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(video.description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4)),
               ],
               const SizedBox(height: AppSpacing.md),
               FilledButton.icon(
                 onPressed: () => _openYouTube(video.youtubeUrl),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Watch on YouTube'),
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('Watch YouTube lesson'),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text('Watch progress', style: Theme.of(context).textTheme.titleMedium),

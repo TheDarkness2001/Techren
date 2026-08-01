@@ -40,6 +40,8 @@ const resolveTeacherGroupIds = async (req) => {
 
 const assertTeacherCanAccessGroup = async (req, group) => {
   if (req.userType !== 'teacher') return;
+  // Founder / admin / manager can view any group in scope — no schedule assignment required.
+  if (['founder', 'admin', 'manager'].includes(req.user.role)) return;
   const teacherId = String(req.user._id);
   const listed = (group.teachers || []).some((t) => String(t._id || t) === teacherId);
   if (listed) return;

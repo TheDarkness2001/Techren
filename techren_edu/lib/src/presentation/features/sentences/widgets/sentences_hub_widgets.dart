@@ -177,7 +177,7 @@ class SentencesLanguageGrid extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         if (languages.isEmpty)
           AspectRatio(
-            aspectRatio: 1.4,
+            aspectRatio: 2.6,
             child: Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -198,8 +198,14 @@ class SentencesLanguageGrid extends StatelessWidget {
         else
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900 ? 4 : constraints.maxWidth >= 560 ? 3 : 2;
-              final spacing = AppSpacing.md;
+              final columns = constraints.maxWidth >= 900
+                  ? 5
+                  : constraints.maxWidth >= 700
+                      ? 4
+                      : constraints.maxWidth >= 480
+                          ? 3
+                          : 2;
+              final spacing = AppSpacing.sm;
               final cardWidth = (constraints.maxWidth - spacing * (columns - 1)) / columns;
 
               return Wrap(
@@ -209,9 +215,8 @@ class SentencesLanguageGrid extends StatelessWidget {
                   for (final language in languages)
                     SizedBox(
                       width: cardWidth,
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: Material(
+                      height: 88,
+                      child: Material(
                           color: Theme.of(context).colorScheme.surface,
                           borderRadius: AppRadius.card,
                           child: InkWell(
@@ -226,15 +231,22 @@ class SentencesLanguageGrid extends StatelessWidget {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.language, size: 40, color: AppColors.primary.withValues(alpha: 0.75)),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Text(language.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Icon(Icons.language, size: 26, color: AppColors.primary.withValues(alpha: 0.75)),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                                    child: Text(
+                                      language.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                      ),
                     ),
                 ],
               );
@@ -268,8 +280,8 @@ class SentencesLevelGrid extends StatelessWidget {
           children: [
             for (final level in levels)
               SizedBox(
-                width: 140,
-                height: 140,
+                width: 112,
+                height: 96,
                 child: Material(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: AppRadius.card,
@@ -962,12 +974,12 @@ class SentencesProgressTable extends StatelessWidget {
 
   Widget _pill(int value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: _pillColor(value),
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      child: Text('$value%', style: TextStyle(color: _pillTextColor(value), fontWeight: FontWeight.w700, fontSize: 12)),
+      child: Text('$value%', style: TextStyle(color: _pillTextColor(value), fontWeight: FontWeight.w700, fontSize: 11)),
     );
   }
 
@@ -990,56 +1002,56 @@ class SentencesProgressTable extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             child: Row(
               children: [
-                const Text('📁', style: TextStyle(fontSize: 24)),
+                const Text('📁', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text(subjectName, style: TextStyle(color: muted, fontSize: 12)),
+                      Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      Text(subjectName, style: TextStyle(color: muted, fontSize: 11)),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     border: Border.all(color: context.semantic.border),
-                    borderRadius: AppRadius.card,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                  child: const Text('All Lessons (Aggregate)'),
+                  child: const Text('All Lessons', style: TextStyle(fontSize: 11)),
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Text('${students.length} students', style: TextStyle(color: muted, fontSize: 12)),
+                const SizedBox(width: AppSpacing.sm),
+                Text('${students.length} students', style: TextStyle(color: muted, fontSize: 11)),
               ],
             ),
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
             child: Row(
               children: [
-                Expanded(flex: 4, child: Text('Student Name', style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12))),
-                Expanded(flex: 2, child: Text('Word Practice', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12))),
-                Expanded(flex: 2, child: Text('Word Exam', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12))),
-                Expanded(flex: 2, child: Text('Sentence Practice', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12))),
+                Expanded(flex: 4, child: Text('Student Name', style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11))),
+                Expanded(flex: 2, child: Text('Word Practice', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11))),
+                Expanded(flex: 2, child: Text('Word Exam', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11))),
+                Expanded(flex: 2, child: Text('Sentence Practice', textAlign: TextAlign.center, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11))),
               ],
             ),
           ),
           if (students.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Text('No students in this group.', style: TextStyle(color: muted)),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text('No students in this group.', style: TextStyle(color: muted, fontSize: 12)),
             )
           else
             for (final student in students)
               Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
                     child: Row(
                       children: [
                         Expanded(
@@ -1049,11 +1061,17 @@ class SentencesProgressTable extends StatelessWidget {
                               PersonAvatar(
                                 name: student.name,
                                 profileImage: student.profileImage,
-                                radius: 16,
+                                radius: 12,
                                 isStudent: true,
                               ),
                               const SizedBox(width: AppSpacing.sm),
-                              Text(student.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              Flexible(
+                                child: Text(
+                                  student.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                              ),
                             ],
                           ),
                         ),

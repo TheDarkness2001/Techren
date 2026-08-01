@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/ielts_provider.dart';
@@ -16,15 +17,26 @@ class IeltsHubScreen extends ConsumerWidget {
     required this.subjectId,
     this.isStudent = true,
     this.routePrefix = '/student',
+    this.navItems = const [],
+    this.selectedRoute,
   });
 
   final String subjectId;
   final bool isStudent;
   final String routePrefix;
+  final List<NavItem> navItems;
+  final String? selectedRoute;
 
   String get _base => isStudent
       ? '$routePrefix/learn/$subjectId/ielts'
       : '$routePrefix/learning/$subjectId/ielts';
+
+  String get _subjectHome => isStudent
+      ? '$routePrefix/learn/$subjectId'
+      : '$routePrefix/learning/$subjectId';
+
+  String get _learningSelected => selectedRoute ??
+      (isStudent ? '$routePrefix/learn' : '$routePrefix/learning');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,95 +45,153 @@ class IeltsHubScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final muted = context.semantic.textMuted;
 
-    if (locked) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('IELTS Preparation')),
-        body: Center(
-          child: Padding(
-            padding: AppSpacing.pagePaddingWide,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline, size: 56, color: muted),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'IELTS Preparation is locked',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Ask your academy founder to unlock IELTS for your account.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+    final body = locked
+        ? Center(
+            child: Padding(
+              padding: AppSpacing.pagePaddingWide,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 56, color: muted),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'IELTS Preparation is locked',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Ask your academy founder to unlock IELTS for your account.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go(_subjectHome),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to subject'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          )
+        : _HubBody(
+            base: _base,
+            isStudent: isStudent,
+            isFounder: user?.isFounder == true,
+            scheme: scheme,
+            muted: muted,
+          );
+
+    final actions = <Widget>[
+      IconButton(
+        tooltip: 'Back to subject',
+        onPressed: () => context.go(_subjectHome),
+        icon: const Icon(Icons.arrow_back),
+      ),
+    ];
+
+    // Staff Learning uses AdaptiveScaffold so IELTS stays inside the academy shell.
+    if (!isStudent && navItems.isNotEmpty) {
+      final selectedIndex = navItems.indexWhere((i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'));
+      return AdaptiveScaffold(
+        title: 'IELTS Preparation',
+        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+        selectedRoute: _learningSelected,
+        items: navItems,
+        onDestinationSelected: (i) => context.go(navItems[i].route),
+        actions: actions,
+        body: body,
       );
     }
 
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('IELTS Preparation'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(_subjectHome),
+        ),
+      ),
+      body: body,
+    );
+  }
+}
+
+class _HubBody extends StatelessWidget {
+  const _HubBody({
+    required this.base,
+    required this.isStudent,
+    required this.isFounder,
+    required this.scheme,
+    required this.muted,
+  });
+
+  final String base;
+  final bool isStudent;
+  final bool isFounder;
+  final ColorScheme scheme;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) {
     final tiles = <_HubTile>[
-      _HubTile('Mock Exams', Icons.quiz_outlined, '$_base/exams', 'Full & section mocks'),
-      _HubTile('Listening', Icons.headphones_outlined, '$_base/listening', 'Listening-only tests'),
-      _HubTile('Reading', Icons.menu_book_outlined, '$_base/reading', 'Reading-only tests'),
-      _HubTile('Writing', Icons.edit_note_outlined, '$_base/writing', 'Writing tasks'),
-      _HubTile('Results & History', Icons.history_edu_outlined, '$_base/history', 'Past attempts'),
+      _HubTile('Mock Exams', Icons.quiz_outlined, '$base/exams', 'Full & section mocks'),
+      _HubTile('Listening', Icons.headphones_outlined, '$base/listening', 'Listening-only tests'),
+      _HubTile('Reading', Icons.menu_book_outlined, '$base/reading', 'Reading-only tests'),
+      _HubTile('Writing', Icons.edit_note_outlined, '$base/writing', 'Writing tasks'),
+      _HubTile('Results & History', Icons.history_edu_outlined, '$base/history', 'Past attempts'),
       if (!isStudent) ...[
-        _HubTile('Manage Exams', Icons.settings_outlined, '$_base/manage', 'Create & publish'),
-        _HubTile('Writing Review', Icons.rate_review_outlined, '$_base/writing-review', 'Score submissions'),
-        if (user?.isFounder == true)
-          _HubTile('IELTS Access', Icons.lock_open_outlined, '$_base/access', 'Founder unlock/lock'),
+        _HubTile('Manage Exams', Icons.settings_outlined, '$base/manage', 'Create & publish'),
+        _HubTile('Writing Review', Icons.rate_review_outlined, '$base/writing-review', 'Score submissions'),
+        if (isFounder)
+          _HubTile('IELTS Access', Icons.lock_open_outlined, '$base/access', 'Founder unlock/lock'),
       ],
     ];
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('IELTS Preparation')),
-      body: ListView(
-        padding: AppSpacing.pagePaddingWide,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.card,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.18),
-                  scheme.surface,
-                ],
-              ),
-              border: Border.all(color: context.semantic.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Computer IELTS practice',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Timed mocks for Listening, Reading, and Writing. Instant L/R bands; Writing reviewed by teachers.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted, height: 1.4),
-                ),
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.card,
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary.withValues(alpha: 0.18),
+                scheme.surface,
               ],
             ),
+            border: Border.all(color: context.semantic.border),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final t in tiles)
-                SizedBox(
-                  width: 280,
-                  child: _HubCard(tile: t, onTap: () => context.go(t.route)),
-                ),
+              Text(
+                'Computer IELTS practice',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Timed mocks for Listening, Reading, and Writing. Instant L/R bands; Writing reviewed by teachers.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted, height: 1.4),
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final t in tiles)
+              SizedBox(
+                width: 280,
+                child: _HubCard(tile: t, onTap: () => context.go(t.route)),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -190,12 +260,20 @@ class IeltsExamListScreen extends ConsumerWidget {
     this.mode,
     this.isStudent = true,
     this.routePrefix = '/student',
+    this.navItems = const [],
+    this.selectedRoute,
   });
 
   final String subjectId;
   final String? mode;
   final bool isStudent;
   final String routePrefix;
+  final List<NavItem> navItems;
+  final String? selectedRoute;
+
+  String get _hub => isStudent
+      ? '$routePrefix/learn/$subjectId/ielts'
+      : '$routePrefix/learning/$subjectId/ielts';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -207,46 +285,76 @@ class IeltsExamListScreen extends ConsumerWidget {
       _ => 'Mock exams',
     };
 
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: async.when(
-        loading: () => const LoadingState(message: 'Loading exams...'),
-        error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(ieltsExamsProvider)),
-        data: (exams) {
-          final filtered = mode == null ? exams : exams.where((e) => e.mode == mode || e.mode == 'full').toList();
-          if (filtered.isEmpty) {
-            return const EmptyState(title: 'No exams yet', message: 'Published IELTS mocks will appear here.');
-          }
-          return ListView.separated(
-            padding: AppSpacing.pagePaddingWide,
-            itemCount: filtered.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) {
-              final exam = filtered[i];
-              return ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.card,
-                  side: BorderSide(color: context.semantic.border),
-                ),
-                title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(
-                  '${exam.trainingType.toUpperCase()} · ${exam.mode} · ${exam.difficulty}'
-                  '${exam.published ? '' : ' · draft'}',
-                ),
-                trailing: const Icon(Icons.play_arrow),
-                onTap: () {
-                  final root = isStudent ? 'learn' : 'learning';
-                  if (isStudent) {
-                    context.go('$routePrefix/$root/$subjectId/ielts/play/${exam.id}');
-                  } else {
-                    context.go('$routePrefix/$root/$subjectId/ielts/manage/${exam.id}');
-                  }
-                },
-              );
-            },
-          );
-        },
+    final body = async.when(
+      loading: () => const LoadingState(message: 'Loading exams...'),
+      error: (e, _) => ErrorState(
+        message: e.toString(),
+        onRetry: () => ref.invalidate(ieltsExamsProvider((subjectId: subjectId, mode: mode))),
       ),
+      data: (exams) {
+        final filtered = mode == null ? exams : exams.where((e) => e.mode == mode || e.mode == 'full').toList();
+        if (filtered.isEmpty) {
+          return EmptyState(
+            title: 'No exams yet',
+            message: isStudent
+                ? 'Published IELTS mocks will appear here.'
+                : 'Create and publish an exam under Manage Exams.',
+            icon: Icons.quiz_outlined,
+            action: isStudent
+                ? null
+                : FilledButton.icon(
+                    onPressed: () => context.go('$_hub/manage'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Manage exams'),
+                  ),
+          );
+        }
+        return ListView.separated(
+          itemCount: filtered.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (context, i) {
+            final exam = filtered[i];
+            return Card(
+              child: ListTile(
+                title: Text(exam.title),
+                subtitle: Text('${exam.mode} · ${exam.difficulty}${exam.published ? '' : ' · draft'}'),
+                trailing: const Icon(Icons.play_arrow),
+                onTap: () => context.go('$_hub/play/${exam.id}'),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    final actions = <Widget>[
+      IconButton(
+        tooltip: 'Back',
+        onPressed: () => context.go(_hub),
+        icon: const Icon(Icons.arrow_back),
+      ),
+    ];
+
+    if (!isStudent && navItems.isNotEmpty) {
+      final learningSelected = selectedRoute ?? '$routePrefix/learning';
+      final selectedIndex = navItems.indexWhere((i) => learningSelected.startsWith(i.route) || i.route.contains('/learning'));
+      return AdaptiveScaffold(
+        title: title,
+        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+        selectedRoute: learningSelected,
+        items: navItems,
+        onDestinationSelected: (i) => context.go(navItems[i].route),
+        actions: actions,
+        body: body,
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go(_hub)),
+      ),
+      body: Padding(padding: AppSpacing.pagePaddingWide, child: body),
     );
   }
 }
