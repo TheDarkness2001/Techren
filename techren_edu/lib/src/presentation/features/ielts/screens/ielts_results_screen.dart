@@ -116,13 +116,54 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
             Text('Question review', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             ...attempt.questionReview.map((r) {
-              return ListTile(
-                dense: true,
-                leading: Icon(r.correct ? Icons.check_circle : Icons.cancel, color: r.correct ? Colors.green : Colors.red),
-                title: Text(r.correct ? 'Correct' : 'Incorrect'),
-                subtitle: Text(
-                  'Your answer: ${r.studentAnswer ?? '—'}'
-                  '${r.correct ? '' : ' · Expected: ${r.correctAnswers.join(' / ')}'}',
+              final studentText = r.studentAnswer is Map
+                  ? (r.studentAnswer as Map).entries.map((e) => '${e.key}: ${e.value}').join(', ')
+                  : r.studentAnswer is List
+                      ? (r.studentAnswer as List).join(', ')
+                      : (r.studentAnswer?.toString() ?? '—');
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            r.correct ? Icons.check_circle : Icons.cancel,
+                            color: r.correct ? Colors.green : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Q${r.number ?? '—'} · ${r.type.replaceAll('_', ' ')}',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          Text(r.correct ? 'Correct' : 'Incorrect'),
+                        ],
+                      ),
+                      if (r.prompt.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(r.prompt, style: const TextStyle(height: 1.35)),
+                      ],
+                      const SizedBox(height: 6),
+                      Text('Your answer: $studentText', style: TextStyle(color: muted)),
+                      if (!r.correct)
+                        Text(
+                          'Accepted: ${r.correctAnswers.isEmpty ? '—' : r.correctAnswers.join(' / ')}',
+                          style: TextStyle(color: muted),
+                        ),
+                      if (r.reason != null && r.reason!.isNotEmpty)
+                        Text(r.reason!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+                      if (r.explanation.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(r.explanation, style: const TextStyle(fontStyle: FontStyle.italic)),
+                      ],
+                    ],
+                  ),
                 ),
               );
             }),

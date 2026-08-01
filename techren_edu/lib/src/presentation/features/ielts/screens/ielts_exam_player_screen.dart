@@ -1,16 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../widgets/ielts_audio_once_player.dart';
+import '../widgets/questions/ielts_question_widgets.dart';
 
 class IeltsExamPlayerScreen extends ConsumerStatefulWidget {
   const IeltsExamPlayerScreen({
@@ -36,15 +39,24 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
 
   final Map<String, dynamic> _answers = {};
   final Map<String, bool> _flags = {};
-  final Map<String, TextEditingController> _textControllers = {};
   final Map<String, TextEditingController> _writingControllers = {};
+  final Map<String, bool> _audioPlayedBySection = {};
+  final Map<String, int> _timePerQuestion = {};
+  final Map<String, Map<String, dynamic>> _audioAnalytics = {};
 
   int _sectionIndex = 0;
   int _questionIndex = 0;
   int _remainingSeconds = 0;
   Timer? _tick;
   Timer? _autosave;
-  bool _audioPlayed = false;
+
+  // Reading pane customization (not persisted server-side).
+  double _splitRatio = 0.5;
+  double _fontSize = 15;
+  double _lineSpacing = 1.5;
+
+  String? _activeQuestionId;
+  DateTime? _questionStartedAt;
 
   @override
   void initState() {
@@ -54,15 +66,37 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
 
   @override
   void dispose() {
+    _recordTimeSpent();
     _tick?.cancel();
     _autosave?.cancel();
-    for (final c in _textControllers.values) {
-      c.dispose();
-    }
     for (final c in _writingControllers.values) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Adds elapsed seconds since the active question became visible to
+  /// [_timePerQuestion], then clears the tracker (call before switching).
+  void _recordTimeSpent() {
+    final qid = _activeQuestionId;
+    final startedAt = _questionStartedAt;
+    if (qid != null && startedAt != null) {
+      final elapsed = DateTime.now().difference(startedAt).inSeconds;
+      if (elapsed > 0) {
+        _timePerQuestion[qid] = (_timePerQuestion[qid] ?? 0) + elapsed;
+      }
+    }
+    _questionStartedAt = null;
+  }
+
+  void _markQuestionActive(String? qid) {
+    _recordTimeSpent();
+    _activeQuestionId = qid;
+    _questionStartedAt = qid == null ? null : DateTime.now();
+  }
+
+  void _onAudioAnalytics(String sectionId, Map<String, dynamic> stats) {
+    _audioAnalytics[sectionId] = stats;
   }
 
   Future<void> _bootstrap() async {
@@ -75,6 +109,7 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
       final bundle = await api.startAttempt(widget.examId);
       _answers.addAll(bundle.attempt.answers);
       _flags.addAll(bundle.attempt.flags);
+      _audioPlayedBySection.addAll(bundle.attempt.audioPlayedBySection);
       for (final entry in bundle.attempt.writingResponses.entries) {
         _writingControllers[entry.key] = TextEditingController(text: entry.value);
       }
@@ -85,8 +120,8 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
         if (i >= 0) sIdx = i;
       }
       _sectionIndex = sIdx;
-      _remainingSeconds = bundle.attempt.remainingSeconds ?? bundle.exam.timers.totalSecondsForMode(bundle.exam.mode);
-      _audioPlayed = bundle.attempt.audioPlayed;
+      _remainingSeconds =
+          bundle.attempt.remainingSeconds ?? bundle.exam.timers.totalSecondsForMode(bundle.exam.mode);
       _bundle = bundle;
       _startTimers();
       setState(() => _loading = false);
@@ -115,13 +150,15 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     _autosave = Timer.periodic(const Duration(seconds: 8), (_) => _save());
   }
 
-  Future<void> _save() async {
+  Future<void> _save({String? playedSectionId}) async {
     final bundle = _bundle;
     if (bundle == null || _submitting) return;
     final writing = <String, String>{};
     for (final e in _writingControllers.entries) {
       writing[e.key] = e.value.text;
     }
+    _recordTimeSpent();
+    if (_activeQuestionId != null) _questionStartedAt = DateTime.now();
     final sectionId = bundle.exam.sections.isNotEmpty ? bundle.exam.sections[_sectionIndex].id : null;
     try {
       await ref.read(ieltsApiProvider).autosave(
@@ -131,11 +168,13 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
             writingResponses: writing,
             currentSectionId: sectionId,
             remainingSeconds: _remainingSeconds,
-            audioPlayed: _audioPlayed,
+            audioPlayed: _audioPlayedBySection.values.any((v) => v),
+            playedSectionId: playedSectionId,
+            audioPlayedBySection: Map<String, bool>.from(_audioPlayedBySection),
+            timePerQuestion: _timePerQuestion.isEmpty ? null : Map<String, int>.from(_timePerQuestion),
+            audioAnalytics: _audioAnalytics.isEmpty ? null : Map<String, dynamic>.from(_audioAnalytics),
           );
-    } catch (_) {
-      // Keep local state; next autosave retries.
-    }
+    } catch (_) {}
   }
 
   Future<void> _submit({bool auto = false}) async {
@@ -173,13 +212,6 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     return sections[_sectionIndex.clamp(0, sections.length - 1)];
   }
 
-  TextEditingController _controllerFor(String qid) {
-    return _textControllers.putIfAbsent(
-      qid,
-      () => TextEditingController(text: _answers[qid]?.toString() ?? ''),
-    );
-  }
-
   TextEditingController _writingController(String sectionId) {
     return _writingControllers.putIfAbsent(sectionId, () => TextEditingController());
   }
@@ -188,6 +220,14 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     final m = seconds ~/ 60;
     final s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  bool _isAnswered(dynamic value) {
+    if (value == null) return false;
+    if (value is String) return value.trim().isNotEmpty;
+    if (value is List) return value.isNotEmpty;
+    if (value is Map) return value.values.any((v) => v != null && v.toString().trim().isNotEmpty);
+    return value.toString().trim().isNotEmpty;
   }
 
   @override
@@ -207,6 +247,12 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     final questions = section?.questions.where((q) => !q.isWriting).toList() ?? const <IeltsQuestion>[];
     final isWriting = section?.skill == 'writing';
     final muted = context.semantic.textMuted;
+
+    final currentQid =
+        (!isWriting && questions.isNotEmpty) ? questions[_questionIndex.clamp(0, questions.length - 1)].id : null;
+    if (currentQid != _activeQuestionId) {
+      _markQuestionActive(currentQid);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -234,7 +280,9 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
           ),
           TextButton(
             onPressed: _submitting ? null : () => _submit(),
-            child: _submitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Submit'),
+            child: _submitting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Submit'),
           ),
         ],
       ),
@@ -256,7 +304,7 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
               questions: questions,
               current: _questionIndex,
               flags: _flags,
-              answers: _answers,
+              isAnswered: (qid) => _isAnswered(_answers[qid]),
               onSelect: (i) => setState(() => _questionIndex = i),
             ),
           Expanded(
@@ -270,11 +318,17 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
                       )
                     : _ObjectivePane(
                         section: section,
-                        question: questions.isEmpty ? null : questions[_questionIndex.clamp(0, questions.length - 1)],
+                        questions: questions,
+                        questionIndex: _questionIndex,
                         answers: _answers,
                         flags: _flags,
-                        audioPlayed: _audioPlayed,
-                        controllerFor: _controllerFor,
+                        audioPlayed: _audioPlayedBySection[section.id] == true,
+                        splitRatio: _splitRatio,
+                        onSplitChanged: (v) => setState(() => _splitRatio = v),
+                        fontSize: _fontSize,
+                        onFontSizeChanged: (v) => setState(() => _fontSize = v),
+                        lineSpacing: _lineSpacing,
+                        onLineSpacingChanged: (v) => setState(() => _lineSpacing = v),
                         onAnswer: (qid, value) {
                           setState(() => _answers[qid] = value);
                         },
@@ -282,9 +336,10 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
                           setState(() => _flags[qid] = !(_flags[qid] == true));
                         },
                         onAudioPlayed: () {
-                          setState(() => _audioPlayed = true);
-                          _save();
+                          setState(() => _audioPlayedBySection[section.id] = true);
+                          _save(playedSectionId: section.id);
                         },
+                        onAudioAnalytics: (stats) => _onAudioAnalytics(section.id, stats),
                       ),
           ),
           if (!isWriting && questions.isNotEmpty)
@@ -309,9 +364,11 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
                                     _questionIndex = 0;
                                   })
                               : () => _submit()),
-                      child: Text(_questionIndex < questions.length - 1
-                          ? 'Next'
-                          : (_sectionIndex < exam.sections.length - 1 ? 'Next section' : 'Submit')),
+                      child: Text(
+                        _questionIndex < questions.length - 1
+                            ? 'Next'
+                            : (_sectionIndex < exam.sections.length - 1 ? 'Next section' : 'Submit'),
+                      ),
                     ),
                   ],
                 ),
@@ -340,7 +397,11 @@ class _SectionTabs extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(sections[i].title.isNotEmpty ? sections[i].title : sections[i].skill),
+                label: Text(
+                  sections[i].part != null
+                      ? 'Part ${sections[i].part}'
+                      : (sections[i].title.isNotEmpty ? sections[i].title : sections[i].skill),
+                ),
                 selected: i == index,
                 onSelected: (_) => onSelect(i),
               ),
@@ -356,54 +417,144 @@ class _QuestionNavigator extends StatelessWidget {
     required this.questions,
     required this.current,
     required this.flags,
-    required this.answers,
+    required this.isAnswered,
     required this.onSelect,
   });
 
   final List<IeltsQuestion> questions;
   final int current;
   final Map<String, bool> flags;
-  final Map<String, dynamic> answers;
+  final bool Function(String qid) isAnswered;
   final ValueChanged<int> onSelect;
+
+  Future<void> _openJumpTo(BuildContext context) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Jump to question', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var i = 0; i < questions.length; i++)
+                    _JumpChip(
+                      label: '${questions[i].number}',
+                      selected: i == current,
+                      answered: isAnswered(questions[i].id),
+                      flagged: flags[questions[i].id] == true,
+                      onTap: () => Navigator.pop(ctx, i),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null) onSelect(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
+      // Sticky nav bar: sits outside the scrollable pane content so it stays
+      // visible while the student scrolls the passage/question area.
       height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: questions.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final q = questions[i];
-          final answered = answers[q.id] != null && answers[q.id].toString().trim().isNotEmpty;
-          final flagged = flags[q.id] == true;
-          return InkWell(
-            onTap: () => onSelect(i),
-            child: Container(
-              width: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: i == current
-                    ? AppColors.primary
-                    : answered
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-                border: flagged ? Border.all(color: Colors.orange, width: 2) : null,
-              ),
-              child: Text(
-                '${q.number}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: i == current ? Colors.white : null,
-                  fontSize: 12,
-                ),
-              ),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Jump to question',
+            onPressed: () => _openJumpTo(context),
+            icon: const Icon(Icons.dashboard_customize_outlined, size: 20),
+          ),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemCount: questions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (context, i) {
+                final q = questions[i];
+                final answered = isAnswered(q.id);
+                final flagged = flags[q.id] == true;
+                return InkWell(
+                  onTap: () => onSelect(i),
+                  child: Container(
+                    width: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: i == current
+                          ? AppColors.primary
+                          : answered
+                              ? AppColors.primary.withValues(alpha: 0.15)
+                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: flagged ? Border.all(color: Colors.orange, width: 2) : null,
+                    ),
+                    child: Text(
+                      '${q.number}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: i == current ? Colors.white : null,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JumpChip extends StatelessWidget {
+  const _JumpChip({
+    required this.label,
+    required this.selected,
+    required this.answered,
+    required this.flagged,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool answered;
+  final bool flagged;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary
+              : answered
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: flagged ? Border.all(color: Colors.orange, width: 2) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(fontWeight: FontWeight.w700, color: selected ? Colors.white : null),
+        ),
       ),
     );
   }
@@ -412,114 +563,221 @@ class _QuestionNavigator extends StatelessWidget {
 class _ObjectivePane extends StatelessWidget {
   const _ObjectivePane({
     required this.section,
-    required this.question,
+    required this.questions,
+    required this.questionIndex,
     required this.answers,
     required this.flags,
     required this.audioPlayed,
-    required this.controllerFor,
     required this.onAnswer,
     required this.onToggleFlag,
     required this.onAudioPlayed,
+    this.splitRatio = 0.5,
+    this.onSplitChanged,
+    this.fontSize = 15,
+    this.onFontSizeChanged,
+    this.lineSpacing = 1.5,
+    this.onLineSpacingChanged,
+    this.onAudioAnalytics,
   });
 
   final IeltsSection section;
-  final IeltsQuestion? question;
+  final List<IeltsQuestion> questions;
+  final int questionIndex;
   final Map<String, dynamic> answers;
   final Map<String, bool> flags;
   final bool audioPlayed;
-  final TextEditingController Function(String qid) controllerFor;
   final void Function(String qid, dynamic value) onAnswer;
   final ValueChanged<String> onToggleFlag;
   final VoidCallback onAudioPlayed;
+  final double splitRatio;
+  final ValueChanged<double>? onSplitChanged;
+  final double fontSize;
+  final ValueChanged<double>? onFontSizeChanged;
+  final double lineSpacing;
+  final ValueChanged<double>? onLineSpacingChanged;
+  final ValueChanged<Map<String, dynamic>>? onAudioAnalytics;
 
   @override
   Widget build(BuildContext context) {
-    if (question == null) {
+    if (questions.isEmpty) {
       return const Center(child: Text('No questions in this section'));
     }
-    final q = question!;
+    final q = questions[questionIndex.clamp(0, questions.length - 1)];
     final muted = context.semantic.textMuted;
+    final partLabel = section.part != null
+        ? 'Listening Part ${section.part}${section.title.isNotEmpty ? ' — ${section.title}' : ''}'
+        : (section.title.isNotEmpty ? section.title : null);
+    final hasPassage = section.skill == 'reading' && section.passage.isNotEmpty;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final questionColumn = ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        if (section.skill == 'reading' && section.passage.isNotEmpty)
-          Expanded(
-            flex: 5,
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: AppRadius.card,
-                border: Border.all(color: context.semantic.border),
-                color: Theme.of(context).colorScheme.surface,
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(section.passage, style: const TextStyle(height: 1.5, fontSize: 15)),
-              ),
-            ),
-          ),
-        Expanded(
-          flex: 5,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (section.skill == 'listening') ...[
-                Text(section.instructions, style: TextStyle(color: muted)),
-                const SizedBox(height: 8),
-                if (section.hasAudio)
-                  IeltsAudioOncePlayer(
-                    sectionId: section.id,
-                    alreadyPlayed: audioPlayed,
-                    onPlayed: onAudioPlayed,
-                  )
-                else
-                  Text('No audio uploaded for this section.', style: TextStyle(color: muted)),
-                const SizedBox(height: 16),
-              ],
-              Row(
+        if (section.skill == 'listening') ...[
+          if (section.instructions.isNotEmpty) Text(section.instructions, style: TextStyle(color: muted)),
+          const SizedBox(height: 8),
+          if (section.hasAudio)
+            IeltsAudioOncePlayer(
+              sectionId: section.id,
+              alreadyPlayed: audioPlayed,
+              partLabel: partLabel,
+              onPlayed: onAudioPlayed,
+              onAnalytics: onAudioAnalytics,
+            )
+          else
+            Text('No audio uploaded for this section.', style: TextStyle(color: muted)),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        IeltsQuestionView(
+          question: q,
+          value: answers[q.id],
+          flagged: flags[q.id] == true,
+          onChanged: (v) => onAnswer(q.id, v),
+          onToggleFlag: () => onToggleFlag(q.id),
+        ),
+      ],
+    );
+
+    if (!hasPassage) {
+      return questionColumn;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const dividerWidth = 10.0;
+        final available = constraints.maxWidth - dividerWidth;
+        final leftWidth = (available * splitRatio).clamp(160.0, available - 160.0);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Question ${q.number}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Flag for review',
-                    onPressed: () => onToggleFlag(q.id),
-                    icon: Icon(
-                      flags[q.id] == true ? Icons.flag : Icons.flag_outlined,
-                      color: flags[q.id] == true ? Colors.orange : null,
+                  _PassageToolbar(
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    onFontSizeChanged: onFontSizeChanged,
+                    onLineSpacingChanged: onLineSpacingChanged,
+                  ),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: AppRadius.card,
+                        border: Border.all(color: context.semantic.border),
+                        color: Theme.of(context).colorScheme.surface,
+                      ),
+                      child: SingleChildScrollView(
+                        child: section.isHtmlPassage
+                            ? Html(
+                                data: section.passage,
+                                style: {
+                                  'body': Style(
+                                    fontSize: FontSize(fontSize),
+                                    lineHeight: LineHeight(lineSpacing),
+                                    margin: Margins.zero,
+                                  ),
+                                },
+                              )
+                            : SelectableText(
+                                section.passage,
+                                style: TextStyle(height: lineSpacing, fontSize: fontSize),
+                              ),
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(q.prompt, style: const TextStyle(height: 1.4, fontSize: 16)),
-              const SizedBox(height: 16),
-              if (q.options.isNotEmpty)
-                ...q.options.map((opt) {
-                  final selected = answers[q.id]?.toString() == opt;
-                  return RadioListTile<String>(
-                    value: opt,
-                    groupValue: answers[q.id]?.toString(),
-                    title: Text(opt),
-                    onChanged: (v) {
-                      if (v != null) onAnswer(q.id, v);
-                    },
-                    selected: selected,
-                  );
-                })
-              else
-                TextField(
-                  controller: controllerFor(q.id),
-                  decoration: const InputDecoration(
-                    labelText: 'Your answer',
-                    border: OutlineInputBorder(),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragUpdate: (details) {
+                final handler = onSplitChanged;
+                if (handler == null) return;
+                final next = ((leftWidth + details.delta.dx) / available).clamp(0.2, 0.8);
+                handler(next);
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: SizedBox(
+                  width: dividerWidth,
+                  child: Center(
+                    child: Container(
+                      width: 4,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: context.semantic.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  onChanged: (v) => onAnswer(q.id, v),
                 ),
-            ],
+              ),
+            ),
+            Expanded(child: questionColumn),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PassageToolbar extends StatelessWidget {
+  const _PassageToolbar({
+    required this.fontSize,
+    required this.lineSpacing,
+    required this.onFontSizeChanged,
+    required this.onLineSpacingChanged,
+  });
+
+  final double fontSize;
+  final double lineSpacing;
+  final ValueChanged<double>? onFontSizeChanged;
+  final ValueChanged<double>? onLineSpacingChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Wrap(
+        spacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('Text', style: TextStyle(color: context.semantic.textMuted, fontSize: 12)),
+          IconButton(
+            tooltip: 'Smaller text',
+            visualDensity: VisualDensity.compact,
+            onPressed: onFontSizeChanged == null ? null : () => onFontSizeChanged!((fontSize - 1).clamp(11, 24)),
+            icon: const Icon(Icons.text_decrease, size: 18),
           ),
-        ),
-      ],
+          IconButton(
+            tooltip: 'Larger text',
+            visualDensity: VisualDensity.compact,
+            onPressed: onFontSizeChanged == null ? null : () => onFontSizeChanged!((fontSize + 1).clamp(11, 24)),
+            icon: const Icon(Icons.text_increase, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Text('Spacing', style: TextStyle(color: context.semantic.textMuted, fontSize: 12)),
+          IconButton(
+            tooltip: 'Tighter lines',
+            visualDensity: VisualDensity.compact,
+            onPressed: onLineSpacingChanged == null
+                ? null
+                : () => onLineSpacingChanged!((lineSpacing - 0.15).clamp(1.0, 2.2)),
+            icon: const Icon(Icons.format_line_spacing, size: 18),
+          ),
+          IconButton(
+            tooltip: 'Wider lines',
+            visualDensity: VisualDensity.compact,
+            onPressed: onLineSpacingChanged == null
+                ? null
+                : () => onLineSpacingChanged!((lineSpacing + 0.15).clamp(1.0, 2.2)),
+            icon: const Icon(Icons.format_line_spacing_outlined, size: 18),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -551,10 +809,15 @@ class _WritingPane extends StatelessWidget {
         children: [
           Text(section.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           const SizedBox(height: 8),
-          Text(section.prompt.isNotEmpty ? section.prompt : section.instructions, style: TextStyle(height: 1.4, color: muted)),
+          Text(
+            section.prompt.isNotEmpty ? section.prompt : section.instructions,
+            style: TextStyle(height: 1.4, color: muted),
+          ),
           const SizedBox(height: 8),
-          Text('Words: $_words${section.minWords > 0 ? ' / ${section.minWords} min' : ''}',
-              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
+          Text(
+            'Words: $_words${section.minWords > 0 ? ' / ${section.minWords} min' : ''}',
+            style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary),
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: TextField(

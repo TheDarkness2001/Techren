@@ -4,7 +4,7 @@ const IeltsQuestion = require('../models/IeltsQuestion');
 const IeltsAttempt = require('../models/IeltsAttempt');
 const IeltsWritingReview = require('../models/IeltsWritingReview');
 const { scoreObjectiveQuestions, meanBand } = require('./ieltsScoringService');
-const { formatExamBundle } = require('./ieltsExamService');
+const { formatExamBundle, applyScheduledPublishes } = require('./ieltsExamService');
 
 const notFound = (msg = 'Not found') =>
   Object.assign(new Error(msg), { statusCode: 404, code: 'NOT_FOUND' });
@@ -24,8 +24,9 @@ const timerSecondsForExam = (exam) => {
 };
 
 const startAttempt = async (studentId, examId) => {
+  await applyScheduledPublishes();
   const exam = await IeltsExam.findById(examId);
-  if (!exam || !exam.published) throw notFound('Published exam not found');
+  if (!exam || !exam.published || exam.archived) throw notFound('Published exam not found');
 
   const existing = await IeltsAttempt.findOne({
     studentId,
@@ -96,6 +97,37 @@ const autosave = async (attemptId, studentId, body) => {
   if (body.currentSectionId !== undefined) attempt.currentSectionId = body.currentSectionId;
   if (body.remainingSeconds !== undefined) attempt.remainingSeconds = body.remainingSeconds;
   if (body.audioPlayed === true) attempt.audioPlayed = true;
+  if (body.audioPlayedBySection && typeof body.audioPlayedBySection === 'object') {
+    if (!attempt.audioPlayedBySection) attempt.audioPlayedBySection = new Map();
+    for (const [sid, played] of Object.entries(body.audioPlayedBySection)) {
+      if (played === true) {
+        attempt.audioPlayedBySection.set(sid, true);
+        attempt.audioPlayed = true;
+      }
+    }
+  }
+  if (body.playedSectionId) {
+    if (!attempt.audioPlayedBySection) attempt.audioPlayedBySection = new Map();
+    attempt.audioPlayedBySection.set(String(body.playedSectionId), true);
+    attempt.audioPlayed = true;
+  }
+  if (body.audioAnalytics && typeof body.audioAnalytics === 'object') {
+    if (!attempt.audioAnalytics) attempt.audioAnalytics = new Map();
+    for (const [sid, stats] of Object.entries(body.audioAnalytics)) {
+      const prev = attempt.audioAnalytics.get(sid) || {};
+      attempt.audioAnalytics.set(sid, {
+        playCount: Number(stats.playCount ?? prev.playCount ?? 0),
+        listenedSeconds: Number(stats.listenedSeconds ?? prev.listenedSeconds ?? 0),
+        completed: Boolean(stats.completed ?? prev.completed),
+      });
+    }
+  }
+  if (body.timePerQuestion && typeof body.timePerQuestion === 'object') {
+    if (!attempt.timePerQuestion) attempt.timePerQuestion = new Map();
+    for (const [qid, secs] of Object.entries(body.timePerQuestion)) {
+      attempt.timePerQuestion.set(qid, Number(secs) || 0);
+    }
+  }
   attempt.autosaveAt = new Date();
   await attempt.save();
   return attempt.toPublicJSON();
@@ -126,8 +158,12 @@ const submitAttempt = async (attemptId, studentId) => {
   const listeningQs = questions.filter((q) => listeningSectionIds.has(String(q.sectionId)));
   const readingQs = questions.filter((q) => readingSectionIds.has(String(q.sectionId)));
 
-  const listeningScore = scoreObjectiveQuestions(listeningQs, answersObj);
-  const readingScore = scoreObjectiveQuestions(readingQs, answersObj);
+  const listeningScore = scoreObjectiveQuestions(listeningQs, answersObj, {
+    trainingType: exam?.trainingType || 'academic',
+  });
+  const readingScore = scoreObjectiveQuestions(readingQs, answersObj, {
+    trainingType: exam?.trainingType || 'academic',
+  });
 
   const hasWriting = sections.some((s) => s.skill === 'writing');
 

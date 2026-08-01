@@ -14,6 +14,22 @@ const scoreSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const reviewSchema = new mongoose.Schema(
+  {
+    questionId: mongoose.Schema.Types.ObjectId,
+    correct: Boolean,
+    studentAnswer: mongoose.Schema.Types.Mixed,
+    correctAnswers: [String],
+    explanation: { type: String, default: '' },
+    reason: { type: String, default: null },
+    type: { type: String, default: '' },
+    prompt: { type: String, default: '' },
+    number: { type: Number, default: null },
+    points: { type: Number, default: 1 },
+  },
+  { _id: false }
+);
+
 const ieltsAttemptSchema = new mongoose.Schema(
   {
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true, index: true },
@@ -25,7 +41,7 @@ const ieltsAttemptSchema = new mongoose.Schema(
       default: 'in_progress',
       index: true,
     },
-    /** questionId -> answer string / array */
+    /** questionId -> answer string / array / blank map */
     answers: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
     /** questionId -> flagged */
     flags: { type: Map, of: Boolean, default: {} },
@@ -34,19 +50,19 @@ const ieltsAttemptSchema = new mongoose.Schema(
     currentSectionId: { type: mongoose.Schema.Types.ObjectId, ref: 'IeltsSection', default: null },
     sectionStartedAt: { type: Date, default: null },
     remainingSeconds: { type: Number, default: null },
+    /** Legacy: true if any listening section was played */
     audioPlayed: { type: Boolean, default: false },
+    /** sectionId -> played once */
+    audioPlayedBySection: { type: Map, of: Boolean, default: {} },
+    /** sectionId -> { playCount, listenedSeconds, completed } */
+    audioAnalytics: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
+    /** questionId -> seconds spent (client-reported) */
+    timePerQuestion: { type: Map, of: Number, default: {} },
     startedAt: { type: Date, default: Date.now },
     submittedAt: { type: Date, default: null },
     autosaveAt: { type: Date, default: null },
     scores: { type: scoreSchema, default: () => ({}) },
-    questionReview: [
-      {
-        questionId: mongoose.Schema.Types.ObjectId,
-        correct: Boolean,
-        studentAnswer: mongoose.Schema.Types.Mixed,
-        correctAnswers: [String],
-      },
-    ],
+    questionReview: [reviewSchema],
   },
   { timestamps: true }
 );
@@ -67,6 +83,12 @@ ieltsAttemptSchema.methods.toPublicJSON = function toPublicJSON({ includeKeys = 
   if (this.writingResponses) {
     for (const [k, v] of this.writingResponses.entries()) writingResponses[k] = v;
   }
+  const audioPlayedBySection = {};
+  if (this.audioPlayedBySection) {
+    for (const [k, v] of this.audioPlayedBySection.entries()) {
+      audioPlayedBySection[k] = v === true;
+    }
+  }
 
   return {
     id: this._id,
@@ -81,6 +103,21 @@ ieltsAttemptSchema.methods.toPublicJSON = function toPublicJSON({ includeKeys = 
     sectionStartedAt: this.sectionStartedAt,
     remainingSeconds: this.remainingSeconds,
     audioPlayed: this.audioPlayed,
+    audioPlayedBySection,
+    audioAnalytics: (() => {
+      const out = {};
+      if (this.audioAnalytics) {
+        for (const [k, v] of this.audioAnalytics.entries()) out[k] = v;
+      }
+      return out;
+    })(),
+    timePerQuestion: (() => {
+      const out = {};
+      if (this.timePerQuestion) {
+        for (const [k, v] of this.timePerQuestion.entries()) out[k] = v;
+      }
+      return out;
+    })(),
     startedAt: this.startedAt,
     submittedAt: this.submittedAt,
     autosaveAt: this.autosaveAt,

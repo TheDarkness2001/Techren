@@ -29,6 +29,9 @@ const ieltsExamSchema = new mongoose.Schema(
     },
     timers: { type: timerSchema, default: () => ({}) },
     published: { type: Boolean, default: false, index: true },
+    archived: { type: Boolean, default: false, index: true },
+    /** When set in the future, exam auto-publishes once that time is reached */
+    publishAt: { type: Date, default: null, index: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
   },
   { timestamps: true }
@@ -36,7 +39,7 @@ const ieltsExamSchema = new mongoose.Schema(
 
 ieltsExamSchema.plugin(softDeletePlugin);
 
-ieltsExamSchema.methods.toPublicJSON = function toPublicJSON({ includeDraft = false } = {}) {
+ieltsExamSchema.methods.toPublicJSON = function toPublicJSON() {
   return {
     id: this._id,
     subjectId: this.subjectId,
@@ -47,6 +50,8 @@ ieltsExamSchema.methods.toPublicJSON = function toPublicJSON({ includeDraft = fa
     difficulty: this.difficulty,
     timers: this.timers,
     published: this.published,
+    archived: this.archived === true,
+    publishAt: this.publishAt || null,
     createdBy: this.createdBy,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

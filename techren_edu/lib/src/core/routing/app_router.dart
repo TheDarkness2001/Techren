@@ -29,6 +29,7 @@ import '../../presentation/features/progress/screens/teacher_progress_screen.dar
 import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_analytics_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
 import '../../presentation/features/video/screens/video_learning_hub_screen.dart';
@@ -184,6 +185,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => IeltsResultsScreen(
           subjectId: state.pathParameters['subjectId']!,
           attemptId: state.pathParameters['attemptId']!,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/analytics',
+        builder: (_, state) => IeltsAnalyticsScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          isStudent: true,
           routePrefix: '/student',
         ),
       ),

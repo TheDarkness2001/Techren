@@ -1,7 +1,9 @@
 /**
- * Approximate IELTS Academic Listening/Reading raw→band conversion (40 questions).
- * Values are midpoint estimates used for mock practice only.
+ * IELTS Academic / General Training raw→band conversion for mock practice.
+ * Uses local tables only — no external AI.
  */
+const { evaluateAnswer, normalizeAnswer } = require('./ieltsAnswerEngine');
+
 const ACADEMIC_BAND_TABLE = [
   { min: 39, band: 9.0 },
   { min: 37, band: 8.5 },
@@ -22,39 +24,53 @@ const ACADEMIC_BAND_TABLE = [
   { min: 0, band: 0 },
 ];
 
-const normalizeAnswer = (value) =>
-  String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[.,;:!?'"()\-_/\\]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+/** Approximate General Training Listening/Reading conversion (practice only). */
+const GENERAL_BAND_TABLE = [
+  { min: 39, band: 9.0 },
+  { min: 37, band: 8.5 },
+  { min: 35, band: 8.0 },
+  { min: 32, band: 7.5 },
+  { min: 30, band: 7.0 },
+  { min: 26, band: 6.5 },
+  { min: 23, band: 6.0 },
+  { min: 18, band: 5.5 },
+  { min: 16, band: 5.0 },
+  { min: 13, band: 4.5 },
+  { min: 11, band: 4.0 },
+  { min: 8, band: 3.5 },
+  { min: 6, band: 3.0 },
+  { min: 4, band: 2.5 },
+  { min: 2, band: 2.0 },
+  { min: 1, band: 1.0 },
+  { min: 0, band: 0 },
+];
 
+/** @deprecated use evaluateAnswer — kept for callers/tests */
 const answersMatch = (studentAnswer, acceptedList) => {
-  const student = normalizeAnswer(studentAnswer);
-  if (!student) return false;
-  const list = Array.isArray(acceptedList) ? acceptedList : [acceptedList];
-  return list.some((accepted) => {
-    const a = normalizeAnswer(accepted);
-    if (!a) return false;
-    if (a.includes('/') || a.includes('|')) {
-      return a.split(/[/|]/).map((p) => p.trim()).filter(Boolean).some((p) => p === student);
-    }
-    return a === student;
-  });
+  const result = evaluateAnswer(
+    { answers: Array.isArray(acceptedList) ? acceptedList : [acceptedList], metadata: {} },
+    studentAnswer
+  );
+  return result.correct;
 };
 
-const rawToBand = (raw, max = 40) => {
+const rawToBand = (raw, max = 40, trainingType = 'academic') => {
   if (raw == null || max <= 0) return null;
-  // Scale to 40-question equivalent when exam has fewer auto-scored items.
   const scaled = max === 40 ? raw : Math.round((raw / max) * 40);
-  for (const row of ACADEMIC_BAND_TABLE) {
+  const table = trainingType === 'general' ? GENERAL_BAND_TABLE : ACADEMIC_BAND_TABLE;
+  for (const row of table) {
     if (scaled >= row.min) return row.band;
   }
   return 0;
 };
 
-const scoreObjectiveQuestions = (questions, answersMap) => {
+/**
+ * @param {object[]} questions
+ * @param {object} answersMap
+ * @param {{ trainingType?: string }} [opts]
+ */
+const scoreObjectiveQuestions = (questions, answersMap, opts = {}) => {
+  const trainingType = opts.trainingType || 'academic';
   let raw = 0;
   let max = 0;
   const review = [];
@@ -64,17 +80,23 @@ const scoreObjectiveQuestions = (questions, answersMap) => {
     const pts = Number(q.points) || 1;
     max += pts;
     const studentAnswer = answersMap?.[String(q._id)] ?? answersMap?.get?.(String(q._id));
-    const correct = answersMatch(studentAnswer, q.answers || []);
-    if (correct) raw += pts;
+    const evaluated = evaluateAnswer(q, studentAnswer);
+    if (evaluated.correct) raw += pts;
     review.push({
       questionId: q._id,
-      correct,
-      studentAnswer: studentAnswer ?? null,
-      correctAnswers: q.answers || [],
+      correct: evaluated.correct,
+      studentAnswer: evaluated.studentAnswer ?? studentAnswer ?? null,
+      correctAnswers: evaluated.correctAnswers || q.answers || [],
+      explanation: evaluated.explanation || '',
+      reason: evaluated.reason || null,
+      type: q.type,
+      prompt: q.prompt || '',
+      number: q.number,
+      points: pts,
     });
   }
 
-  return { raw, max, band: rawToBand(raw, max || 40), review };
+  return { raw, max, band: rawToBand(raw, max || 40, trainingType), review };
 };
 
 const meanBand = (...bands) => {
@@ -91,4 +113,5 @@ module.exports = {
   scoreObjectiveQuestions,
   meanBand,
   ACADEMIC_BAND_TABLE,
+  GENERAL_BAND_TABLE,
 };

@@ -56,8 +56,13 @@ router.get('/exams/:id', requireIeltsAccess, objectId('id'), validate, controlle
 
 // Staff CMS
 router.post('/exams', requireStaff, controller.createExam);
+router.post('/exams/import', requireStaff, controller.importExamJson);
 router.put('/exams/:id', requireStaff, objectId('id'), validate, controller.updateExam);
 router.delete('/exams/:id', requireStaff, objectId('id'), validate, controller.removeExam);
+router.post('/exams/:id/duplicate', requireStaff, objectId('id'), validate, controller.duplicateExam);
+router.get('/exams/:id/export', requireStaff, objectId('id'), validate, controller.exportExamJson);
+router.get('/exams/:id/export.csv', requireStaff, objectId('id'), validate, controller.exportExamCsv);
+router.get('/exams/:examId/analytics/difficulty', requireStaff, objectId('examId'), validate, controller.examDifficultyAnalytics);
 
 router.post(
   '/exams/:examId/sections',
@@ -76,6 +81,7 @@ router.put(
   controller.updateSection
 );
 router.delete('/sections/:id', requireStaff, objectId('id'), validate, controller.removeSection);
+router.post('/sections/:id/duplicate', requireStaff, objectId('id'), validate, controller.duplicateSection);
 router.get('/sections/:id/signed-url', requireIeltsAccess, objectId('id'), validate, controller.signedSectionAudio);
 
 router.post(
@@ -85,8 +91,43 @@ router.post(
   validate,
   controller.createQuestion
 );
+router.post(
+  '/sections/:sectionId/questions/from-bank',
+  requireStaff,
+  objectId('sectionId'),
+  body('versionId').notEmpty(),
+  validate,
+  controller.addBankToSection
+);
 router.put('/questions/:id', requireStaff, objectId('id'), validate, controller.updateQuestion);
 router.delete('/questions/:id', requireStaff, objectId('id'), validate, controller.removeQuestion);
+router.post(
+  '/questions/:questionId/to-bank',
+  requireStaff,
+  objectId('questionId'),
+  validate,
+  controller.importQuestionToBank
+);
+
+// Sources CMS
+router.get('/sources/meta', requireStaff, controller.sourceMeta);
+router.get('/sources', requireStaff, controller.listSources);
+router.get('/sources/:id', requireStaff, objectId('id'), validate, controller.getSource);
+router.post('/sources', requireStaff, controller.createSource);
+router.put('/sources/:id', requireStaff, objectId('id'), validate, controller.updateSource);
+router.delete('/sources/:id', requireStaff, objectId('id'), validate, controller.removeSource);
+
+// Question bank
+router.get('/bank', requireStaff, controller.listBank);
+router.get('/bank/:id', requireStaff, objectId('id'), validate, controller.getBankItem);
+router.post('/bank', requireStaff, controller.createBankItem);
+router.put('/bank/:id', requireStaff, objectId('id'), validate, controller.updateBankItem);
+router.post('/bank/:id/versions', requireStaff, objectId('id'), validate, controller.publishBankVersion);
+router.delete('/bank/:id', requireStaff, objectId('id'), validate, controller.removeBankItem);
+
+// Analytics
+router.get('/analytics/staff', requireStaff, controller.staffAnalytics);
+router.get('/analytics/me', requireIeltsAccess, controller.studentAnalytics);
 
 // Student attempts
 router.post('/exams/:examId/attempts', requireIeltsAccess, objectId('examId'), validate, controller.startAttempt);

@@ -11,7 +11,7 @@ const recycleBinService = require('./recycleBinService');
 const notFound = (msg = 'Not found') =>
   Object.assign(new Error(msg), { statusCode: 404, code: 'NOT_FOUND' });
 
-const formatExamBundle = async (exam, { includeAnswers = false, includeAudioPath = false } = {}) => {
+const formatExamBundle = async (exam, { includeAnswers = false, includeAudioPath = false, includeTranscript = false } = {}) => {
   const sections = await IeltsSection.find({ examId: exam._id }).sort({ order: 1 });
   const sectionIds = sections.map((s) => s._id);
   const questions = await IeltsQuestion.find({ sectionId: { $in: sectionIds } }).sort({ order: 1, number: 1 });
@@ -25,17 +25,41 @@ const formatExamBundle = async (exam, { includeAnswers = false, includeAudioPath
   return {
     ...exam.toPublicJSON(),
     sections: sections.map((s) => ({
-      ...s.toPublicJSON({ includeAudioPath }),
+      ...s.toPublicJSON({ includeAudioPath, includeTranscript: includeTranscript || includeAnswers }),
       questions: bySection.get(String(s._id)) || [],
     })),
   };
 };
 
-const listExams = async ({ subjectId, mode, publishedOnly = false } = {}) => {
+/** Auto-publish exams whose publishAt has passed */
+const applyScheduledPublishes = async () => {
+  const now = new Date();
+  await IeltsExam.updateMany(
+    {
+      published: false,
+      archived: { $ne: true },
+      publishAt: { $ne: null, $lte: now },
+    },
+    { $set: { published: true } }
+  );
+};
+
+const listExams = async ({
+  subjectId,
+  mode,
+  publishedOnly = false,
+  includeArchived = false,
+} = {}) => {
+  await applyScheduledPublishes();
   const filter = {};
   if (subjectId) filter.subjectId = subjectId;
   if (mode) filter.mode = mode;
-  if (publishedOnly) filter.published = true;
+  if (publishedOnly) {
+    filter.published = true;
+    filter.archived = { $ne: true };
+  } else if (!includeArchived) {
+    filter.archived = { $ne: true };
+  }
   const exams = await IeltsExam.find(filter).sort({ updatedAt: -1 });
   return exams.map((e) => e.toPublicJSON());
 };
@@ -56,6 +80,8 @@ const createExam = async (body, createdBy) => {
     difficulty: body.difficulty || 'official',
     timers: body.timers || {},
     published: body.published === true,
+    archived: body.archived === true,
+    publishAt: body.publishAt ? new Date(body.publishAt) : null,
     createdBy,
   });
   return exam.toPublicJSON();
@@ -64,9 +90,22 @@ const createExam = async (body, createdBy) => {
 const updateExam = async (id, body) => {
   const exam = await IeltsExam.findById(id);
   if (!exam) throw notFound('Exam not found');
-  const fields = ['title', 'description', 'mode', 'trainingType', 'difficulty', 'published', 'timers', 'subjectId'];
+  const fields = [
+    'title',
+    'description',
+    'mode',
+    'trainingType',
+    'difficulty',
+    'published',
+    'archived',
+    'timers',
+    'subjectId',
+  ];
   for (const f of fields) {
     if (body[f] !== undefined) exam[f] = body[f];
+  }
+  if (body.publishAt !== undefined) {
+    exam.publishAt = body.publishAt ? new Date(body.publishAt) : null;
   }
   await exam.save();
   return exam.toPublicJSON();
@@ -101,22 +140,52 @@ const createSection = async (examId, body, file) => {
     order: body.order != null ? Number(body.order) : count,
     title: body.title || '',
     instructions: body.instructions || '',
+    part: body.part != null && body.part !== '' ? Number(body.part) : null,
+    transcript: body.transcript || '',
+    sourceId: body.sourceId || null,
     passage: body.passage || '',
+    passageFormat: body.passageFormat === 'html' ? 'html' : 'plain',
+    answerHighlights: body.answerHighlights || '',
     prompt: body.prompt || '',
     imageUrl: body.imageUrl || null,
     writingTask: body.writingTask || null,
     minWords: body.minWords != null ? Number(body.minWords) : body.skill === 'writing' ? (body.writingTask === 'task2' ? 250 : 150) : 0,
     audioFile: file ? path.basename(file.path) : body.audioFile || null,
   });
-  return section.toPublicJSON({ includeAudioPath: true });
+  return section.toPublicJSON({ includeAudioPath: true, includeTranscript: true });
 };
 
 const updateSection = async (sectionId, body, file) => {
   const section = await IeltsSection.findById(sectionId);
   if (!section) throw notFound('Section not found');
-  const fields = ['skill', 'order', 'title', 'instructions', 'passage', 'prompt', 'imageUrl', 'writingTask', 'minWords'];
+  const fields = [
+    'skill',
+    'order',
+    'title',
+    'instructions',
+    'part',
+    'transcript',
+    'sourceId',
+    'passage',
+    'passageFormat',
+    'answerHighlights',
+    'prompt',
+    'imageUrl',
+    'writingTask',
+    'minWords',
+  ];
   for (const f of fields) {
-    if (body[f] !== undefined) section[f] = body[f];
+    if (body[f] !== undefined) {
+      if (f === 'part') {
+        section.part = body.part === null || body.part === '' ? null : Number(body.part);
+      } else if (f === 'sourceId') {
+        section.sourceId = body.sourceId || null;
+      } else if (f === 'passageFormat') {
+        section.passageFormat = body.passageFormat === 'html' ? 'html' : 'plain';
+      } else {
+        section[f] = body[f];
+      }
+    }
   }
   if (file) {
     if (section.audioFile) {
@@ -126,7 +195,7 @@ const updateSection = async (sectionId, body, file) => {
     section.audioFile = path.basename(file.path);
   }
   await section.save();
-  return section.toPublicJSON({ includeAudioPath: true });
+  return section.toPublicJSON({ includeAudioPath: true, includeTranscript: true });
 };
 
 const removeSection = async (sectionId, deletedBy) => {
@@ -154,10 +223,21 @@ const createQuestion = async (sectionId, body) => {
     number: body.number != null ? Number(body.number) : count + 1,
     type: body.type,
     prompt: body.prompt || '',
+    instruction: body.instruction || '',
     options: body.options || [],
     answers: body.answers || [],
+    acceptedAnswers: body.acceptedAnswers || undefined,
+    blanks: body.blanks || undefined,
+    wordLimit: body.wordLimit || null,
+    allowArticles: body.allowArticles === true,
+    allowPlurals: body.allowPlurals === true,
+    selectionMode: body.selectionMode || 'single',
+    matchingStyle: body.matchingStyle || 'dropdown',
+    contentHtml: body.contentHtml || '',
+    layout: body.layout || 'default',
     points: body.points != null ? Number(body.points) : 1,
     metadata: body.metadata || {},
+    bankVersionId: body.bankVersionId || null,
   });
   return question.toPublicJSON({ includeAnswers: true });
 };
@@ -165,12 +245,279 @@ const createQuestion = async (sectionId, body) => {
 const updateQuestion = async (questionId, body) => {
   const question = await IeltsQuestion.findById(questionId);
   if (!question) throw notFound('Question not found');
-  const fields = ['order', 'number', 'type', 'prompt', 'options', 'answers', 'points', 'metadata'];
+  const fields = [
+    'order',
+    'number',
+    'type',
+    'prompt',
+    'instruction',
+    'options',
+    'answers',
+    'acceptedAnswers',
+    'blanks',
+    'wordLimit',
+    'allowArticles',
+    'allowPlurals',
+    'selectionMode',
+    'matchingStyle',
+    'contentHtml',
+    'layout',
+    'points',
+    'metadata',
+    'bankVersionId',
+  ];
   for (const f of fields) {
     if (body[f] !== undefined) question[f] = body[f];
   }
   await question.save();
   return question.toPublicJSON({ includeAnswers: true });
+};
+
+const duplicateExam = async (examId, createdBy, { titleSuffix = ' (Copy)' } = {}) => {
+  const exam = await IeltsExam.findById(examId);
+  if (!exam) throw notFound('Exam not found');
+  const clone = await IeltsExam.create({
+    subjectId: exam.subjectId,
+    title: `${exam.title}${titleSuffix}`,
+    description: exam.description,
+    mode: exam.mode,
+    trainingType: exam.trainingType,
+    difficulty: exam.difficulty,
+    timers: exam.timers,
+    published: false,
+    archived: false,
+    publishAt: null,
+    createdBy,
+  });
+  const sections = await IeltsSection.find({ examId }).sort({ order: 1 });
+  for (const s of sections) {
+    const newSection = await IeltsSection.create({
+      examId: clone._id,
+      skill: s.skill,
+      order: s.order,
+      title: s.title,
+      instructions: s.instructions,
+      part: s.part,
+      transcript: s.transcript,
+      sourceId: s.sourceId,
+      audioFile: s.audioFile,
+      passage: s.passage,
+      passageFormat: s.passageFormat,
+      answerHighlights: s.answerHighlights,
+      prompt: s.prompt,
+      imageUrl: s.imageUrl,
+      writingTask: s.writingTask,
+      minWords: s.minWords,
+    });
+    const questions = await IeltsQuestion.find({ sectionId: s._id }).sort({ order: 1 });
+    for (const q of questions) {
+      await IeltsQuestion.create({
+        sectionId: newSection._id,
+        examId: clone._id,
+        order: q.order,
+        number: q.number,
+        type: q.type,
+        prompt: q.prompt,
+        instruction: q.instruction,
+        options: q.options,
+        answers: q.answers,
+        acceptedAnswers: q.acceptedAnswers,
+        blanks: q.blanks,
+        wordLimit: q.wordLimit,
+        allowArticles: q.allowArticles,
+        allowPlurals: q.allowPlurals,
+        selectionMode: q.selectionMode,
+        matchingStyle: q.matchingStyle,
+        contentHtml: q.contentHtml,
+        layout: q.layout,
+        points: q.points,
+        metadata: q.metadata,
+        bankVersionId: q.bankVersionId,
+      });
+    }
+  }
+  return formatExamBundle(clone, { includeAnswers: true, includeAudioPath: true, includeTranscript: true });
+};
+
+const duplicateSection = async (sectionId) => {
+  const section = await IeltsSection.findById(sectionId);
+  if (!section) throw notFound('Section not found');
+  const count = await IeltsSection.countDocuments({ examId: section.examId });
+  const newSection = await IeltsSection.create({
+    examId: section.examId,
+    skill: section.skill,
+    order: count,
+    title: `${section.title || 'Section'} (Copy)`,
+    instructions: section.instructions,
+    part: section.part,
+    transcript: section.transcript,
+    sourceId: section.sourceId,
+    audioFile: section.audioFile,
+    passage: section.passage,
+    passageFormat: section.passageFormat,
+    answerHighlights: section.answerHighlights,
+    prompt: section.prompt,
+    imageUrl: section.imageUrl,
+    writingTask: section.writingTask,
+    minWords: section.minWords,
+  });
+  const questions = await IeltsQuestion.find({ sectionId }).sort({ order: 1 });
+  for (const q of questions) {
+    await IeltsQuestion.create({
+      sectionId: newSection._id,
+      examId: section.examId,
+      order: q.order,
+      number: q.number,
+      type: q.type,
+      prompt: q.prompt,
+      instruction: q.instruction,
+      options: q.options,
+      answers: q.answers,
+      acceptedAnswers: q.acceptedAnswers,
+      blanks: q.blanks,
+      wordLimit: q.wordLimit,
+      allowArticles: q.allowArticles,
+      allowPlurals: q.allowPlurals,
+      selectionMode: q.selectionMode,
+      matchingStyle: q.matchingStyle,
+      contentHtml: q.contentHtml,
+      layout: q.layout,
+      points: q.points,
+      metadata: q.metadata,
+      bankVersionId: q.bankVersionId,
+    });
+  }
+  return formatExamBundle(await IeltsExam.findById(section.examId), {
+    includeAnswers: true,
+    includeAudioPath: true,
+    includeTranscript: true,
+  });
+};
+
+const exportExamJson = async (examId) => {
+  const exam = await IeltsExam.findById(examId);
+  if (!exam) throw notFound('Exam not found');
+  const bundle = await formatExamBundle(exam, {
+    includeAnswers: true,
+    includeAudioPath: true,
+    includeTranscript: true,
+  });
+  return {
+    schema: 'techren.ielts.exam.v1',
+    exportedAt: new Date().toISOString(),
+    exam: bundle,
+  };
+};
+
+const importExamJson = async (payload, createdBy, { subjectId } = {}) => {
+  const data = payload.exam || payload;
+  if (!data || !data.title) {
+    throw Object.assign(new Error('Invalid exam import payload'), {
+      statusCode: 400,
+      code: 'BAD_REQUEST',
+    });
+  }
+  const exam = await IeltsExam.create({
+    subjectId: subjectId || data.subjectId,
+    title: data.title,
+    description: data.description || '',
+    mode: data.mode || 'full',
+    trainingType: data.trainingType || 'academic',
+    difficulty: data.difficulty || 'official',
+    timers: data.timers || {},
+    published: false,
+    archived: false,
+    createdBy,
+  });
+  for (const [si, s] of (data.sections || []).entries()) {
+    const newSection = await IeltsSection.create({
+      examId: exam._id,
+      skill: s.skill,
+      order: s.order != null ? s.order : si,
+      title: s.title || '',
+      instructions: s.instructions || '',
+      part: s.part ?? null,
+      transcript: s.transcript || '',
+      sourceId: s.sourceId || null,
+      audioFile: s.audioFile || null,
+      passage: s.passage || '',
+      passageFormat: s.passageFormat === 'html' ? 'html' : 'plain',
+      answerHighlights: s.answerHighlights || '',
+      prompt: s.prompt || '',
+      imageUrl: s.imageUrl || null,
+      writingTask: s.writingTask || null,
+      minWords: s.minWords || 0,
+    });
+    for (const [qi, q] of (s.questions || []).entries()) {
+      await IeltsQuestion.create({
+        sectionId: newSection._id,
+        examId: exam._id,
+        order: q.order != null ? q.order : qi,
+        number: q.number != null ? q.number : qi + 1,
+        type: q.type,
+        prompt: q.prompt || '',
+        instruction: q.instruction || '',
+        options: q.options || [],
+        answers: q.answers || [],
+        acceptedAnswers: q.acceptedAnswers || undefined,
+        blanks: q.blanks || undefined,
+        wordLimit: q.wordLimit || null,
+        allowArticles: q.allowArticles === true,
+        allowPlurals: q.allowPlurals === true,
+        selectionMode: q.selectionMode || 'single',
+        matchingStyle: q.matchingStyle || 'dropdown',
+        contentHtml: q.contentHtml || '',
+        layout: q.layout || 'default',
+        points: q.points != null ? q.points : 1,
+        metadata: q.metadata || {},
+        bankVersionId: q.bankVersionId || null,
+      });
+    }
+  }
+  return formatExamBundle(exam, { includeAnswers: true, includeAudioPath: true, includeTranscript: true });
+};
+
+const exportExamCsvRows = async (examId) => {
+  const exam = await IeltsExam.findById(examId);
+  if (!exam) throw notFound('Exam not found');
+  const sections = await IeltsSection.find({ examId }).sort({ order: 1 });
+  const questions = await IeltsQuestion.find({ examId }).sort({ order: 1, number: 1 });
+  const sectionMap = new Map(sections.map((s) => [String(s._id), s]));
+  const rows = [
+    [
+      'sectionId',
+      'skill',
+      'sectionTitle',
+      'questionNumber',
+      'type',
+      'prompt',
+      'instruction',
+      'options',
+      'answers',
+      'wordLimit',
+      'points',
+    ].join(','),
+  ];
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  for (const q of questions) {
+    const s = sectionMap.get(String(q.sectionId));
+    rows.push(
+      [
+        esc(q.sectionId),
+        esc(s?.skill),
+        esc(s?.title),
+        esc(q.number),
+        esc(q.type),
+        esc(q.prompt),
+        esc(q.instruction),
+        esc((q.options || []).join('|')),
+        esc((q.answers || []).join('|')),
+        esc(q.wordLimit),
+        esc(q.points),
+      ].join(',')
+    );
+  }
+  return rows.join('\n');
 };
 
 const removeQuestion = async (questionId, deletedBy) => {
@@ -214,6 +561,12 @@ module.exports = {
   createQuestion,
   updateQuestion,
   removeQuestion,
+  duplicateExam,
+  duplicateSection,
+  exportExamJson,
+  importExamJson,
+  exportExamCsvRows,
+  applyScheduledPublishes,
   formatExamBundle,
   resolveAudioPath,
   createAudioAccessToken,

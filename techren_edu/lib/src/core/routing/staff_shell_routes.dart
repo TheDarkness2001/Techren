@@ -23,6 +23,9 @@ import '../../presentation/features/ielts/screens/ielts_results_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_manage_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_editor_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_access_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_sources_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_bank_screen.dart';
+import '../../presentation/features/ielts/screens/ielts_analytics_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_manage_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
@@ -224,6 +227,34 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/access'),
       builder: (_, state) => IeltsAccessScreen(subjectId: state.pathParameters['subjectId']),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/sources'),
+      builder: (_, state) => IeltsSourcesScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/bank'),
+      builder: (_, state) => IeltsBankScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/analytics'),
+      builder: (_, state) => IeltsAnalyticsScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        isStudent: false,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
     ),
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/writing-review'),

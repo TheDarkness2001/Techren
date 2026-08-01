@@ -30,6 +30,8 @@ class IeltsManageScreen extends ConsumerStatefulWidget {
 }
 
 class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
+  bool _busy = false;
+
   String get _hub => '${widget.routePrefix}/learning/${widget.subjectId}/ielts';
   String get _learningSelected =>
       widget.selectedRoute ?? '${widget.routePrefix}/learning';
@@ -92,6 +94,24 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
     ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
   }
 
+  Future<void> _toggleArchive(IeltsExam exam) async {
+    await ref.read(ieltsApiProvider).updateExam(exam.id, {'archived': !exam.archived});
+    ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+  }
+
+  Future<void> _duplicate(IeltsExam exam) async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(ieltsApiProvider).duplicateExam(exam.id, overrides: {'title': '${exam.title} (copy)'});
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Duplicate failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _delete(IeltsExam exam) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -139,8 +159,26 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                 borderRadius: AppRadius.card,
                 side: BorderSide(color: context.semantic.border),
               ),
-              title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${exam.mode} · ${exam.trainingType} · ${exam.published ? 'Published' : 'Draft'}'),
+              title: Row(
+                children: [
+                  Flexible(child: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+                  if (exam.archived) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text('Archived', style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ],
+              ),
+              subtitle: Text(
+                '${exam.mode} · ${exam.trainingType} · ${exam.published ? 'Published' : 'Draft'}'
+                '${exam.publishAt != null ? ' · publishes ${exam.publishAt!.toLocal().toString().split('.').first}' : ''}',
+              ),
               trailing: Wrap(
                 spacing: 4,
                 children: [
@@ -155,6 +193,16 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                     tooltip: exam.published ? 'Unpublish' : 'Publish',
                     onPressed: () => _togglePublish(exam),
                     icon: Icon(exam.published ? Icons.visibility : Icons.visibility_off),
+                  ),
+                  IconButton(
+                    tooltip: 'Duplicate',
+                    onPressed: _busy ? null : () => _duplicate(exam),
+                    icon: const Icon(Icons.copy_outlined),
+                  ),
+                  IconButton(
+                    tooltip: exam.archived ? 'Unarchive' : 'Archive',
+                    onPressed: () => _toggleArchive(exam),
+                    icon: Icon(exam.archived ? Icons.unarchive_outlined : Icons.archive_outlined),
                   ),
                   IconButton(
                     tooltip: 'Delete',
@@ -183,6 +231,11 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
       items: navItems,
       onDestinationSelected: (i) => context.go(navItems[i].route),
       actions: [
+        if (_busy)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
         IconButton(
           tooltip: 'Back to IELTS Preparation',
           onPressed: () => context.go(_hub),

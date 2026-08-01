@@ -101,6 +101,10 @@ class IeltsApi {
     String? currentSectionId,
     int? remainingSeconds,
     bool? audioPlayed,
+    String? playedSectionId,
+    Map<String, bool>? audioPlayedBySection,
+    Map<String, dynamic>? audioAnalytics,
+    Map<String, int>? timePerQuestion,
   }) async {
     final response = await _client.dio.patch('/ielts/attempts/$attemptId/autosave', data: {
       if (answers != null) 'answers': answers,
@@ -109,6 +113,10 @@ class IeltsApi {
       if (currentSectionId != null) 'currentSectionId': currentSectionId,
       if (remainingSeconds != null) 'remainingSeconds': remainingSeconds,
       if (audioPlayed != null) 'audioPlayed': audioPlayed,
+      if (playedSectionId != null) 'playedSectionId': playedSectionId,
+      if (audioPlayedBySection != null) 'audioPlayedBySection': audioPlayedBySection,
+      if (audioAnalytics != null) 'audioAnalytics': audioAnalytics,
+      if (timePerQuestion != null) 'timePerQuestion': timePerQuestion,
     });
     return IeltsAttempt.fromJson(response.data['data'] as Map<String, dynamic>);
   }
@@ -200,5 +208,160 @@ class IeltsApi {
       total: meta['total'] as int? ?? items.length,
       totalPages: meta['totalPages'] as int? ?? 1,
     );
+  }
+
+  // —— Sources (library CMS) ——
+
+  Future<List<IeltsSource>> listSources({String? subjectId, String? kind, String? topic, String? q}) async {
+    final response = await _client.dio.get('/ielts/sources', queryParameters: {
+      if (subjectId != null && subjectId.isNotEmpty) 'subjectId': subjectId,
+      if (kind != null && kind.isNotEmpty) 'kind': kind,
+      if (topic != null && topic.isNotEmpty) 'topic': topic,
+      if (q != null && q.isNotEmpty) 'q': q,
+    });
+    return (response.data['data'] as List<dynamic>)
+        .map((e) => IeltsSource.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<IeltsSource> getSource(String id) async {
+    final response = await _client.dio.get('/ielts/sources/$id');
+    return IeltsSource.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsSource> createSource(Map<String, dynamic> body) async {
+    final response = await _client.dio.post('/ielts/sources', data: body);
+    return IeltsSource.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsSource> updateSource(String id, Map<String, dynamic> body) async {
+    final response = await _client.dio.put('/ielts/sources/$id', data: body);
+    return IeltsSource.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<void> deleteSource(String id) async {
+    await _client.dio.delete('/ielts/sources/$id');
+  }
+
+  Future<Map<String, dynamic>> sourceMeta() async {
+    final response = await _client.dio.get('/ielts/sources/meta');
+    return Map<String, dynamic>.from(response.data['data'] as Map);
+  }
+
+  // —— Question bank ——
+
+  Future<List<IeltsBankItem>> listBank({
+    String? subjectId,
+    String? skill,
+    String? type,
+    String? topic,
+    String? status,
+    String? q,
+  }) async {
+    final response = await _client.dio.get('/ielts/bank', queryParameters: {
+      if (subjectId != null && subjectId.isNotEmpty) 'subjectId': subjectId,
+      if (skill != null && skill.isNotEmpty) 'skill': skill,
+      if (type != null && type.isNotEmpty) 'type': type,
+      if (topic != null && topic.isNotEmpty) 'topic': topic,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (q != null && q.isNotEmpty) 'q': q,
+    });
+    return (response.data['data'] as List<dynamic>)
+        .map((e) => IeltsBankItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<IeltsBankItem> getBankItem(String id) async {
+    final response = await _client.dio.get('/ielts/bank/$id');
+    return IeltsBankItem.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsBankItem> createBankItem(Map<String, dynamic> body) async {
+    final response = await _client.dio.post('/ielts/bank', data: body);
+    return IeltsBankItem.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsBankItem> updateBankItem(String id, Map<String, dynamic> body) async {
+    final response = await _client.dio.put('/ielts/bank/$id', data: body);
+    return IeltsBankItem.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsQuestionBankVersion> publishBankVersion(String id, Map<String, dynamic> body) async {
+    final response = await _client.dio.post('/ielts/bank/$id/versions', data: body);
+    return IeltsQuestionBankVersion.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<void> deleteBankItem(String id) async {
+    await _client.dio.delete('/ielts/bank/$id');
+  }
+
+  Future<IeltsQuestion> addBankVersionToSection(String sectionId, String versionId, {Map<String, dynamic>? overrides}) async {
+    final response = await _client.dio.post('/ielts/sections/$sectionId/questions/from-bank', data: {
+      'versionId': versionId,
+      ...(overrides ?? {}),
+    });
+    return IeltsQuestion.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsBankItem> importQuestionToBank(String questionId, Map<String, dynamic> body) async {
+    final response = await _client.dio.post('/ielts/questions/$questionId/to-bank', data: body);
+    return IeltsBankItem.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  // —— Analytics ——
+
+  Future<IeltsStaffAnalytics> staffAnalytics({String? subjectId, String? examId, int days = 90}) async {
+    final response = await _client.dio.get('/ielts/analytics/staff', queryParameters: {
+      if (subjectId != null && subjectId.isNotEmpty) 'subjectId': subjectId,
+      if (examId != null && examId.isNotEmpty) 'examId': examId,
+      'days': days,
+    });
+    return IeltsStaffAnalytics.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsStudentAnalytics> studentAnalytics({int days = 180}) async {
+    final response = await _client.dio.get('/ielts/analytics/me', queryParameters: {'days': days});
+    return IeltsStudentAnalytics.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<List<IeltsQuestionDifficultyRow>> examDifficultyAnalytics(String examId) async {
+    final response = await _client.dio.get('/ielts/exams/$examId/analytics/difficulty');
+    return (response.data['data'] as List<dynamic>)
+        .map((e) => IeltsQuestionDifficultyRow.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  // —— Ops: duplicate / export / import ——
+
+  Future<IeltsExam> duplicateExam(String examId, {Map<String, dynamic>? overrides}) async {
+    final response = await _client.dio.post('/ielts/exams/$examId/duplicate', data: overrides ?? {});
+    return IeltsExam.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<IeltsSection> duplicateSection(String sectionId) async {
+    final response = await _client.dio.post('/ielts/sections/$sectionId/duplicate');
+    return IeltsSection.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+  }
+
+  Future<Map<String, dynamic>> exportExamJson(String examId) async {
+    final response = await _client.dio.get('/ielts/exams/$examId/export');
+    return Map<String, dynamic>.from(response.data['data'] as Map);
+  }
+
+  Future<String> exportExamCsv(String examId) async {
+    final response = await _client.dio.get(
+      '/ielts/exams/$examId/export.csv',
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data as String;
+  }
+
+  Future<IeltsExam> importExamJson(Map<String, dynamic> body, {String? subjectId}) async {
+    final response = await _client.dio.post(
+      '/ielts/exams/import',
+      data: body,
+      queryParameters: {if (subjectId != null && subjectId.isNotEmpty) 'subjectId': subjectId},
+    );
+    return IeltsExam.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
   }
 }
