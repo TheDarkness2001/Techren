@@ -34,6 +34,7 @@ class AdaptiveScaffold extends ConsumerWidget {
     required this.body,
     this.actions,
     this.selectedRoute,
+    this.floatingActionButton,
   });
 
   final String title;
@@ -43,6 +44,7 @@ class AdaptiveScaffold extends ConsumerWidget {
   final Widget body;
   final List<Widget>? actions;
   final String? selectedRoute;
+  final Widget? floatingActionButton;
 
   String? get _staffPrefix => staffPrefixFromRoute(selectedRoute ?? _routeFromItems());
 
@@ -90,6 +92,7 @@ class AdaptiveScaffold extends ConsumerWidget {
         isFounder: isFounder,
         child: Scaffold(
           backgroundColor: contentBackground,
+          floatingActionButton: floatingActionButton,
           body: Semantics(
             label: l10n.staffWorkspace,
             child: Row(
@@ -128,6 +131,7 @@ class AdaptiveScaffold extends ConsumerWidget {
         compactBottomRoutes: [for (final item in navItems) item.route],
         child: Scaffold(
           backgroundColor: contentBackground,
+          floatingActionButton: floatingActionButton,
           drawer: Drawer(
             child: SafeArea(
               child: StaffSidebar(
@@ -177,6 +181,7 @@ class AdaptiveScaffold extends ConsumerWidget {
       return Scaffold(
         appBar: AppBar(title: Text(title), actions: actions),
         body: animatedBody,
+        floatingActionButton: floatingActionButton,
         bottomNavigationBar: Semantics(
           label: l10n.primaryNavigation,
           child: NavigationBar(
@@ -193,6 +198,7 @@ class AdaptiveScaffold extends ConsumerWidget {
 
     // —— Student / teacher medium+ : themed navigation rail ——
     return Scaffold(
+      floatingActionButton: floatingActionButton,
       body: Row(
         children: [
           Semantics(

@@ -10,6 +10,7 @@ import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/ielts_provider.dart';
+import '../../../shells/staff_shell.dart';
 
 class IeltsHubScreen extends ConsumerWidget {
   const IeltsHubScreen({
@@ -92,14 +93,17 @@ class IeltsHubScreen extends ConsumerWidget {
     ];
 
     // Staff Learning uses AdaptiveScaffold so IELTS stays inside the academy shell.
-    if (!isStudent && navItems.isNotEmpty) {
-      final selectedIndex = navItems.indexWhere((i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'));
+    if (!isStudent) {
+      final items = navItems.isNotEmpty
+          ? navItems
+          : (routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+      final selectedIndex = items.indexWhere((i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'));
       return AdaptiveScaffold(
         title: 'IELTS Preparation',
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: _learningSelected,
-        items: navItems,
-        onDestinationSelected: (i) => context.go(navItems[i].route),
+        items: items,
+        onDestinationSelected: (i) => context.go(items[i].route),
         actions: actions,
         body: body,
       );
@@ -335,15 +339,20 @@ class IeltsExamListScreen extends ConsumerWidget {
       ),
     ];
 
-    if (!isStudent && navItems.isNotEmpty) {
+    if (!isStudent) {
       final learningSelected = selectedRoute ?? '$routePrefix/learning';
-      final selectedIndex = navItems.indexWhere((i) => learningSelected.startsWith(i.route) || i.route.contains('/learning'));
+      final items = navItems.isNotEmpty
+          ? navItems
+          : (routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+      final selectedIndex = items.indexWhere(
+        (i) => learningSelected.startsWith(i.route) || i.route.contains('/learning'),
+      );
       return AdaptiveScaffold(
         title: title,
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: learningSelected,
-        items: navItems,
-        onDestinationSelected: (i) => context.go(navItems[i].route),
+        items: items,
+        onDestinationSelected: (i) => context.go(items[i].route),
         actions: actions,
         body: body,
       );

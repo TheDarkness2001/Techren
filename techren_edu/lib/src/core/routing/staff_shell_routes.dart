@@ -133,6 +133,25 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     ),
     // Deep subject routes before `/learning/:subjectId` for reliable matching.
     AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/manage'),
+      builder: (_, state) => IeltsManageScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/manage/:examId'),
+      builder: (_, state) => IeltsExamEditorScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        examId: state.pathParameters['examId']!,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts'),
       builder: (_, state) => IeltsHubScreen(
         subjectId: state.pathParameters['subjectId']!,
@@ -200,20 +219,6 @@ List<GoRoute> buildSharedStaffOpsRoutes({
       builder: (_, state) => IeltsHistoryScreen(
         subjectId: state.pathParameters['subjectId']!,
         routePrefix: prefix,
-      ),
-    ),
-    AppPageTransitions.route(
-      path: r('/learning/:subjectId/ielts/manage'),
-      builder: (_, state) => IeltsManageScreen(
-        subjectId: state.pathParameters['subjectId']!,
-        routePrefix: prefix,
-      ),
-    ),
-    AppPageTransitions.route(
-      path: r('/learning/:subjectId/ielts/manage/:examId'),
-      builder: (_, state) => IeltsExamEditorScreen(
-        subjectId: state.pathParameters['subjectId']!,
-        examId: state.pathParameters['examId']!,
       ),
     ),
     AppPageTransitions.route(

@@ -6,16 +6,29 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
+import '../../../shells/staff_shell.dart';
+import 'package:go_router/go_router.dart';
 
 /// Staff editor for sections, passages, prompts, questions, and listening audio.
 class IeltsExamEditorScreen extends ConsumerStatefulWidget {
-  const IeltsExamEditorScreen({super.key, required this.subjectId, required this.examId});
+  const IeltsExamEditorScreen({
+    super.key,
+    required this.subjectId,
+    required this.examId,
+    this.routePrefix = '/admin',
+    this.navItems = const [],
+    this.selectedRoute,
+  });
 
   final String subjectId;
   final String examId;
+  final String routePrefix;
+  final List<NavItem> navItems;
+  final String? selectedRoute;
 
   @override
   ConsumerState<IeltsExamEditorScreen> createState() => _IeltsExamEditorScreenState();
@@ -26,6 +39,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
   String? _error;
   bool _loading = true;
   bool _busy = false;
+
+  String get _manage => '${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage';
+  String get _learningSelected =>
+      widget.selectedRoute ?? '${widget.routePrefix}/learning';
 
   @override
   void initState() {
@@ -304,28 +321,52 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: LoadingState(message: 'Loading exam...'));
-    if (_error != null || _exam == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Edit exam')),
-        body: ErrorState(message: _error ?? 'Missing', onRetry: _load),
-      );
-    }
-    final exam = _exam!;
-    final muted = context.semantic.textMuted;
+    final navItems = widget.navItems.isNotEmpty
+        ? widget.navItems
+        : (widget.routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+    final selectedIndex = navItems.indexWhere(
+      (i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'),
+    );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(exam.title),
+    Widget shell({required String title, required Widget body, Widget? fab}) {
+      return AdaptiveScaffold(
+        title: title,
+        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+        selectedRoute: _learningSelected,
+        items: navItems,
+        onDestinationSelected: (i) => context.go(navItems[i].route),
         actions: [
           if (_busy)
             const Padding(
               padding: EdgeInsets.all(16),
               child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             ),
+          IconButton(
+            tooltip: 'Back to manage',
+            onPressed: () => context.go(_manage),
+            icon: const Icon(Icons.arrow_back),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: fab,
+        body: body,
+      );
+    }
+
+    if (_loading) {
+      return shell(title: 'Edit exam', body: const LoadingState(message: 'Loading exam...'));
+    }
+    if (_error != null || _exam == null) {
+      return shell(
+        title: 'Edit exam',
+        body: ErrorState(message: _error ?? 'Missing', onRetry: _load),
+      );
+    }
+    final exam = _exam!;
+    final muted = context.semantic.textMuted;
+
+    return shell(
+      title: exam.title,
+      fab: FloatingActionButton.extended(
         onPressed: _busy ? null : _addSection,
         icon: const Icon(Icons.add),
         label: const Text('Add section'),

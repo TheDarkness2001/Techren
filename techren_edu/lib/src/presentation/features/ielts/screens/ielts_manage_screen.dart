@@ -5,25 +5,35 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
+import '../../../shells/staff_shell.dart';
 
 class IeltsManageScreen extends ConsumerStatefulWidget {
   const IeltsManageScreen({
     super.key,
     required this.subjectId,
     this.routePrefix = '/admin',
+    this.navItems = const [],
+    this.selectedRoute,
   });
 
   final String subjectId;
   final String routePrefix;
+  final List<NavItem> navItems;
+  final String? selectedRoute;
 
   @override
   ConsumerState<IeltsManageScreen> createState() => _IeltsManageScreenState();
 }
 
 class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
+  String get _hub => '${widget.routePrefix}/learning/${widget.subjectId}/ielts';
+  String get _learningSelected =>
+      widget.selectedRoute ?? '${widget.routePrefix}/learning';
+
   Future<void> _create() async {
     final titleCtrl = TextEditingController(text: 'New IELTS Mock');
     String mode = 'full';
@@ -101,60 +111,90 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
-    return Scaffold(
-      appBar: AppBar(title: const Text('Manage IELTS exams')),
+    final body = async.when(
+      loading: () => const LoadingState(message: 'Loading...'),
+      error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(ieltsExamsProvider)),
+      data: (exams) {
+        if (exams.isEmpty) {
+          return EmptyState(
+            title: 'No exams yet',
+            message:
+                'Create a mock here, then open it from IELTS Preparation (Listening / Reading / Writing).',
+            icon: Icons.quiz_outlined,
+            action: FilledButton.icon(
+              onPressed: _create,
+              icon: const Icon(Icons.add),
+              label: const Text('New exam'),
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: AppSpacing.pagePaddingWide,
+          itemCount: exams.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, i) {
+            final exam = exams[i];
+            return ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.card,
+                side: BorderSide(color: context.semantic.border),
+              ),
+              title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${exam.mode} · ${exam.trainingType} · ${exam.published ? 'Published' : 'Draft'}'),
+              trailing: Wrap(
+                spacing: 4,
+                children: [
+                  IconButton(
+                    tooltip: 'Edit content',
+                    onPressed: () => context.go(
+                      '${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage/${exam.id}',
+                    ),
+                    icon: const Icon(Icons.edit_note),
+                  ),
+                  IconButton(
+                    tooltip: exam.published ? 'Unpublish' : 'Publish',
+                    onPressed: () => _togglePublish(exam),
+                    icon: Icon(exam.published ? Icons.visibility : Icons.visibility_off),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete',
+                    onPressed: () => _delete(exam),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    final navItems = widget.navItems.isNotEmpty
+        ? widget.navItems
+        : (widget.routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+    final selectedIndex = navItems.indexWhere(
+      (i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'),
+    );
+
+    return AdaptiveScaffold(
+      title: 'Manage IELTS exams',
+      selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+      selectedRoute: _learningSelected,
+      items: navItems,
+      onDestinationSelected: (i) => context.go(navItems[i].route),
+      actions: [
+        IconButton(
+          tooltip: 'Back to IELTS Preparation',
+          onPressed: () => context.go(_hub),
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.add),
         label: const Text('New exam'),
       ),
-      body: async.when(
-        loading: () => const LoadingState(message: 'Loading...'),
-        error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(ieltsExamsProvider)),
-        data: (exams) {
-          if (exams.isEmpty) {
-            return const EmptyState(title: 'No exams', message: 'Create a mock exam to get started.');
-          }
-          return ListView.separated(
-            padding: AppSpacing.pagePaddingWide,
-            itemCount: exams.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final exam = exams[i];
-              return ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.card,
-                  side: BorderSide(color: context.semantic.border),
-                ),
-                title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text('${exam.mode} · ${exam.trainingType} · ${exam.published ? 'Published' : 'Draft'}'),
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    IconButton(
-                      tooltip: 'Edit content',
-                      onPressed: () => context.go(
-                        '${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage/${exam.id}',
-                      ),
-                      icon: const Icon(Icons.edit_note),
-                    ),
-                    IconButton(
-                      tooltip: exam.published ? 'Unpublish' : 'Publish',
-                      onPressed: () => _togglePublish(exam),
-                      icon: Icon(exam.published ? Icons.visibility : Icons.visibility_off),
-                    ),
-                    IconButton(
-                      tooltip: 'Delete',
-                      onPressed: () => _delete(exam),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+      body: body,
     );
   }
 }
