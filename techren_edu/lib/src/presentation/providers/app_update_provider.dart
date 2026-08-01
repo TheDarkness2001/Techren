@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_constants.dart';
@@ -15,6 +16,8 @@ const _githubMacosZip =
     'https://github.com/TheDarkness2001/Techren/releases/latest/download/TechRenEDU-macos.zip';
 const _githubIosPage =
     'https://github.com/TheDarkness2001/Techren/releases/latest';
+
+const _prefsInstalledUpdateKey = 'app_update_installed_version';
 
 class AppUpdateInfo {
   const AppUpdateInfo({
@@ -75,16 +78,45 @@ Uri _uriOrFallback(dynamic raw, String fallback) {
   return Uri.parse(fallback);
 }
 
+/// Strip BOM / leading "v" / whitespace so status.json and PackageInfo compare cleanly.
+String normalizeVersion(String raw) {
+  var v = raw.trim();
+  if (v.isNotEmpty && v.codeUnitAt(0) == 0xFEFF) {
+    v = v.substring(1).trim();
+  }
+  if (v.length > 1 && (v.startsWith('v') || v.startsWith('V'))) {
+    v = v.substring(1).trim();
+  }
+  return v.split('+').first.trim();
+}
+
 /// Installed app version from the platform package (pubspec), with dart-define fallback.
 Future<String> installedAppVersion() async {
   try {
     final info = await PackageInfo.fromPlatform();
-    final v = info.version.trim();
+    final v = normalizeVersion(info.version);
     if (v.isNotEmpty) return v;
   } catch (_) {
     // Fall through — e.g. tests / unsupported platform.
   }
-  return AppConstants.appVersion;
+  return normalizeVersion(AppConstants.appVersion);
+}
+
+/// Call after a successful in-app install so the banner hides even before relaunch.
+Future<void> markUpdateInstalled(String version) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_prefsInstalledUpdateKey, normalizeVersion(version));
+}
+
+Future<String?> _markedInstalledVersion() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsInstalledUpdateKey);
+    if (raw == null || raw.isEmpty) return null;
+    return normalizeVersion(raw);
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Resolves to update info when the server has a newer build, otherwise null.
@@ -99,16 +131,35 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     final dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 5),
       receiveTimeout: const Duration(seconds: 5),
+      headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
     ));
-    final response = await dio.getUri<dynamic>(origin.resolve('/downloads/status.json'));
+    final response = await dio.getUri<dynamic>(
+      origin.resolve('/downloads/status.json'),
+      options: Options(
+        headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+      ),
+    );
     final data = response.data;
     final map = data is Map
         ? Map<String, dynamic>.from(data)
         : throw const FormatException('status.json is not an object');
-    final latest = map['version']?.toString();
-    if (latest == null || latest.isEmpty) return null;
-    // Hide banner when installed version is already >= server version.
-    if (compareVersions(latest, current) <= 0) return null;
+    final latestRaw = map['version']?.toString();
+    if (latestRaw == null || latestRaw.trim().isEmpty) return null;
+    final latest = normalizeVersion(latestRaw);
+
+    // Hide when this device already runs latest (or newer).
+    if (compareVersions(latest, current) <= 0) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsInstalledUpdateKey);
+      return null;
+    }
+
+    // Hide after a successful install for this version (covers post-install
+    // before OS relaunches, and Windows builds that lagged the APK version).
+    final marked = await _markedInstalledVersion();
+    if (marked != null && compareVersions(latest, marked) <= 0) {
+      return null;
+    }
 
     // Always use explicit remote installer URLs (GitHub Releases). Never point
     // the app at Railway /downloads/*.apk — those files are not deployed there.
@@ -141,9 +192,7 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
 /// Returns >0 when [a] is newer than [b].
 @visibleForTesting
 int compareVersions(String a, String b) {
-  List<int> parse(String v) => v
-      .split('+')
-      .first
+  List<int> parse(String v) => normalizeVersion(v)
       .split('.')
       .map((part) => int.tryParse(part.trim()) ?? 0)
       .toList();

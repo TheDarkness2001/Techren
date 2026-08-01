@@ -13,6 +13,7 @@ import '../../../../domain/entities/branch.dart';
 import '../../../../domain/entities/dashboard_data.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/app_update_provider.dart';
 import '../../../providers/identity_provider.dart';
 import 'dashboard_header.dart';
 import 'dashboard_portfolio_panel.dart';
@@ -39,7 +40,10 @@ class RoleDashboardBody extends ConsumerWidget {
       loading: () => const LoadingState(message: 'Loading dashboard...', kind: LoadingSkeletonKind.dashboard),
       error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(dashboardProvider)),
       data: (data) => RefreshIndicator(
-        onRefresh: () async => ref.invalidate(dashboardProvider),
+        onRefresh: () async {
+          ref.invalidate(dashboardProvider);
+          ref.invalidate(appUpdateProvider);
+        },
         child: ListView(
           padding: AppSpacing.pagePaddingWide,
           children: [

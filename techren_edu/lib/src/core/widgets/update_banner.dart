@@ -17,10 +17,30 @@ class UpdateBanner extends ConsumerStatefulWidget {
   ConsumerState<UpdateBanner> createState() => _UpdateBannerState();
 }
 
-class _UpdateBannerState extends ConsumerState<UpdateBanner> {
+class _UpdateBannerState extends ConsumerState<UpdateBanner> with WidgetsBindingObserver {
   bool _updating = false;
   double _progress = 0;
   String _phase = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // After PackageInstaller / setup.exe, re-check so the banner can hide.
+      ref.invalidate(appUpdateProvider);
+    }
+  }
 
   Future<void> _update(AppUpdateInfo update) async {
     setState(() {
@@ -43,12 +63,14 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
           });
         },
       );
-      if (mounted) {
-        setState(() {
-          _updating = false;
-          _phase = '';
-        });
-      }
+      // Installer may kill the process; if we are still here, hide until relaunch.
+      await markUpdateInstalled(update.latestVersion);
+      if (!mounted) return;
+      ref.invalidate(appUpdateProvider);
+      setState(() {
+        _updating = false;
+        _phase = '';
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
