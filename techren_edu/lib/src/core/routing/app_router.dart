@@ -257,7 +257,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const LearningCmsScreen(
           navItems: teacherNavItems,
           selectedRoute: '/teacher/learning-cms',
-          importRoute: '/teacher/content-import',
         ),
       ),
       AppPageTransitions.route(

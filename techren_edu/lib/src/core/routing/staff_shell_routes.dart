@@ -353,7 +353,6 @@ List<GoRoute> buildSharedStaffOpsRoutes({
       builder: (_, __) => LearningCmsScreen(
         navItems: navItems,
         selectedRoute: r('/learning-cms'),
-        importRoute: r('/content-import'),
       ),
     ),
     AppPageTransitions.route(
