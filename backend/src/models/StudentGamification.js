@@ -13,6 +13,7 @@ const studentGamificationSchema = new mongoose.Schema(
       sentences: { type: Number, default: 0, min: 0 },
       listening: { type: Number, default: 0, min: 0 },
       video: { type: Number, default: 0, min: 0 },
+      typing: { type: Number, default: 0, min: 0 },
     },
   },
   { timestamps: true }

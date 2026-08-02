@@ -95,6 +95,17 @@ const defaultIconForSubject = (name = '') => {
   return inferProfile(name) === 'programming' ? 'code' : 'menu_book';
 };
 
+const TYPING_MODULE = {
+  key: 'typing',
+  label: 'Typing Speed Challenge',
+  category: 'learning',
+  icon: 'keyboard',
+  audience: 'all',
+};
+
+const isItTypingSubject = (name = '') =>
+  /\bit\b|information technology|computer science/i.test(String(name));
+
 const ensureSubjectLearningFields = (subject) => {
   const name = subject.name || 'Subject';
   let modules = Array.isArray(subject.modules) && subject.modules.length
@@ -111,6 +122,14 @@ const ensureSubjectLearningFields = (subject) => {
     }
   }
 
+  // Typing Speed Challenge — IT subjects only (not every programming subject).
+  if (isItTypingSubject(name)) {
+    const keys = new Set(modules.map((m) => m.key));
+    if (!keys.has('typing')) {
+      modules = [...modules, { ...TYPING_MODULE, enabled: true }];
+    }
+  }
+
   return {
     icon: subject.icon || defaultIconForSubject(name),
     color: subject.color || defaultColorForSubject(name),
@@ -123,6 +142,8 @@ module.exports = {
   LANGUAGE_MODULES,
   PROGRAMMING_MODULES,
   STEM_MODULES,
+  TYPING_MODULE,
+  isItTypingSubject,
   defaultModulesForSubject,
   defaultColorForSubject,
   defaultIconForSubject,

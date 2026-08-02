@@ -15,6 +15,10 @@ const XP_REWARDS = {
   listening_passed: 25,
   listening_partial: 15,
   video_completed: 20,
+  typing_complete: 10,
+  typing_accuracy_95: 20,
+  typing_new_record: 20,
+  typing_daily: 30,
 };
 
 const isEnabled = async () => {
@@ -41,7 +45,7 @@ const formatProfile = (doc, rank = null) => {
     currentStreak: doc.currentStreak,
     longestStreak: doc.longestStreak,
     lastActivityDate: doc.lastActivityDate,
-    moduleXp: doc.moduleXp || { words: 0, sentences: 0, listening: 0, video: 0 },
+    moduleXp: doc.moduleXp || { words: 0, sentences: 0, listening: 0, video: 0, typing: 0 },
     rank,
   };
 };
@@ -124,8 +128,11 @@ const awardXp = async (studentId, { module, amount, reason }) => {
     const parts = getTashkentParts();
 
     profile.totalXp += amount;
-    if (module && profile.moduleXp[module] !== undefined) {
-      profile.moduleXp[module] += amount;
+    if (module) {
+      if (!profile.moduleXp) profile.moduleXp = {};
+      const current = profile.moduleXp[module] || 0;
+      profile.moduleXp[module] = current + amount;
+      profile.markModified('moduleXp');
     }
     profile.level = getLevelInfo(profile.totalXp).level;
     updateStreak(profile, parts.dateString);
@@ -258,4 +265,5 @@ module.exports = {
   getRecommendations,
   getOrCreateProfile,
   formatProfile,
+  getLevelInfo,
 };

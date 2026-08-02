@@ -53,4 +53,7 @@ module.exports = {
   IeltsQuestionVersion: require('./IeltsQuestionVersion'),
   LearningQuiz: require('./LearningQuiz'),
   LearningQuizAttempt: require('./LearningQuizAttempt'),
+  TypingContent: require('./TypingContent'),
+  TypingResult: require('./TypingResult'),
+  TypingStudentStats: require('./TypingStudentStats'),
 };

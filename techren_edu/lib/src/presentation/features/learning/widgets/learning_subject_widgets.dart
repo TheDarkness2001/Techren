@@ -32,6 +32,7 @@ IconData iconForLearningKey(String key) {
     'upload_file' || 'import' => Icons.upload_file_outlined,
     'insights' || 'progress' => Icons.insights_outlined,
     'code' || 'exercises' || 'computer' => Icons.code_outlined,
+    'keyboard' || 'typing' => Icons.keyboard_outlined,
     'folder_special' || 'projects' => Icons.folder_special_outlined,
     'bolt' || 'challenges' => Icons.bolt_outlined,
     'calculate' || 'practice' || 'functions' => Icons.calculate_outlined,
@@ -129,13 +130,17 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                                           color: scheme.onSurface,
                                         ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    widget.subject.levelLabel,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: semantic.textMuted,
-                                        ),
-                                  ),
+                                  if (widget.subject.description.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.subject.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: semantic.textMuted,
+                                          ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

@@ -61,6 +61,9 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
       'quiz' => isStudent
           ? '/student/learn/$subjectId/quiz'
           : '$prefix/learning/$subjectId/quiz',
+      'typing' => isStudent
+          ? '/student/learn/$subjectId/typing'
+          : '$prefix/learning/$subjectId/typing',
       _ => null,
     };
     if (route == null) {
@@ -282,16 +285,14 @@ class _SubjectHero extends StatelessWidget {
                         color: scheme.onSurface,
                       ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${dash.levelLabel} · ${dash.groupCount} groups · ${dash.studentCount} students',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
                 if (dash.description.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(dash.description, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    dash.description,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
                 ],
               ],
             ),

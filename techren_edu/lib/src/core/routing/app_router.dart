@@ -33,6 +33,7 @@ import '../../presentation/features/ielts/screens/ielts_analytics_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
 import '../../presentation/features/video/screens/video_learning_hub_screen.dart';
+import '../../presentation/features/typing/screens/typing_hub_screen.dart';
 import 'inactive_student_guard.dart';
 import 'app_page_transitions.dart';
 import 'staff_route_guard.dart';
@@ -100,6 +101,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(
         path: '/student/learn/:subjectId/video',
         builder: (_, state) => VideoLearningHubScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          isStudent: true,
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
+        path: '/student/learn/:subjectId/typing',
+        builder: (_, state) => TypingHubScreen(
           subjectId: state.pathParameters['subjectId']!,
           isStudent: true,
           routePrefix: '/student',

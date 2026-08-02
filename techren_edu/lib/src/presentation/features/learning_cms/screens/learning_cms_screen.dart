@@ -46,72 +46,11 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
     if (_levelId != null) ref.invalidate(cmsListeningExercisesProvider(_levelId!));
   }
 
-  Future<void> _showLanguageDialog({LearningLanguage? language}) async {
-    final nameCtrl = TextEditingController(text: language?.name ?? '');
-
-    final saved = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AppDialog(
-        title: language == null ? 'Add language' : 'Rename language',
-        icon: Icons.language_outlined,
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: 'Language name'),
-          autofocus: true,
-        ),
-        actions: [
-          AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
-          AppDialogActions.confirm(context, label: 'Save', onPressed: () => Navigator.pop(context, true)),
-        ],
-      ),
-    );
-
-    if (saved != true || !mounted) return;
-    final name = nameCtrl.text.trim();
-    if (name.isEmpty) return;
-
-    try {
-      final api = ref.read(homeworkApiProvider);
-      if (language == null) {
-        final created = await api.createLanguage(name: name, moduleType: _moduleType);
-        setState(() {
-          _languageId = created.id;
-          _levelId = null;
-        });
-      } else {
-        await api.updateLanguage(language.id, name: name);
-      }
-      await _refreshTree();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Language saved')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+  String? _englishLanguageId(List<LearningLanguage> languages) {
+    for (final language in languages) {
+      if (language.name.trim().toLowerCase() == 'english') return language.id;
     }
-  }
-
-  Future<void> _deleteLanguage(LearningLanguage language) async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: 'Delete language?',
-      message: 'Remove "${language.name}" and its levels?',
-      confirmLabel: 'Delete',
-      destructive: true,
-      icon: Icons.delete_outline,
-    );
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(homeworkApiProvider).deleteLanguage(language.id);
-      setState(() {
-        _languageId = null;
-        _levelId = null;
-      });
-      await _refreshTree();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+    return languages.isEmpty ? null : languages.first.id;
   }
 
   Future<void> _showLevelDialog({CmsLevel? level}) async {
@@ -310,10 +249,6 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
   @override
   Widget build(BuildContext context) {
     final languagesAsync = ref.watch(cmsListeningLanguagesProvider);
-    final levelsAsync =
-        _languageId == null ? null : ref.watch(cmsListeningLevelsProvider(_languageId!));
-    final listeningAsync =
-        _levelId == null ? null : ref.watch(cmsListeningExercisesProvider(_levelId!));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final hasSelection = _levelId != null;
@@ -337,29 +272,24 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
         loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
         error: (e, _) => Center(child: Text(e.toString())),
         data: (languages) {
-          if (languages.isEmpty) {
+          final languageId = _englishLanguageId(languages);
+          if (languageId == null) {
             return const EmptyState(
-              title: 'No BBC news languages',
-              message: 'Add an English listening language, then create the BBC news level.',
+              title: 'No English listening language',
+              message: 'BBC news expects an English listening language on the server.',
               icon: Icons.headphones_outlined,
             );
           }
+          _languageId = languageId;
 
-          _languageId ??= languages.first.id;
+          final levelsAsync = ref.watch(cmsListeningLevelsProvider(languageId));
+          final listeningAsync =
+              _levelId == null ? null : ref.watch(cmsListeningExercisesProvider(_levelId!));
 
           final tree = _ListeningLevelTree(
-            languages: languages,
-            languageId: _languageId!,
             levelId: _levelId,
             levelsAsync: levelsAsync,
-            onLanguageChanged: (id) => setState(() {
-              _languageId = id;
-              _levelId = null;
-            }),
             onLevelChanged: (id) => setState(() => _levelId = id),
-            onAddLanguage: () => _showLanguageDialog(),
-            onEditLanguage: (l) => _showLanguageDialog(language: l),
-            onDeleteLanguage: _deleteLanguage,
             onAddLevel: () => _showLevelDialog(),
             onEditLevel: (l) => _showLevelDialog(level: l),
             onDeleteLevel: _deleteLevel,
@@ -414,74 +344,26 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
 
 class _ListeningLevelTree extends StatelessWidget {
   const _ListeningLevelTree({
-    required this.languages,
-    required this.languageId,
     required this.levelId,
     required this.levelsAsync,
-    required this.onLanguageChanged,
     required this.onLevelChanged,
-    required this.onAddLanguage,
-    required this.onEditLanguage,
-    required this.onDeleteLanguage,
     required this.onAddLevel,
     required this.onEditLevel,
     required this.onDeleteLevel,
   });
 
-  final List<LearningLanguage> languages;
-  final String languageId;
   final String? levelId;
   final AsyncValue<List<CmsLevel>>? levelsAsync;
-  final ValueChanged<String> onLanguageChanged;
   final ValueChanged<String> onLevelChanged;
-  final VoidCallback onAddLanguage;
-  final void Function(LearningLanguage language) onEditLanguage;
-  final void Function(LearningLanguage language) onDeleteLanguage;
   final VoidCallback onAddLevel;
   final void Function(CmsLevel level) onEditLevel;
   final void Function(CmsLevel level) onDeleteLevel;
 
   @override
   Widget build(BuildContext context) {
-    final currentLanguage = languages.firstWhere((l) => l.id == languageId, orElse: () => languages.first);
-
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.sm),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: languageId,
-                decoration: const InputDecoration(labelText: 'Language', border: OutlineInputBorder()),
-                items: languages.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))).toList(),
-                onChanged: (id) {
-                  if (id != null) onLanguageChanged(id);
-                },
-              ),
-            ),
-            IconButton(
-              tooltip: 'Add language',
-              onPressed: onAddLanguage,
-              icon: const Icon(Icons.add),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Language actions',
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                const PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
-              onSelected: (value) {
-                if (value == 'rename') {
-                  onEditLanguage(currentLanguage);
-                } else if (value == 'delete') {
-                  onDeleteLanguage(currentLanguage);
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
         if (levelsAsync == null)
           const SizedBox.shrink()
         else

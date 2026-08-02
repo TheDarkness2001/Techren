@@ -30,6 +30,7 @@ import '../../presentation/features/quiz/screens/quiz_hub_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_manage_screen.dart';
 import '../../presentation/features/quiz/screens/quiz_player_screen.dart';
 import '../../presentation/features/video/screens/video_learning_hub_screen.dart';
+import '../../presentation/features/typing/screens/typing_hub_screen.dart';
 import '../widgets/adaptive_scaffold.dart';
 import 'app_page_transitions.dart';
 
@@ -167,6 +168,16 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     AppPageTransitions.route(
       path: r('/learning/:subjectId/video'),
       builder: (_, state) => VideoLearningHubScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        isStudent: false,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/typing'),
+      builder: (_, state) => TypingHubScreen(
         subjectId: state.pathParameters['subjectId']!,
         isStudent: false,
         routePrefix: prefix,
