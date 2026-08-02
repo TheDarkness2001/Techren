@@ -44,6 +44,36 @@ const ENGLISH = {
   ],
 };
 
+const UZBEK = {
+  easy: [
+    'salom', 'rahmat', 'ha', 'yoq', 'va', 'bu', 'shu', 'men', 'sen', 'u', 'biz', 'siz', 'ular', 'kitob',
+    'uy', 'maktab', 'dars', 'suv', 'non', 'choy', 'ona', 'ota', 'aka', 'opa', 'bola', 'qiz', 'yaxshi',
+    'yomon', 'katta', 'kichik', 'yangi', 'eski', 'bugun', 'kecha', 'ertalab', 'kech', 'kun', 'tun',
+    'yil', 'oy', 'hafta', 'soat', 'daqiqa', 'ism', 'familiya', 'doʻst', 'ustoz', 'oʻquvchi',
+  ],
+  medium: [
+    'oʻqish', 'yozish', 'gapirish', 'tinglash', 'mashq', 'savol', 'javob', 'imtihon', 'baho', 'darsxona',
+    'kompyuter', 'telefon', 'internet', 'dastur', 'til', 'lugʻat', 'gap', 'soʻz', 'harf', 'raqam',
+    'matematika', 'tarix', 'geografiya', 'biologiya', 'fizika', 'kimyo', 'sanʼat', 'musiqa', 'sport',
+    'futbol', 'yugurish', 'suzish', 'kitobxon', 'kutubxona', 'muzey', 'teatr', 'kino', 'park',
+    'shahar', 'qishloq', 'koʻcha', 'bozor', 'doʻkon', 'restoran', 'kasalxona', 'apteka', 'bank',
+  ],
+  hard: [
+    'taʼlim', 'madaniyat', 'fan', 'texnologiya', 'innovatsiya', 'rivojlanish', 'mustaqillik', 'respublika',
+    'jamiyat', 'iqtisodiyot', 'sanoat', 'qishloqxoʻjalik', 'transport', 'aloqa', 'axborot', 'xavfsizlik',
+    'huquq', 'majburiyat', 'imkoniyat', 'masʼuliyat', 'hamkorlik', 'loyiha', 'tadqiqot', 'tajriba',
+    'natija', 'muvaffaqiyat', 'qiyinchilik', 'yechim', 'taklif', 'tavsiya', 'xulosa', 'tahlil',
+    'taqqoslash', 'baholash', 'nazorat', 'reja', 'maqsad', 'strategiya', 'jarayon', 'sifat',
+  ],
+  expert: [
+    'konstitutsiya', 'demokratik', 'suverenitet', 'parlament', 'vazirlik', 'maʼmuriyat', 'infratuzilma',
+    'raqamlashtirish', 'avtomatlashtirish', 'algoritm', 'dasturlash', 'maʼlumotlar', 'bazasi',
+    'kriptografiya', 'autentifikatsiya', 'optimallashtirish', 'integratsiya', 'koordinatsiya',
+    'kompetensiya', 'professionalizm', 'motivatsiya', 'kreativlik', 'kritika', 'argumentatsiya',
+    'kommunikatsiya', 'prezentatsiya', 'sertifikat', 'kvalifikatsiya', 'innovatsion', 'transformatsiya',
+  ],
+};
+
 const CODE_SNIPPETS = [
   {
     title: 'JS calculateAge',
@@ -136,6 +166,11 @@ async function main() {
   for (const [difficulty, words] of Object.entries(ENGLISH)) {
     await upsertWordList('english', difficulty, `English ${difficulty}`, words);
     console.log(`English ${difficulty}: ${words.length} words`);
+  }
+
+  for (const [difficulty, words] of Object.entries(UZBEK)) {
+    await upsertWordList('uzbek', difficulty, `Uzbek ${difficulty}`, words);
+    console.log(`Uzbek ${difficulty}: ${words.length} words`);
   }
 
   await upsertWordList('programming', 'easy', 'Programming basics', PROGRAMMING_WORDS.slice(0, 20));

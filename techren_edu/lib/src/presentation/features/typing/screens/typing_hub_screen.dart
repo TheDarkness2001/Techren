@@ -219,6 +219,7 @@ class _PracticeSetupState extends State<_PracticeSetup> {
           children: [
             for (final m in const [
               ('english', 'English words'),
+              ('uzbek', 'Uzbek words'),
               ('programming', 'Programming words'),
               ('code', 'Code typing'),
             ])

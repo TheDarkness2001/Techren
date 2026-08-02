@@ -16,6 +16,7 @@ const typingStudentStatsSchema = new mongoose.Schema(
     favoriteMode: { type: String, default: null },
     modeCounts: {
       english: { type: Number, default: 0 },
+      uzbek: { type: Number, default: 0 },
       programming: { type: Number, default: 0 },
       code: { type: Number, default: 0 },
     },

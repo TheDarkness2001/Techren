@@ -19,7 +19,7 @@ router.get(
 router.post(
   '/start',
   body('subjectId').isMongoId(),
-  body('mode').optional().isIn(['english', 'programming', 'code']),
+  body('mode').optional().isIn(['english', 'uzbek', 'programming', 'code']),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'expert']),
   body('durationSec').optional().isInt({ min: 0, max: 300 }).toInt(),
   body('isDaily').optional().isBoolean().toBoolean(),
@@ -31,7 +31,7 @@ router.post(
 router.post(
   '/finish',
   body('subjectId').isMongoId(),
-  body('mode').optional().isIn(['english', 'programming', 'code']),
+  body('mode').optional().isIn(['english', 'uzbek', 'programming', 'code']),
   body('wpm').isFloat({ min: 0 }).toFloat(),
   body('accuracy').isFloat({ min: 0, max: 100 }).toFloat(),
   validate,

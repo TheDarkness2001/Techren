@@ -5,7 +5,7 @@ const typingContentSchema = new mongoose.Schema(
   {
     kind: {
       type: String,
-      enum: ['english', 'programming', 'code'],
+      enum: ['english', 'uzbek', 'programming', 'code'],
       required: true,
       index: true,
     },

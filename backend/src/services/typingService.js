@@ -87,7 +87,11 @@ const buildPrompt = async ({ mode, difficulty, isDaily }) => {
     };
   }
 
-  const kind = mode === 'programming' || isDaily ? 'programming' : 'english';
+  const kind = mode === 'programming' || isDaily
+    ? 'programming'
+    : mode === 'uzbek'
+      ? 'uzbek'
+      : 'english';
   const diff = isDaily ? 'medium' : difficulty;
   let pools = await TypingContent.find({ kind, difficulty: diff, published: true }).lean();
   if (!pools.length) {
@@ -184,7 +188,7 @@ const start = async (req, body = {}) => {
   const subjectId = body.subjectId || req.query.subjectId;
   await assertTypingSubject(subjectId);
 
-  const mode = ['english', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
+  const mode = ['english', 'uzbek', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
   const difficulty = ['easy', 'medium', 'hard', 'expert'].includes(body.difficulty)
     ? body.difficulty
     : 'medium';
@@ -219,7 +223,7 @@ const finish = async (req, body = {}) => {
   await assertTypingSubject(subjectId);
   const studentId = resolveStudentId(req, body.studentId);
 
-  const mode = ['english', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
+  const mode = ['english', 'uzbek', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
   const difficulty = ['easy', 'medium', 'hard', 'expert'].includes(body.difficulty)
     ? body.difficulty
     : 'medium';
@@ -313,7 +317,7 @@ const finish = async (req, body = {}) => {
   stats.lastWpm = metrics.wpm;
   stats.modeCounts[mode] = (stats.modeCounts[mode] || 0) + 1;
   const counts = stats.modeCounts;
-  stats.favoriteMode = ['english', 'programming', 'code'].sort(
+  stats.favoriteMode = ['english', 'uzbek', 'programming', 'code'].sort(
     (a, b) => (counts[b] || 0) - (counts[a] || 0)
   )[0];
   if (isDaily) {

@@ -6,7 +6,7 @@ const typingResultSchema = new mongoose.Schema(
     subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     mode: {
       type: String,
-      enum: ['english', 'programming', 'code'],
+      enum: ['english', 'uzbek', 'programming', 'code'],
       required: true,
     },
     difficulty: {
