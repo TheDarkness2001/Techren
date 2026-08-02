@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,7 @@ import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
 import '../ielts_nav.dart';
+import '../ielts_ui.dart';
 
 class IeltsManageScreen extends ConsumerStatefulWidget {
   const IeltsManageScreen({
@@ -44,12 +47,17 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: const Text('Create exam'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title')),
-            const SizedBox(height: 12),
+            TextField(controller: titleCtrl, decoration: IeltsUi.field('Title')),
+            IeltsUi.fieldGap,
             DropdownButtonFormField<String>(
               value: mode,
               items: const [
@@ -59,9 +67,9 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                 DropdownMenuItem(value: 'writing', child: Text('Writing only')),
               ],
               onChanged: (v) => mode = v ?? 'full',
-              decoration: const InputDecoration(labelText: 'Mode'),
+              decoration: IeltsUi.field('Mode'),
             ),
-            const SizedBox(height: 12),
+            IeltsUi.fieldGap,
             DropdownButtonFormField<String>(
               value: training,
               items: const [
@@ -69,7 +77,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                 DropdownMenuItem(value: 'general', child: Text('General Training')),
               ],
               onChanged: (v) => training = v ?? 'academic',
-              decoration: const InputDecoration(labelText: 'Training type'),
+              decoration: IeltsUi.field('Training type'),
             ),
           ],
         ),
@@ -88,6 +96,90 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
       'published': false,
     });
     ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+  }
+
+  Future<void> _importReadingJson() async {
+    final jsonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
+        title: const Text('Import reading JSON'),
+        content: ConstrainedBox(
+          constraints: IeltsUi.dialogConstraints(ctx, maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Paste Academic Reading generator JSON (3 passages, 40 questions). '
+                'Creates an unpublished reading-only exam. See docs/IELTS-READING-GENERATOR.md.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              IeltsUi.fieldGap,
+              SizedBox(
+                height: 320,
+                child: TextField(
+                  controller: jsonCtrl,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '{ "title": "...", "module": "Academic", "passages": [...] }',
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Import')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final raw = jsonCtrl.text.trim();
+    if (raw.isEmpty) return;
+
+    Map<String, dynamic> body;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        throw const FormatException('Root JSON must be an object');
+      }
+      body = Map<String, dynamic>.from(decoded);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid JSON: $e')),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      body['subjectId'] = widget.subjectId;
+      final exam = await ref.read(ieltsApiProvider).importExamJson(body, subjectId: widget.subjectId);
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Imported “${exam.title}” as draft')),
+      );
+      context.go('${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage/${exam.id}');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _togglePublish(IeltsExam exam) async {
@@ -117,6 +209,9 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('Delete ${exam.title}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -152,7 +247,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
         return ListView.separated(
           padding: AppSpacing.pagePaddingWide,
           itemCount: exams.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, __) => const SizedBox(height: IeltsUi.listGap),
           itemBuilder: (context, i) {
             final exam = exams[i];
             return ListTile(
@@ -184,6 +279,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                 spacing: 4,
                 children: [
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: 'Edit content',
                     onPressed: () => context.go(
                       '${widget.routePrefix}/learning/${widget.subjectId}/ielts/manage/${exam.id}',
@@ -191,21 +287,25 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
                     icon: const Icon(Icons.edit_note),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: exam.published ? 'Unpublish' : 'Publish',
                     onPressed: () => _togglePublish(exam),
                     icon: Icon(exam.published ? Icons.visibility : Icons.visibility_off),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: 'Duplicate',
                     onPressed: _busy ? null : () => _duplicate(exam),
                     icon: const Icon(Icons.copy_outlined),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: exam.archived ? 'Unarchive' : 'Archive',
                     onPressed: () => _toggleArchive(exam),
                     icon: Icon(exam.archived ? Icons.unarchive_outlined : Icons.archive_outlined),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: 'Delete',
                     onPressed: () => _delete(exam),
                     icon: const Icon(Icons.delete_outline),
@@ -238,15 +338,34 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
             child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
           ),
         IconButton(
+          tooltip: 'Import reading JSON',
+          onPressed: _busy ? null : _importReadingJson,
+          icon: const Icon(Icons.upload_file_outlined),
+        ),
+        IconButton(
           tooltip: 'Back to IELTS Preparation',
           onPressed: () => context.go(_hub),
           icon: const Icon(Icons.arrow_back),
         ),
       ],
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.add),
-        label: const Text('New exam'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'ielts-import-reading',
+            onPressed: _busy ? null : _importReadingJson,
+            icon: const Icon(Icons.upload_file_outlined),
+            label: const Text('Import reading'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'ielts-new-exam',
+            onPressed: _busy ? null : _create,
+            icon: const Icon(Icons.add),
+            label: const Text('New exam'),
+          ),
+        ],
       ),
       body: body,
     );
@@ -292,24 +411,28 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             return AlertDialog(
+              insetPadding: IeltsUi.dialogInset,
+              titlePadding: IeltsUi.titlePadding,
+              contentPadding: IeltsUi.contentPadding,
+              actionsPadding: IeltsUi.actionsPadding,
               title: const Text('Score writing'),
-              content: SizedBox(
-                width: 520,
+              content: ConstrainedBox(
+                constraints: IeltsUi.dialogConstraints(ctx),
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(writingText.isEmpty ? '(No writing text)' : writingText),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       _BandSlider('Task Achievement / Response', ta, (v) => setLocal(() => ta = v)),
                       _BandSlider('Coherence & Cohesion', cc, (v) => setLocal(() => cc = v)),
                       _BandSlider('Lexical Resource', lr, (v) => setLocal(() => lr = v)),
                       _BandSlider('Grammatical Range & Accuracy', gra, (v) => setLocal(() => gra = v)),
                       Text('Overall: ${((ta + cc + lr + gra) / 4 * 2).round() / 2}'),
-                      const SizedBox(height: 8),
-                      TextField(controller: comments, maxLines: 3, decoration: const InputDecoration(labelText: 'Comments', border: OutlineInputBorder())),
-                      const SizedBox(height: 8),
-                      TextField(controller: corrections, maxLines: 3, decoration: const InputDecoration(labelText: 'Corrections', border: OutlineInputBorder())),
+                      IeltsUi.fieldGap,
+                      TextField(controller: comments, maxLines: 3, decoration: IeltsUi.field('Comments')),
+                      IeltsUi.fieldGap,
+                      TextField(controller: corrections, maxLines: 3, decoration: IeltsUi.field('Corrections')),
                     ],
                   ),
                 ),
@@ -358,7 +481,7 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
           return ListView.separated(
             padding: AppSpacing.pagePaddingWide,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: IeltsUi.listGap),
             itemBuilder: (context, i) {
               final item = items[i];
               final attempt = IeltsAttempt.fromJson(item['attempt'] as Map<String, dynamic>);

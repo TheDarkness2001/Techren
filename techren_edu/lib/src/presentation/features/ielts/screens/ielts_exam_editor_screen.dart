@@ -14,6 +14,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
+import '../ielts_ui.dart';
 import 'package:go_router/go_router.dart';
 
 /// Staff editor for sections, passages, prompts, questions, and listening audio.
@@ -148,6 +149,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
           title: const Text('Export JSON'),
           content: SizedBox(
             width: 560,
@@ -182,9 +187,14 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
           title: const Text('Add section'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DropdownButtonFormField<String>(
                 value: skill,
@@ -194,10 +204,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   DropdownMenuItem(value: 'writing', child: Text('Writing')),
                 ],
                 onChanged: (v) => setLocal(() => skill = v ?? 'listening'),
-                decoration: const InputDecoration(labelText: 'Skill'),
+                decoration: IeltsUi.field('Skill'),
               ),
               if (skill == 'listening') ...[
-                const SizedBox(height: 8),
+                IeltsUi.fieldGap,
                 DropdownButtonFormField<int>(
                   value: part,
                   items: const [
@@ -207,10 +217,14 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                     DropdownMenuItem(value: 4, child: Text('Part 4')),
                   ],
                   onChanged: (v) => setLocal(() => part = v),
-                  decoration: const InputDecoration(labelText: 'Listening part'),
+                  decoration: IeltsUi.field('Listening part'),
                 ),
               ],
-              TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
+              IeltsUi.fieldGap,
+              TextField(
+                controller: title,
+                decoration: IeltsUi.field('Title'),
+              ),
             ],
           ),
           actions: [
@@ -274,8 +288,8 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     if (!mounted) return;
 
     Widget htmlToolbar(void Function(void Function()) setLocal) => Wrap(
-          spacing: 6,
-          runSpacing: 6,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
           children: [
             OutlinedButton(
               onPressed: () => setLocal(() => _wrapSelection(passage, '<b>', '</b>')),
@@ -311,21 +325,26 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
           title: Text('Edit ${section.skill} section'),
-          content: SizedBox(
-            width: 560,
+          content: ConstrainedBox(
+            constraints: IeltsUi.dialogConstraints(ctx, maxWidth: 560),
             child: SingleChildScrollView(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
-                  const SizedBox(height: 8),
+                  TextField(controller: title, decoration: IeltsUi.field('Title')),
+                  IeltsUi.fieldGap,
                   TextField(
                     controller: instructions,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Instructions', border: OutlineInputBorder()),
+                    decoration: IeltsUi.field('Instructions'),
                   ),
                   if (section.skill == 'listening' || section.skill == 'reading') ...[
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     DropdownButtonFormField<String?>(
                       value: sources.any((s) => s.id == sourceId) ? sourceId : null,
                       items: [
@@ -333,11 +352,11 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                         for (final s in sources) DropdownMenuItem(value: s.id, child: Text(s.title, overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (v) => setLocal(() => sourceId = v),
-                      decoration: const InputDecoration(labelText: 'Source (library)'),
+                      decoration: IeltsUi.field('Source (library)'),
                     ),
                   ],
                   if (section.skill == 'listening') ...[
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     DropdownButtonFormField<int?>(
                       value: part,
                       items: const [
@@ -348,18 +367,15 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                         DropdownMenuItem(value: 4, child: Text('Part 4')),
                       ],
                       onChanged: (v) => setLocal(() => part = v),
-                      decoration: const InputDecoration(labelText: 'Listening part'),
+                      decoration: IeltsUi.field('Listening part'),
                     ),
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: transcript,
                       maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Transcript (staff / after submit)',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: IeltsUi.field('Transcript (staff / after submit)'),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     OutlinedButton.icon(
                       onPressed: () async {
                         final result = await FilePicker.platform.pickFiles(type: FileType.audio);
@@ -377,11 +393,11 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                     ),
                   ],
                   if (section.skill == 'reading') ...[
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     Row(
                       children: [
                         const Text('Passage format:'),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.sm),
                         SegmentedButton<String>(
                           segments: const [
                             ButtonSegment(value: 'plain', label: Text('Plain text')),
@@ -392,35 +408,29 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     if (passageFormat == 'html') ...[
                       htmlToolbar(setLocal),
-                      const SizedBox(height: 8),
+                      IeltsUi.fieldGap,
                     ],
                     TextField(
                       controller: passage,
                       maxLines: 10,
-                      decoration: InputDecoration(
-                        labelText: passageFormat == 'html' ? 'Passage (HTML)' : 'Passage',
-                        border: const OutlineInputBorder(),
-                      ),
+                      decoration: IeltsUi.field(passageFormat == 'html' ? 'Passage (HTML)' : 'Passage'),
                     ),
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: answerHighlights,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Answer highlights (staff-only markers / notes)',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: IeltsUi.field('Answer highlights (staff-only markers / notes)'),
                     ),
                   ],
                   if (section.skill == 'writing') ...[
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: prompt,
                       maxLines: 6,
-                      decoration: const InputDecoration(labelText: 'Prompt', border: OutlineInputBorder()),
+                      decoration: IeltsUi.field('Prompt'),
                     ),
                   ],
                 ],
@@ -495,26 +505,33 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
           final showMatching = type == 'matching' || type == 'matching_headings';
           final showAnswers = type != 'task1' && type != 'task2';
           return AlertDialog(
+            insetPadding: IeltsUi.dialogInset,
+            titlePadding: IeltsUi.titlePadding,
+            contentPadding: IeltsUi.contentPadding,
+            actionsPadding: IeltsUi.actionsPadding,
             title: Text(existing == null ? 'Add question' : 'Edit question'),
-            content: SizedBox(
-              width: 520,
+            content: ConstrainedBox(
+              constraints: IeltsUi.dialogConstraints(ctx),
               child: SingleChildScrollView(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TextField(
                       controller: number,
-                      decoration: const InputDecoration(labelText: 'Number'),
+                      decoration: IeltsUi.field('Number'),
                       keyboardType: TextInputType.number,
                     ),
+                    IeltsUi.fieldGap,
                     DropdownButtonFormField<String>(
                       value: type,
                       items: _typesFor(section.skill)
                           .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                           .toList(),
                       onChanged: (v) => setLocal(() => type = v ?? type),
-                      decoration: const InputDecoration(labelText: 'Type'),
+                      decoration: IeltsUi.field('Type'),
                     ),
-                    if (type == 'mcq')
+                    if (type == 'mcq') ...[
+                      IeltsUi.fieldGap,
                       DropdownButtonFormField<String>(
                         value: selectionMode,
                         items: const [
@@ -522,9 +539,11 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                           DropdownMenuItem(value: 'multiple', child: Text('Multiple answers')),
                         ],
                         onChanged: (v) => setLocal(() => selectionMode = v ?? 'single'),
-                        decoration: const InputDecoration(labelText: 'Selection mode'),
+                        decoration: IeltsUi.field('Selection mode'),
                       ),
-                    if (showMatching)
+                    ],
+                    if (showMatching) ...[
+                      IeltsUi.fieldGap,
                       DropdownButtonFormField<String>(
                         value: matchingStyle,
                         items: const [
@@ -533,24 +552,29 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                           DropdownMenuItem(value: 'drag_drop', child: Text('Drag & drop')),
                         ],
                         onChanged: (v) => setLocal(() => matchingStyle = v ?? 'dropdown'),
-                        decoration: const InputDecoration(labelText: 'Matching style'),
+                        decoration: IeltsUi.field('Matching style'),
                       ),
+                    ],
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: prompt,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Prompt / sentence (use ____ for blank)',
-                        border: OutlineInputBorder(),
+                      decoration: IeltsUi.field(
+                        'Prompt / sentence',
+                        hint: 'Use ____ for a blank',
+                        alignHint: true,
                       ),
                     ),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: instruction,
-                      decoration: const InputDecoration(
-                        labelText: 'Instruction',
-                        hintText: 'NO MORE THAN TWO WORDS AND/OR A NUMBER',
+                      decoration: IeltsUi.field(
+                        'Instruction',
+                        hint: 'NO MORE THAN TWO WORDS AND/OR A NUMBER',
                       ),
                     ),
-                    if (showAnswers)
+                    if (showAnswers) ...[
+                      IeltsUi.fieldGap,
                       DropdownButtonFormField<String?>(
                         value: wordLimit,
                         items: const [
@@ -569,52 +593,65 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                           ),
                         ],
                         onChanged: (v) => setLocal(() => wordLimit = v),
-                        decoration: const InputDecoration(labelText: 'Word limit'),
+                        decoration: IeltsUi.field('Word limit'),
                       ),
-                    if (showOptions)
+                    ],
+                    if (showOptions) ...[
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: options,
-                        decoration: const InputDecoration(
-                          labelText: 'Options (comma-separated)',
-                          hintText: 'True, False, Not Given',
+                        decoration: IeltsUi.field(
+                          'Options (comma-separated)',
+                          hint: 'True, False, Not Given',
                         ),
                       ),
-                    if (showMatching)
+                    ],
+                    if (showMatching) ...[
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: matchingChoices,
                         maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Choices / headings (one per line)',
-                          border: OutlineInputBorder(),
+                        decoration: IeltsUi.field(
+                          'Choices / headings (one per line)',
+                          alignHint: true,
                         ),
                       ),
+                    ],
                     if (showAnswers) ...[
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: answers,
-                        decoration: const InputDecoration(
-                          labelText: 'Correct / alternative answers (comma-separated)',
+                        decoration: IeltsUi.field(
+                          'Correct / alternative answers',
+                          hint: 'Comma-separated',
                         ),
                       ),
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: synonyms,
-                        decoration: const InputDecoration(labelText: 'Synonyms (comma-separated)'),
+                        decoration: IeltsUi.field('Synonyms (comma-separated)'),
                       ),
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: explanation,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Explanation (shown after submit)',
-                          border: OutlineInputBorder(),
+                        decoration: IeltsUi.field(
+                          'Explanation',
+                          hint: 'Shown after submit',
+                          alignHint: true,
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.sm),
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
                         title: const Text('Allow optional articles (a/an/the)'),
                         value: allowArticles,
                         onChanged: (v) => setLocal(() => allowArticles = v == true),
                       ),
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
                         title: const Text('Allow plural variants'),
                         value: allowPlurals,
                         onChanged: (v) => setLocal(() => allowPlurals = v == true),
@@ -699,19 +736,24 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: const Text('Save to question bank'),
         content: SizedBox(
-          width: 420,
+          width: IeltsUi.dialogWidthNarrow,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
-              const SizedBox(height: 8),
-              TextField(controller: topic, decoration: const InputDecoration(labelText: 'Topic')),
-              const SizedBox(height: 8),
-              TextField(controller: difficulty, decoration: const InputDecoration(labelText: 'Difficulty')),
-              const SizedBox(height: 8),
-              TextField(controller: tags, decoration: const InputDecoration(labelText: 'Tags (comma-separated)')),
+              TextField(controller: title, decoration: IeltsUi.field('Title')),
+              IeltsUi.fieldGap,
+              TextField(controller: topic, decoration: IeltsUi.field('Topic')),
+              IeltsUi.fieldGap,
+              TextField(controller: difficulty, decoration: IeltsUi.field('Difficulty')),
+              IeltsUi.fieldGap,
+              TextField(controller: tags, decoration: IeltsUi.field('Tags (comma-separated)')),
             ],
           ),
         ),
@@ -767,11 +809,16 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
           title: const Text('Add from bank'),
           content: SizedBox(
-            width: 460,
+            width: IeltsUi.dialogWidthNarrow,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 DropdownButtonFormField<IeltsBankItem>(
                   value: selectedItem,
@@ -798,9 +845,9 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                       selectedVersionId = versions.isNotEmpty ? versions.first.id : null;
                     });
                   },
-                  decoration: const InputDecoration(labelText: 'Bank item'),
+                  decoration: IeltsUi.field('Bank item'),
                 ),
-                const SizedBox(height: 8),
+                IeltsUi.fieldGap,
                 if (versions.isNotEmpty)
                   DropdownButtonFormField<String>(
                     value: selectedVersionId,
@@ -808,7 +855,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                         .map((v) => DropdownMenuItem(value: v.id, child: Text('Version ${v.version}')))
                         .toList(),
                     onChanged: (v) => setLocal(() => selectedVersionId = v),
-                    decoration: const InputDecoration(labelText: 'Version'),
+                    decoration: IeltsUi.field('Version'),
                   ),
               ],
             ),
@@ -873,6 +920,9 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('Delete ${s.title}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -944,12 +994,12 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
             '${exam.trainingType.toUpperCase()} · ${exam.mode} · ${exam.published ? 'Published' : 'Draft'}'
             '${exam.archived ? ' · Archived' : ''}'
             '${exam.publishAt != null ? ' · publishes ${exam.publishAt!.toLocal().toString().split('.').first}' : ''}',
-            style: TextStyle(color: muted),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               OutlinedButton.icon(
                 onPressed: _busy ? null : _duplicateExam,
@@ -979,13 +1029,13 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sectionGap),
           if (exam.sections.isEmpty)
             const EmptyState(title: 'No sections', message: 'Add Listening, Reading, or Writing sections.'),
           for (final section in exam.sections) ...[
             Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+              padding: AppSpacing.cardPadding,
               decoration: BoxDecoration(
                 borderRadius: AppRadius.card,
                 border: Border.all(color: context.semantic.border),
@@ -994,63 +1044,99 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        section.skill == 'listening'
-                            ? Icons.headphones
-                            : section.skill == 'reading'
-                                ? Icons.menu_book
-                                : Icons.edit_note,
-                        color: AppColors.primary,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          section.skill == 'listening'
+                              ? Icons.headphones
+                              : section.skill == 'reading'
+                                  ? Icons.menu_book
+                                  : Icons.edit_note,
+                          color: AppColors.primary,
+                        ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           '${section.part != null ? 'Part ${section.part} · ' : ''}${section.title} (${section.skill})',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
-                      IconButton(onPressed: () => _editSection(section), icon: const Icon(Icons.edit_outlined)),
-                      IconButton(onPressed: () => _deleteSection(section), icon: const Icon(Icons.delete_outline)),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Edit section',
+                        onPressed: () => _editSection(section),
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Delete section',
+                        onPressed: () => _deleteSection(section),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
                     ],
                   ),
-                  if (section.hasAudio) Text('Audio uploaded', style: TextStyle(color: muted, fontSize: 12)),
-                  if (section.passage.isNotEmpty)
+                  if (section.hasAudio) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text('Audio uploaded', style: TextStyle(color: muted, fontSize: 12)),
+                  ],
+                  if (section.passage.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
-                      section.passage.length > 120 ? '${section.passage.substring(0, 120)}…' : section.passage,
-                      style: TextStyle(color: muted, fontSize: 12),
+                      section.passage.length > 160 ? '${section.passage.substring(0, 160)}…' : section.passage,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
                     ),
-                  const SizedBox(height: 8),
-                  for (final q in section.questions)
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Q${q.number}: ${q.prompt}', maxLines: 2, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                        '${q.type}${q.wordLimit != null ? ' · ${q.wordLimit}' : ''}${q.instruction.isNotEmpty ? ' · ${q.instruction}' : ''}',
-                      ),
-                      trailing: Wrap(
-                        children: [
-                          if (section.skill != 'writing')
-                            IconButton(
-                              tooltip: 'Save to bank',
-                              icon: const Icon(Icons.bookmark_add_outlined, size: 20),
-                              onPressed: () => _saveQuestionToBank(q, section.skill),
-                            ),
-                          IconButton(
-                            tooltip: 'Edit',
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            onPressed: () => _openQuestionEditor(section, existing: q),
+                  ],
+                  if (section.questions.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    for (final q in section.questions)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Q${q.number}: ${q.prompt}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 20),
-                            onPressed: () => _deleteQuestion(q),
+                          subtitle: Text(
+                            '${q.type}${q.wordLimit != null ? ' · ${q.wordLimit}' : ''}${q.instruction.isNotEmpty ? ' · ${q.instruction}' : ''}',
                           ),
-                        ],
+                          trailing: Wrap(
+                            spacing: AppSpacing.xxs,
+                            children: [
+                              if (section.skill != 'writing')
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Save to bank',
+                                  icon: const Icon(Icons.bookmark_add_outlined, size: 20),
+                                  onPressed: () => _saveQuestionToBank(q, section.skill),
+                                ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Edit',
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                onPressed: () => _openQuestionEditor(section, existing: q),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Delete',
+                                icon: const Icon(Icons.delete_outline, size: 20),
+                                onPressed: () => _deleteQuestion(q),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
                   Wrap(
-                    spacing: 8,
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.xs,
                     children: [
                       TextButton.icon(
                         onPressed: () => _addQuestion(section),
@@ -1069,7 +1155,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 80),
+          const SizedBox(height: AppSpacing.xxxl),
         ],
       ),
     );

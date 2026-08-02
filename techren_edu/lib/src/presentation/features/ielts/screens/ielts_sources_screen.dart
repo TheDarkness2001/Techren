@@ -10,6 +10,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
+import '../ielts_ui.dart';
 
 /// Staff library CMS: books, audio recordings, and articles used as the
 /// origin of listening/reading sections and bank items.
@@ -70,47 +71,52 @@ class _IeltsSourcesScreenState extends ConsumerState<IeltsSourcesScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
           title: Text(existing == null ? 'Add source' : 'Edit source'),
-          content: SizedBox(
-            width: 480,
+          content: ConstrainedBox(
+            constraints: IeltsUi.dialogConstraints(ctx),
             child: SingleChildScrollView(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
-                  const SizedBox(height: 8),
-                  TextField(controller: author, decoration: const InputDecoration(labelText: 'Author')),
-                  const SizedBox(height: 8),
-                  TextField(controller: publisher, decoration: const InputDecoration(labelText: 'Publisher / publication')),
-                  const SizedBox(height: 8),
-                  TextField(controller: url, decoration: const InputDecoration(labelText: 'Original URL')),
-                  const SizedBox(height: 8),
+                  TextField(controller: title, decoration: IeltsUi.field('Title')),
+                  IeltsUi.fieldGap,
+                  TextField(controller: author, decoration: IeltsUi.field('Author')),
+                  IeltsUi.fieldGap,
+                  TextField(controller: publisher, decoration: IeltsUi.field('Publisher / publication')),
+                  IeltsUi.fieldGap,
+                  TextField(controller: url, decoration: IeltsUi.field('Original URL')),
+                  IeltsUi.fieldGap,
                   DropdownButtonFormField<String>(
                     value: kind,
                     items: _kinds.map((k) => DropdownMenuItem(value: k, child: Text(k))).toList(),
                     onChanged: (v) => setLocal(() => kind = v ?? kind),
-                    decoration: const InputDecoration(labelText: 'Kind'),
+                    decoration: IeltsUi.field('Kind'),
                   ),
-                  const SizedBox(height: 8),
+                  IeltsUi.fieldGap,
                   DropdownButtonFormField<String>(
                     value: topic,
                     items: _topics.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                     onChanged: (v) => setLocal(() => topic = v ?? topic),
-                    decoration: const InputDecoration(labelText: 'Topic'),
+                    decoration: IeltsUi.field('Topic'),
                   ),
-                  const SizedBox(height: 8),
+                  IeltsUi.fieldGap,
                   DropdownButtonFormField<String>(
                     value: difficulty,
                     items: _difficulties.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                     onChanged: (v) => setLocal(() => difficulty = v ?? difficulty),
-                    decoration: const InputDecoration(labelText: 'Difficulty'),
+                    decoration: IeltsUi.field('Difficulty'),
                   ),
-                  const SizedBox(height: 8),
-                  TextField(controller: tags, decoration: const InputDecoration(labelText: 'Tags (comma-separated)')),
-                  const SizedBox(height: 8),
+                  IeltsUi.fieldGap,
+                  TextField(controller: tags, decoration: IeltsUi.field('Tags (comma-separated)')),
+                  IeltsUi.fieldGap,
                   TextField(
                     controller: notes,
                     maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+                    decoration: IeltsUi.field('Notes', alignHint: true),
                   ),
                 ],
               ),
@@ -150,6 +156,9 @@ class _IeltsSourcesScreenState extends ConsumerState<IeltsSourcesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('Delete ${source.title}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -186,7 +195,7 @@ class _IeltsSourcesScreenState extends ConsumerState<IeltsSourcesScreen> {
         return ListView.separated(
           padding: AppSpacing.pagePaddingWide,
           itemCount: sources.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, __) => const SizedBox(height: IeltsUi.listGap),
           itemBuilder: (context, i) {
             final s = sources[i];
             return ListTile(
@@ -208,11 +217,13 @@ class _IeltsSourcesScreenState extends ConsumerState<IeltsSourcesScreen> {
                 spacing: 4,
                 children: [
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: 'Edit',
                     onPressed: () => _openEditor(existing: s),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: 'Delete',
                     onPressed: () => _delete(s),
                     icon: const Icon(Icons.delete_outline),

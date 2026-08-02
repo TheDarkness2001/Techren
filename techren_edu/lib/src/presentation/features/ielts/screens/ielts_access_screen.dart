@@ -10,6 +10,7 @@ import '../../../../domain/entities/scheduling.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../providers/scheduling_provider.dart';
 import '../ielts_nav.dart';
+import '../ielts_ui.dart';
 
 /// Founder-only: unlock/lock IELTS for groups or all English students.
 class IeltsAccessScreen extends ConsumerStatefulWidget {
@@ -87,6 +88,10 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text(enabled ? 'Unlock group' : 'Lock group'),
         content: groups.isEmpty
             ? const Text('No exam groups found.')
@@ -96,7 +101,7 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
                     .map((g) => DropdownMenuItem(value: g, child: Text(g.groupName)))
                     .toList(),
                 onChanged: (v) => selected = v,
-                decoration: const InputDecoration(labelText: 'Exam group'),
+                decoration: IeltsUi.field('Exam group'),
               ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -134,8 +139,8 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               FilledButton.icon(
                 onPressed: _busy ? null : () => _pickGroup(true),
@@ -154,6 +159,10 @@ class _IeltsAccessScreenState extends ConsumerState<IeltsAccessScreen> {
                         final ok = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
+                            insetPadding: IeltsUi.dialogInset,
+                            titlePadding: IeltsUi.titlePadding,
+                            contentPadding: IeltsUi.contentPadding,
+                            actionsPadding: IeltsUi.actionsPadding,
                             title: const Text('Unlock all English students?'),
                             content: const Text(
                               'Every student enrolled in an English subject group will get IELTS access.',

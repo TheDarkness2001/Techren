@@ -102,8 +102,8 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
           Text('Status: ${attempt.status}', style: TextStyle(color: muted)),
           const SizedBox(height: AppSpacing.lg),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               _BandCard('Listening', scores.listeningBand, detail: scores.listeningRaw != null ? '${scores.listeningRaw}/${scores.listeningMax}' : null),
               _BandCard('Reading', scores.readingBand, detail: scores.readingRaw != null ? '${scores.readingRaw}/${scores.readingMax}' : null),
@@ -137,9 +137,9 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
                       ? (r.studentAnswer as List).join(', ')
                       : (r.studentAnswer?.toString() ?? '—');
               return Card(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: AppSpacing.cardPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -205,7 +205,7 @@ class _BandCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 160,
-      padding: const EdgeInsets.all(14),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         borderRadius: AppRadius.card,
         border: Border.all(color: emphasize ? AppColors.primary : context.semantic.border),
@@ -260,7 +260,7 @@ class IeltsHistoryScreen extends ConsumerWidget {
           return ListView.separated(
             padding: AppSpacing.pagePaddingWide,
             itemCount: page.items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final a = page.items[i];
               final title = a.exam?.title ?? 'Exam';

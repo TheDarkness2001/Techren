@@ -409,14 +409,27 @@ const exportExamJson = async (examId) => {
   };
 };
 
-const importExamJson = async (payload, createdBy, { subjectId } = {}) => {
-  const data = payload.exam || payload;
+const importExamJson = async (payload, createdBy, { subjectId, strictReading = true } = {}) => {
+  const { isReadingGeneratorPayload, mapReadingGeneratorToExam } = require('./ieltsReadingGeneratorImport');
+
+  let data = payload.exam || payload;
+  if (isReadingGeneratorPayload(payload)) {
+    data = mapReadingGeneratorToExam(payload, { subjectId, strict: strictReading !== false });
+  }
+
   if (!data || !data.title) {
     throw Object.assign(new Error('Invalid exam import payload'), {
       statusCode: 400,
       code: 'BAD_REQUEST',
     });
   }
+  if (!subjectId && !data.subjectId) {
+    throw Object.assign(new Error('subjectId is required to import an exam'), {
+      statusCode: 400,
+      code: 'BAD_REQUEST',
+    });
+  }
+
   const exam = await IeltsExam.create({
     subjectId: subjectId || data.subjectId,
     title: data.title,
@@ -432,7 +445,7 @@ const importExamJson = async (payload, createdBy, { subjectId } = {}) => {
   for (const [si, s] of (data.sections || []).entries()) {
     const newSection = await IeltsSection.create({
       examId: exam._id,
-      skill: s.skill,
+      skill: s.skill || 'reading',
       order: s.order != null ? s.order : si,
       title: s.title || '',
       instructions: s.instructions || '',

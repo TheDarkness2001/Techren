@@ -79,8 +79,8 @@ class _StaffAnalyticsBody extends ConsumerWidget {
           padding: AppSpacing.pagePaddingWide,
           children: [
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
                 _StatCard('Attempts (last ${data.days}d)', '${data.totalAttempts}', Icons.fact_check_outlined),
                 _StatCard(
@@ -182,8 +182,8 @@ class _StudentAnalyticsBody extends ConsumerWidget {
             padding: AppSpacing.pagePaddingWide,
             children: [
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   _StatCard('Attempts completed', '${data.attemptsCompleted}', Icons.fact_check_outlined),
                   _StatCard(
@@ -222,7 +222,7 @@ class _StudentAnalyticsBody extends ConsumerWidget {
                       rows: data.strengths,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: _AccuracyList(
                       title: 'Focus areas',
@@ -252,7 +252,7 @@ class _AccuracyList extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = context.semantic.textMuted;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(borderRadius: AppRadius.card, border: Border.all(color: context.semantic.border)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +292,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 190,
-      padding: const EdgeInsets.all(14),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         borderRadius: AppRadius.card,
         border: Border.all(color: context.semantic.border),

@@ -11,6 +11,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
+import '../ielts_ui.dart';
 
 /// Staff question bank: reusable listening/reading questions with immutable
 /// versions. Adding a bank version into an exam section happens from the
@@ -85,11 +86,16 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
         builder: (ctx, setLocal) {
           final showOptions = type == 'mcq' || type == 'tfng' || type == 'ynng';
           return AlertDialog(
+            insetPadding: IeltsUi.dialogInset,
+            titlePadding: IeltsUi.titlePadding,
+            contentPadding: IeltsUi.contentPadding,
+            actionsPadding: IeltsUi.actionsPadding,
             title: const Text('New bank item'),
-            content: SizedBox(
-              width: 480,
+            content: ConstrainedBox(
+              constraints: IeltsUi.dialogConstraints(ctx),
               child: SingleChildScrollView(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     DropdownButtonFormField<String>(
                       value: skill,
@@ -101,42 +107,42 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
                         skill = v ?? skill;
                         type = typesForSkill(skill).first;
                       }),
-                      decoration: const InputDecoration(labelText: 'Skill'),
+                      decoration: IeltsUi.field('Skill'),
                     ),
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     DropdownButtonFormField<String>(
                       value: type,
                       items: typesForSkill(skill).map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                       onChanged: (v) => setLocal(() => type = v ?? type),
-                      decoration: const InputDecoration(labelText: 'Type'),
+                      decoration: IeltsUi.field('Type'),
                     ),
-                    const SizedBox(height: 8),
-                    TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
-                    const SizedBox(height: 8),
-                    TextField(controller: topic, decoration: const InputDecoration(labelText: 'Topic')),
-                    const SizedBox(height: 8),
-                    TextField(controller: difficulty, decoration: const InputDecoration(labelText: 'Difficulty')),
-                    const SizedBox(height: 8),
-                    TextField(controller: tags, decoration: const InputDecoration(labelText: 'Tags (comma-separated)')),
-                    const Divider(height: 24),
+                    IeltsUi.fieldGap,
+                    TextField(controller: title, decoration: IeltsUi.field('Title')),
+                    IeltsUi.fieldGap,
+                    TextField(controller: topic, decoration: IeltsUi.field('Topic')),
+                    IeltsUi.fieldGap,
+                    TextField(controller: difficulty, decoration: IeltsUi.field('Difficulty')),
+                    IeltsUi.fieldGap,
+                    TextField(controller: tags, decoration: IeltsUi.field('Tags (comma-separated)')),
+                    const Divider(height: AppSpacing.lg),
                     TextField(
                       controller: prompt,
                       maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Prompt', border: OutlineInputBorder()),
+                      decoration: IeltsUi.field('Prompt'),
                     ),
-                    const SizedBox(height: 8),
-                    TextField(controller: instruction, decoration: const InputDecoration(labelText: 'Instruction')),
+                    IeltsUi.fieldGap,
+                    TextField(controller: instruction, decoration: IeltsUi.field('Instruction')),
                     if (showOptions) ...[
-                      const SizedBox(height: 8),
+                      IeltsUi.fieldGap,
                       TextField(
                         controller: options,
-                        decoration: const InputDecoration(labelText: 'Options (comma-separated)'),
+                        decoration: IeltsUi.field('Options (comma-separated)'),
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: answers,
-                      decoration: const InputDecoration(labelText: 'Correct answers (comma-separated)'),
+                      decoration: IeltsUi.field('Correct answers (comma-separated)'),
                     ),
                   ],
                 ),
@@ -184,21 +190,26 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('New version for "${item.title}"'),
         content: SizedBox(
-          width: 460,
+          width: IeltsUi.dialogWidthNarrow,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
                 controller: prompt,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Prompt', border: OutlineInputBorder()),
+                decoration: IeltsUi.field('Prompt'),
               ),
-              const SizedBox(height: 8),
-              TextField(controller: options, decoration: const InputDecoration(labelText: 'Options (comma-separated)')),
-              const SizedBox(height: 8),
-              TextField(controller: answers, decoration: const InputDecoration(labelText: 'Answers (comma-separated)')),
+              IeltsUi.fieldGap,
+              TextField(controller: options, decoration: IeltsUi.field('Options (comma-separated)')),
+              IeltsUi.fieldGap,
+              TextField(controller: answers, decoration: IeltsUi.field('Answers (comma-separated)')),
             ],
           ),
         ),
@@ -232,9 +243,13 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        contentPadding: IeltsUi.contentPadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('${full.title} — versions'),
         content: SizedBox(
-          width: 460,
+          width: IeltsUi.dialogWidthNarrow,
           height: 360,
           child: full.versions.isEmpty
               ? const Center(child: Text('No versions yet'))
@@ -264,6 +279,9 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: IeltsUi.dialogInset,
+        titlePadding: IeltsUi.titlePadding,
+        actionsPadding: IeltsUi.actionsPadding,
         title: Text('Delete ${item.title}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -285,7 +303,7 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: AppSpacing.searchBarPadding,
           child: Row(
             children: [
               Expanded(
@@ -333,7 +351,7 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
               return ListView.separated(
                 padding: AppSpacing.pagePaddingWide,
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, __) => const SizedBox(height: IeltsUi.listGap),
                 itemBuilder: (context, i) {
                   final item = items[i];
                   return ListTile(
@@ -361,16 +379,19 @@ class _IeltsBankScreenState extends ConsumerState<IeltsBankScreen> {
                       spacing: 4,
                       children: [
                         IconButton(
+                          visualDensity: VisualDensity.compact,
                           tooltip: 'View versions',
                           onPressed: () => _showVersions(item),
                           icon: const Icon(Icons.history, size: 20),
                         ),
                         IconButton(
+                          visualDensity: VisualDensity.compact,
                           tooltip: 'New version',
                           onPressed: () => _addVersion(item),
                           icon: const Icon(Icons.add_box_outlined, size: 20),
                         ),
                         IconButton(
+                          visualDensity: VisualDensity.compact,
                           tooltip: 'Delete',
                           onPressed: () => _delete(item),
                           icon: const Icon(Icons.delete_outline, size: 20),
