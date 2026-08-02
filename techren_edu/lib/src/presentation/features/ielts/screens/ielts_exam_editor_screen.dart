@@ -180,7 +180,9 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
   }
 
   Future<void> _addSection() async {
-    String skill = 'listening';
+    final mode = _exam?.mode ?? 'full';
+    final skillLocked = mode == 'listening' || mode == 'reading' || mode == 'writing' || mode == 'speaking';
+    String skill = skillLocked ? mode : 'listening';
     int? part = 1;
     String writingTask = 'task1';
     final title = TextEditingController();
@@ -192,27 +194,28 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
           titlePadding: IeltsUi.titlePadding,
           contentPadding: IeltsUi.contentPadding,
           actionsPadding: IeltsUi.actionsPadding,
-          title: const Text('Add section'),
+          title: Text(skillLocked ? 'Add ${skill[0].toUpperCase()}${skill.substring(1)} section' : 'Add section'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<String>(
-                value: skill,
-                items: const [
-                  DropdownMenuItem(value: 'listening', child: Text('Listening')),
-                  DropdownMenuItem(value: 'reading', child: Text('Reading')),
-                  DropdownMenuItem(value: 'writing', child: Text('Writing')),
-                  DropdownMenuItem(value: 'speaking', child: Text('Speaking')),
-                ],
-                onChanged: (v) => setLocal(() {
-                  skill = v ?? 'listening';
-                  if (skill == 'listening' || skill == 'reading') part = 1;
-                }),
-                decoration: IeltsUi.field('Skill'),
-              ),
+              if (!skillLocked)
+                DropdownButtonFormField<String>(
+                  value: skill,
+                  items: const [
+                    DropdownMenuItem(value: 'listening', child: Text('Listening')),
+                    DropdownMenuItem(value: 'reading', child: Text('Reading')),
+                    DropdownMenuItem(value: 'writing', child: Text('Writing')),
+                    DropdownMenuItem(value: 'speaking', child: Text('Speaking')),
+                  ],
+                  onChanged: (v) => setLocal(() {
+                    skill = v ?? 'listening';
+                    if (skill == 'listening' || skill == 'reading') part = 1;
+                  }),
+                  decoration: IeltsUi.field('Skill'),
+                ),
               if (skill == 'listening') ...[
-                IeltsUi.fieldGap,
+                if (!skillLocked) IeltsUi.fieldGap,
                 DropdownButtonFormField<int>(
                   value: part,
                   items: const [
@@ -226,7 +229,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                 ),
               ],
               if (skill == 'reading') ...[
-                IeltsUi.fieldGap,
+                if (!skillLocked) IeltsUi.fieldGap,
                 DropdownButtonFormField<int>(
                   value: part == null || part! > 3 ? 1 : part,
                   items: const [
@@ -239,7 +242,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                 ),
               ],
               if (skill == 'writing') ...[
-                IeltsUi.fieldGap,
+                if (!skillLocked) IeltsUi.fieldGap,
                 DropdownButtonFormField<String>(
                   value: writingTask,
                   items: const [
@@ -1178,9 +1181,15 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
           ),
           const SizedBox(height: AppSpacing.sectionGap),
           if (exam.sections.isEmpty)
-            const EmptyState(
+            EmptyState(
               title: 'No sections',
-              message: 'Add Listening, Reading, Writing, or Speaking sections.',
+              message: switch (exam.mode) {
+                'reading' => 'Add Passage 1–3 for this Reading exam.',
+                'listening' => 'Add Parts 1–4 for this Listening exam.',
+                'writing' => 'Add Task 1 and Task 2 for this Writing exam.',
+                'speaking' => 'Add a Speaking cue-card section.',
+                _ => 'Add Listening, Reading, Writing, or Speaking sections.',
+              },
             ),
           for (final section in exam.sections) ...[
             Container(

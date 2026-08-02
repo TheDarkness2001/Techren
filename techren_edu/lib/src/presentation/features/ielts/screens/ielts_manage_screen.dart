@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -102,47 +104,74 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
 
   Future<void> _importReadingJson() async {
     final jsonCtrl = TextEditingController();
+
+    Future<void> pickFile(void Function(void Function()) setLocal) async {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      String? text;
+      if (file.bytes != null && file.bytes!.isNotEmpty) {
+        text = utf8.decode(file.bytes!);
+      } else if (file.path != null && file.path!.isNotEmpty) {
+        text = await File(file.path!).readAsString();
+      }
+      if (text == null || text.trim().isEmpty) return;
+      setLocal(() => jsonCtrl.text = text!);
+    }
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        insetPadding: IeltsUi.dialogInset,
-        titlePadding: IeltsUi.titlePadding,
-        contentPadding: IeltsUi.contentPadding,
-        actionsPadding: IeltsUi.actionsPadding,
-        title: const Text('Import reading JSON'),
-        content: ConstrainedBox(
-          constraints: IeltsUi.dialogConstraints(ctx, maxWidth: 560),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Paste Academic Reading generator JSON (3 passages, 40 questions). '
-                'Creates an unpublished reading-only exam. See docs/IELTS-READING-GENERATOR.md.',
-                style: Theme.of(ctx).textTheme.bodySmall,
-              ),
-              IeltsUi.fieldGap,
-              SizedBox(
-                height: 320,
-                child: TextField(
-                  controller: jsonCtrl,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: '{ "title": "...", "module": "Academic", "passages": [...] }',
-                  ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          insetPadding: IeltsUi.dialogInset,
+          titlePadding: IeltsUi.titlePadding,
+          contentPadding: IeltsUi.contentPadding,
+          actionsPadding: IeltsUi.actionsPadding,
+          title: const Text('Import reading JSON'),
+          content: ConstrainedBox(
+            constraints: IeltsUi.dialogConstraints(ctx, maxWidth: 560),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Paste Academic Reading generator JSON (3 passages, 40 questions), or pick a .json file. '
+                  'Creates an unpublished reading-only exam. See docs/IELTS-READING-GENERATOR.md.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
                 ),
-              ),
-            ],
+                IeltsUi.fieldGap,
+                OutlinedButton.icon(
+                  onPressed: () => pickFile(setLocal),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Pick .json file'),
+                ),
+                IeltsUi.fieldGap,
+                SizedBox(
+                  height: 320,
+                  child: TextField(
+                    controller: jsonCtrl,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: '{ "title": "...", "module": "Academic", "passages": [...] }',
+                    ),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Import')),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Import')),
-        ],
       ),
     );
     if (ok != true) return;
@@ -159,7 +188,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: $e')),
+        SnackBar(content: Text('Invalid JSON: ${IeltsUi.errorMessage(e)}')),
       );
       return;
     }
@@ -169,6 +198,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
       body['subjectId'] = widget.subjectId;
       final exam = await ref.read(ieltsApiProvider).importExamJson(body, subjectId: widget.subjectId);
       ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: 'reading')));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Imported “${exam.title}” as draft')),
@@ -177,7 +207,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $e')),
+        SnackBar(content: Text('Import failed: ${IeltsUi.errorMessage(e)}')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -185,30 +215,56 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
   }
 
   Future<void> _togglePublish(IeltsExam exam) async {
-    if (!exam.published && exam.mode == 'full') {
-      final bundle = await ref.read(ieltsApiProvider).getExam(exam.id);
-      final skills = bundle.sections.map((s) => s.skill).toSet();
-      final missing = kIeltsSkillOrder.where((s) => !skills.contains(s)).toList();
-      if (missing.isNotEmpty && mounted) {
-        final proceed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Full Mock incomplete'),
-            content: Text(
-              'This Full Mock is missing: ${missing.join(', ')}. '
-              'Real IELTS order is Listening → Reading → Writing → Speaking. Publish anyway?',
+    try {
+      if (!exam.published) {
+        final bundle = await ref.read(ieltsApiProvider).getExam(exam.id);
+        final issues = IeltsUi.publishBlockingIssues(bundle);
+        if (issues.isNotEmpty && mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Cannot publish yet'),
+              content: Text(
+                'Authentic IELTS structure required:\n\n• ${issues.join('\n• ')}\n\n'
+                'Open the exam editor, add the missing passages/parts/questions, then publish.',
+              ),
+              actions: [
+                FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Publish')),
-            ],
-          ),
-        );
-        if (proceed != true) return;
+          );
+          return;
+        }
+        if (exam.mode == 'full') {
+          final skills = bundle.sections.map((s) => s.skill).toSet();
+          final missing = kIeltsSkillOrder.where((s) => !skills.contains(s)).toList();
+          if (missing.isNotEmpty && mounted) {
+            final proceed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Full Mock incomplete'),
+                content: Text(
+                  'This Full Mock is missing: ${missing.join(', ')}. '
+                  'Real IELTS order is Listening → Reading → Writing → Speaking. Publish anyway?',
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Publish')),
+                ],
+              ),
+            );
+            if (proceed != true) return;
+          }
+        }
       }
+      await ref.read(ieltsApiProvider).updateExam(exam.id, {'published': !exam.published});
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(IeltsUi.errorMessage(e))),
+      );
     }
-    await ref.read(ieltsApiProvider).updateExam(exam.id, {'published': !exam.published});
-    ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
   }
 
   Future<void> _toggleArchive(IeltsExam exam) async {
