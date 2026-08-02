@@ -3,7 +3,7 @@ const softDeletePlugin = require('../plugins/softDeletePlugin');
 
 const timerSchema = new mongoose.Schema(
   {
-    listeningMinutes: { type: Number, default: 40 },
+    listeningMinutes: { type: Number, default: 30 },
     readingMinutes: { type: Number, default: 60 },
     writingMinutes: { type: Number, default: 60 },
     speakingMinutes: { type: Number, default: 14 },

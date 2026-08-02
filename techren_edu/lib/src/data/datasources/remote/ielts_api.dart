@@ -226,18 +226,22 @@ class IeltsApi {
 
   Future<Map<String, dynamic>> submitWritingReview(
     String attemptId, {
-    required double taskAchievement,
-    required double coherenceCohesion,
-    required double lexicalResource,
-    required double grammaticalRange,
+    double? taskAchievement,
+    double? coherenceCohesion,
+    double? lexicalResource,
+    double? grammaticalRange,
+    Map<String, dynamic>? task1,
+    Map<String, dynamic>? task2,
     String comments = '',
     String corrections = '',
   }) async {
     final response = await _client.dio.put('/ielts/attempts/$attemptId/writing-review', data: {
-      'taskAchievement': taskAchievement,
-      'coherenceCohesion': coherenceCohesion,
-      'lexicalResource': lexicalResource,
-      'grammaticalRange': grammaticalRange,
+      if (task1 != null) 'task1': task1,
+      if (task2 != null) 'task2': task2,
+      if (taskAchievement != null) 'taskAchievement': taskAchievement,
+      if (coherenceCohesion != null) 'coherenceCohesion': coherenceCohesion,
+      if (lexicalResource != null) 'lexicalResource': lexicalResource,
+      if (grammaticalRange != null) 'grammaticalRange': grammaticalRange,
       'comments': comments,
       'corrections': corrections,
     });

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/media_url.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
@@ -674,6 +675,22 @@ class _SectionTabs extends StatelessWidget {
   final int index;
   final ValueChanged<int> onSelect;
 
+  String _label(IeltsSection s, int i) {
+    if (s.skill == 'reading') {
+      final n = s.part ?? (i + 1);
+      return 'Passage $n';
+    }
+    if (s.skill == 'listening' && s.part != null) {
+      return 'Part ${s.part}';
+    }
+    if (s.skill == 'writing') {
+      if (s.writingTask == 'task1') return 'Task 1';
+      if (s.writingTask == 'task2') return 'Task 2';
+    }
+    if (s.title.isNotEmpty) return s.title;
+    return s.skill;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (sections.isEmpty) return const SizedBox.shrink();
@@ -686,11 +703,7 @@ class _SectionTabs extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(
-                  sections[i].part != null
-                      ? 'Part ${sections[i].part}'
-                      : (sections[i].title.isNotEmpty ? sections[i].title : sections[i].skill),
-                ),
+                label: Text(_label(sections[i], i)),
                 selected: i == index,
                 onSelected: (_) => onSelect(i),
               ),
@@ -1088,20 +1101,49 @@ class _WritingPane extends StatelessWidget {
     return t.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 
+  int get _suggestedMinutes {
+    if (section.suggestedMinutes > 0) return section.suggestedMinutes;
+    return section.writingTask == 'task1' ? 20 : 40;
+  }
+
   @override
   Widget build(BuildContext context) {
     final muted = context.semantic.textMuted;
+    final imageUrl = resolveMediaUrl(section.imageUrl);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(section.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const SizedBox(height: 4),
+          Text(
+            'Suggested time: ~$_suggestedMinutes min'
+            '${section.writingSubtype != null && section.writingSubtype!.isNotEmpty ? ' · ${section.writingSubtype}' : ''}',
+            style: TextStyle(fontSize: 12, color: muted),
+          ),
           const SizedBox(height: 8),
           Text(
             section.prompt.isNotEmpty ? section.prompt : section.instructions,
             style: TextStyle(height: 1.4, color: muted),
           ),
+          if (imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: AppRadius.card,
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => ColoredBox(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: Icon(Icons.broken_image_outlined, color: muted),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             'Words: $_words${section.minWords > 0 ? ' / ${section.minWords} min' : ''}',

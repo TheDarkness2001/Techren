@@ -410,9 +410,17 @@ const listWritingQueue = async ({ subjectId, page = 1, limit = 20 } = {}) => {
   for (const a of attempts) {
     if (!hasWritingContent(a)) continue;
     const review = await IeltsWritingReview.findOne({ attemptId: a._id });
+    const sections = await IeltsSection.find({ examId: a.examId, skill: 'writing' }).sort({ order: 1 });
+    const responses = sections.map((s) => ({
+      sectionId: String(s._id),
+      writingTask: s.writingTask || null,
+      title: s.title || (s.writingTask === 'task1' ? 'Task 1' : s.writingTask === 'task2' ? 'Task 2' : 'Writing'),
+      text: a.writingResponses?.get?.(String(s._id)) || a.writingResponses?.[String(s._id)] || '',
+    }));
     withWriting.push({
       attempt: a.toPublicJSON({ includeKeys: true }),
       writingReview: review ? review.toPublicJSON() : null,
+      writingResponsesDetailed: responses,
       pending: !review,
     });
   }
@@ -463,16 +471,52 @@ const upsertWritingReview = async (attemptId, teacherId, body) => {
   if (!attempt) throw notFound('Attempt not found');
   if (attempt.status === 'in_progress') throw badRequest('Attempt not submitted');
 
-  const criteria = {
-    taskAchievement: Number(body.taskAchievement),
-    coherenceCohesion: Number(body.coherenceCohesion),
-    lexicalResource: Number(body.lexicalResource),
-    grammaticalRange: Number(body.grammaticalRange),
+  const validateCriteria = (criteria, label) => {
+    for (const [k, v] of Object.entries(criteria)) {
+      if (Number.isNaN(v) || v < 0 || v > 9) throw badRequest(`Invalid ${label}.${k}`);
+    }
   };
-  for (const [k, v] of Object.entries(criteria)) {
-    if (Number.isNaN(v) || v < 0 || v > 9) throw badRequest(`Invalid ${k}`);
+
+  const hasTask1 = body.task1 && typeof body.task1 === 'object';
+  const hasTask2 = body.task2 && typeof body.task2 === 'object';
+
+  let criteria;
+  let overallBand;
+  let task1Doc;
+  let task2Doc;
+
+  if (hasTask1 && hasTask2) {
+    const task1 = {
+      taskAchievement: Number(body.task1.taskAchievement),
+      coherenceCohesion: Number(body.task1.coherenceCohesion),
+      lexicalResource: Number(body.task1.lexicalResource),
+      grammaticalRange: Number(body.task1.grammaticalRange),
+    };
+    const task2 = {
+      taskAchievement: Number(body.task2.taskAchievement),
+      coherenceCohesion: Number(body.task2.coherenceCohesion),
+      lexicalResource: Number(body.task2.lexicalResource),
+      grammaticalRange: Number(body.task2.grammaticalRange),
+    };
+    validateCriteria(task1, 'task1');
+    validateCriteria(task2, 'task2');
+    const mean1 = IeltsWritingReview.computeOverall(task1);
+    const mean2 = IeltsWritingReview.computeOverall(task2);
+    task1Doc = { ...task1, mean: mean1 };
+    task2Doc = { ...task2, mean: mean2 };
+    overallBand = IeltsWritingReview.computeWeightedOverall(task1, task2);
+    // Flat fields mirror Task 2 (heavier weight) for legacy clients
+    criteria = task2;
+  } else {
+    criteria = {
+      taskAchievement: Number(body.taskAchievement),
+      coherenceCohesion: Number(body.coherenceCohesion),
+      lexicalResource: Number(body.lexicalResource),
+      grammaticalRange: Number(body.grammaticalRange),
+    };
+    validateCriteria(criteria, 'criteria');
+    overallBand = IeltsWritingReview.computeOverall(criteria);
   }
-  const overallBand = IeltsWritingReview.computeOverall(criteria);
 
   let review = await IeltsWritingReview.findOne({ attemptId });
   if (!review) {
@@ -484,6 +528,8 @@ const upsertWritingReview = async (attemptId, teacherId, body) => {
     comments: body.comments || '',
     corrections: body.corrections || '',
   });
+  if (task1Doc) review.task1 = task1Doc;
+  if (task2Doc) review.task2 = task2Doc;
   await review.save();
 
   const sections = await IeltsSection.find({ examId: attempt.examId });

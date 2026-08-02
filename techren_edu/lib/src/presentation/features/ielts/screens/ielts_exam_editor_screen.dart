@@ -182,6 +182,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
   Future<void> _addSection() async {
     String skill = 'listening';
     int? part = 1;
+    String writingTask = 'task1';
     final title = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
@@ -204,7 +205,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   DropdownMenuItem(value: 'writing', child: Text('Writing')),
                   DropdownMenuItem(value: 'speaking', child: Text('Speaking')),
                 ],
-                onChanged: (v) => setLocal(() => skill = v ?? 'listening'),
+                onChanged: (v) => setLocal(() {
+                  skill = v ?? 'listening';
+                  if (skill == 'listening' || skill == 'reading') part = 1;
+                }),
                 decoration: IeltsUi.field('Skill'),
               ),
               if (skill == 'listening') ...[
@@ -219,6 +223,31 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   ],
                   onChanged: (v) => setLocal(() => part = v),
                   decoration: IeltsUi.field('Listening part'),
+                ),
+              ],
+              if (skill == 'reading') ...[
+                IeltsUi.fieldGap,
+                DropdownButtonFormField<int>(
+                  value: part == null || part! > 3 ? 1 : part,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Passage 1')),
+                    DropdownMenuItem(value: 2, child: Text('Passage 2')),
+                    DropdownMenuItem(value: 3, child: Text('Passage 3')),
+                  ],
+                  onChanged: (v) => setLocal(() => part = v),
+                  decoration: IeltsUi.field('Reading passage'),
+                ),
+              ],
+              if (skill == 'writing') ...[
+                IeltsUi.fieldGap,
+                DropdownButtonFormField<String>(
+                  value: writingTask,
+                  items: const [
+                    DropdownMenuItem(value: 'task1', child: Text('Task 1')),
+                    DropdownMenuItem(value: 'task2', child: Text('Task 2')),
+                  ],
+                  onChanged: (v) => setLocal(() => writingTask = v ?? 'task1'),
+                  decoration: IeltsUi.field('Writing task'),
                 ),
               ],
               IeltsUi.fieldGap,
@@ -238,20 +267,28 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     if (ok != true) return;
     setState(() => _busy = true);
     try {
+      final defaultTitle = title.text.trim().isEmpty
+          ? (skill == 'listening' && part != null
+              ? 'Part $part'
+              : skill == 'reading' && part != null
+                  ? 'Passage $part'
+                  : skill == 'writing'
+                      ? (writingTask == 'task1' ? 'Task 1' : 'Task 2')
+                      : skill == 'speaking'
+                          ? 'Speaking cue card'
+                          : skill)
+          : title.text.trim();
       final fields = <String, dynamic>{
         'skill': skill,
-        'title': title.text.trim().isEmpty
-            ? (skill == 'listening' && part != null
-                ? 'Part $part'
-                : skill == 'speaking'
-                    ? 'Speaking cue card'
-                    : skill)
-            : title.text.trim(),
-        if (skill == 'listening' && part != null) 'part': part,
-        if (skill == 'writing') 'writingTask': 'task2',
-        if (skill == 'writing') 'minWords': '250',
+        'title': defaultTitle,
+        if ((skill == 'listening' || skill == 'reading') && part != null) 'part': part,
+        if (skill == 'writing') 'writingTask': writingTask,
+        if (skill == 'writing') 'minWords': writingTask == 'task1' ? '150' : '250',
+        if (skill == 'writing') 'suggestedMinutes': writingTask == 'task1' ? 20 : 40,
         if (skill == 'writing')
-          'prompt': 'Write an essay on the topic. Give reasons and examples.',
+          'prompt': writingTask == 'task1'
+              ? 'Summarise the information by selecting and reporting the main features, and make comparisons where relevant.'
+              : 'Write an essay on the topic. Give reasons and examples.',
         if (skill == 'speaking') 'speakingPart': 2,
         if (skill == 'speaking')
           'speakingPrompt':
@@ -287,7 +324,11 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     final speakingPrompt = TextEditingController(text: section.speakingPrompt);
     final transcript = TextEditingController(text: section.transcript);
     final answerHighlights = TextEditingController(text: section.answerHighlights);
+    final imageUrl = TextEditingController(text: section.imageUrl ?? '');
+    final minWords = TextEditingController(text: section.minWords > 0 ? '${section.minWords}' : '');
     int? part = section.part;
+    String writingTask = section.writingTask ?? 'task2';
+    String? writingSubtype = section.writingSubtype;
     String? audioPath;
     String passageFormat = section.passageFormat;
     String? sourceId = section.sourceId;
@@ -404,6 +445,18 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   ],
                   if (section.skill == 'reading') ...[
                     IeltsUi.fieldGap,
+                    DropdownButtonFormField<int?>(
+                      value: part != null && part! >= 1 && part! <= 3 ? part : null,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('No passage #')),
+                        DropdownMenuItem(value: 1, child: Text('Passage 1')),
+                        DropdownMenuItem(value: 2, child: Text('Passage 2')),
+                        DropdownMenuItem(value: 3, child: Text('Passage 3')),
+                      ],
+                      onChanged: (v) => setLocal(() => part = v),
+                      decoration: IeltsUi.field('Reading passage'),
+                    ),
+                    IeltsUi.fieldGap,
                     Row(
                       children: [
                         const Text('Passage format:'),
@@ -437,10 +490,76 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   ],
                   if (section.skill == 'writing') ...[
                     IeltsUi.fieldGap,
+                    DropdownButtonFormField<String>(
+                      value: writingTask,
+                      items: const [
+                        DropdownMenuItem(value: 'task1', child: Text('Task 1')),
+                        DropdownMenuItem(value: 'task2', child: Text('Task 2')),
+                      ],
+                      onChanged: (v) => setLocal(() {
+                        writingTask = v ?? 'task2';
+                        writingSubtype = null;
+                        if (minWords.text.trim().isEmpty) {
+                          minWords.text = writingTask == 'task1' ? '150' : '250';
+                        }
+                      }),
+                      decoration: IeltsUi.field('Writing task'),
+                    ),
+                    IeltsUi.fieldGap,
+                    Builder(builder: (context) {
+                      const task1Subs = [
+                        'chart', 'graph', 'table', 'diagram', 'map', 'process',
+                        'letter_formal', 'letter_semi_formal', 'letter_informal',
+                      ];
+                      const task2Subs = [
+                        'essay_opinion', 'essay_discussion', 'essay_problem_solution',
+                        'essay_advantage_disadvantage', 'essay_two_part',
+                      ];
+                      final allowed = writingTask == 'task1' ? task1Subs : task2Subs;
+                      final subtypeValue =
+                          writingSubtype != null && allowed.contains(writingSubtype) ? writingSubtype : null;
+                      return DropdownButtonFormField<String?>(
+                        value: subtypeValue,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('No subtype')),
+                          if (writingTask == 'task1') ...[
+                            const DropdownMenuItem(value: 'chart', child: Text('Chart')),
+                            const DropdownMenuItem(value: 'graph', child: Text('Graph')),
+                            const DropdownMenuItem(value: 'table', child: Text('Table')),
+                            const DropdownMenuItem(value: 'diagram', child: Text('Diagram')),
+                            const DropdownMenuItem(value: 'map', child: Text('Map')),
+                            const DropdownMenuItem(value: 'process', child: Text('Process')),
+                            const DropdownMenuItem(value: 'letter_formal', child: Text('Letter (formal)')),
+                            const DropdownMenuItem(value: 'letter_semi_formal', child: Text('Letter (semi-formal)')),
+                            const DropdownMenuItem(value: 'letter_informal', child: Text('Letter (informal)')),
+                          ] else ...[
+                            const DropdownMenuItem(value: 'essay_opinion', child: Text('Opinion')),
+                            const DropdownMenuItem(value: 'essay_discussion', child: Text('Discussion')),
+                            const DropdownMenuItem(value: 'essay_problem_solution', child: Text('Problem / solution')),
+                            const DropdownMenuItem(value: 'essay_advantage_disadvantage', child: Text('Advantages / disadvantages')),
+                            const DropdownMenuItem(value: 'essay_two_part', child: Text('Two-part question')),
+                          ],
+                        ],
+                        onChanged: (v) => setLocal(() => writingSubtype = v),
+                        decoration: IeltsUi.field('Subtype'),
+                      );
+                    }),
+                    IeltsUi.fieldGap,
                     TextField(
                       controller: prompt,
                       maxLines: 6,
                       decoration: IeltsUi.field('Prompt'),
+                    ),
+                    IeltsUi.fieldGap,
+                    TextField(
+                      controller: imageUrl,
+                      decoration: IeltsUi.field('Task 1 image URL (chart / diagram)'),
+                    ),
+                    IeltsUi.fieldGap,
+                    TextField(
+                      controller: minWords,
+                      keyboardType: TextInputType.number,
+                      decoration: IeltsUi.field('Minimum words'),
                     ),
                   ],
                   if (section.skill == 'speaking') ...[
@@ -471,12 +590,18 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
               'title': title.text.trim(),
               'instructions': instructions.text,
               if (section.skill == 'listening' || section.skill == 'reading') 'sourceId': sourceId ?? '',
-              if (section.skill == 'listening') 'part': part,
+              if (section.skill == 'listening' || section.skill == 'reading') 'part': part,
               if (section.skill == 'listening') 'transcript': transcript.text,
               if (section.skill == 'reading') 'passage': passage.text,
               if (section.skill == 'reading') 'passageFormat': passageFormat,
               if (section.skill == 'reading') 'answerHighlights': answerHighlights.text,
               if (section.skill == 'writing') 'prompt': prompt.text,
+              if (section.skill == 'writing') 'writingTask': writingTask,
+              if (section.skill == 'writing') 'writingSubtype': writingSubtype ?? '',
+              if (section.skill == 'writing') 'imageUrl': imageUrl.text.trim(),
+              if (section.skill == 'writing')
+                'minWords': int.tryParse(minWords.text.trim()) ?? (writingTask == 'task1' ? 150 : 250),
+              if (section.skill == 'writing') 'suggestedMinutes': writingTask == 'task1' ? 20 : 40,
               if (section.skill == 'speaking') 'speakingPrompt': speakingPrompt.text,
               if (section.skill == 'speaking') 'speakingPart': 2,
             },
@@ -912,8 +1037,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
         'form_completion',
         'sentence_completion',
         'table_completion',
+        'summary_completion',
         'short_answer',
         'map_labeling',
+        'diagram_labeling',
       ];
     }
     if (skill == 'reading') {

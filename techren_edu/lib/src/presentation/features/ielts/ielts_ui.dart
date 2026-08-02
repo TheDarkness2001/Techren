@@ -43,12 +43,39 @@ abstract final class IeltsUi {
     bool outline = true,
     bool alignHint = false,
   }) {
+    // Always float labels with high-contrast colors — auto-float + dark dialogs
+    // made Number/Type/Word limit labels nearly invisible on the border.
+    const labelColor = Color(0xFFE2E8F0); // slate-200
+    const floatingColor = Color(0xFFA5B4FC); // indigo-300
+    const hintColor = Color(0xFF94A3B8); // slate-400
+
     return InputDecoration(
       labelText: label,
       hintText: hint,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: const TextStyle(
+        color: labelColor,
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+      ),
+      floatingLabelStyle: const TextStyle(
+        color: floatingColor,
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
+      ),
+      hintStyle: const TextStyle(color: hintColor, fontSize: 13),
       border: outline ? const OutlineInputBorder() : null,
+      enabledBorder: outline
+          ? const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF475569)))
+          : null,
+      focusedBorder: outline
+          ? const OutlineInputBorder(borderSide: BorderSide(color: floatingColor, width: 1.5))
+          : null,
       isDense: dense,
       alignLabelWithHint: alignHint,
+      filled: true,
+      fillColor: const Color(0xFF0F172A),
+      contentPadding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
     );
   }
 

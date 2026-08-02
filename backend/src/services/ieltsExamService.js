@@ -11,6 +11,65 @@ const recycleBinService = require('./recycleBinService');
 const notFound = (msg = 'Not found') =>
   Object.assign(new Error(msg), { statusCode: 404, code: 'NOT_FOUND' });
 
+const badRequest = (msg) =>
+  Object.assign(new Error(msg), { statusCode: 400, code: 'BAD_REQUEST' });
+
+/** Enforce authentic IELTS structure before publishing. */
+const assertPublishReady = async (exam) => {
+  const sections = await IeltsSection.find({ examId: exam._id }).sort({ order: 1 });
+  const questions = await IeltsQuestion.find({ examId: exam._id });
+  const qBySection = new Map();
+  for (const q of questions) {
+    const key = String(q.sectionId);
+    qBySection.set(key, (qBySection.get(key) || 0) + 1);
+  }
+  const countFor = (secs) =>
+    secs.reduce((n, s) => n + (qBySection.get(String(s._id)) || 0), 0);
+
+  const mode = exam.mode || 'full';
+  const need = (skill) => mode === 'full' || mode === skill;
+
+  if (need('reading')) {
+    const reading = sections.filter((s) => s.skill === 'reading');
+    if (reading.length !== 3) {
+      throw badRequest(`Reading requires exactly 3 passages (found ${reading.length})`);
+    }
+    const passageParts = new Set(
+      reading.map((s) => s.part).filter((p) => p != null && p >= 1 && p <= 3)
+    );
+    if (passageParts.size < 3) {
+      throw badRequest('Reading passages must be labeled Passage 1, 2, and 3');
+    }
+    const rq = countFor(reading);
+    if (rq !== 40) {
+      throw badRequest(`Reading requires 40 questions (found ${rq})`);
+    }
+  }
+
+  if (need('listening')) {
+    const listening = sections.filter((s) => s.skill === 'listening');
+    const parts = new Set(listening.map((s) => Number(s.part)).filter((p) => p >= 1 && p <= 4));
+    if (![1, 2, 3, 4].every((p) => parts.has(p))) {
+      throw badRequest('Listening requires Parts 1–4');
+    }
+    for (const p of [1, 2, 3, 4]) {
+      const secs = listening.filter((s) => Number(s.part) === p);
+      const n = countFor(secs);
+      if (n !== 10) {
+        throw badRequest(`Listening Part ${p} requires 10 questions (found ${n})`);
+      }
+    }
+  }
+
+  if (need('writing')) {
+    const writing = sections.filter((s) => s.skill === 'writing');
+    const tasks = new Set(writing.map((s) => s.writingTask).filter(Boolean));
+    if (!tasks.has('task1') || !tasks.has('task2')) {
+      throw badRequest('Writing requires Task 1 and Task 2 sections');
+    }
+  }
+};
+
 const formatExamBundle = async (exam, { includeAnswers = false, includeAudioPath = false, includeTranscript = false } = {}) => {
   const sections = await IeltsSection.find({ examId: exam._id }).sort({ order: 1 });
   const sectionIds = sections.map((s) => s._id);
@@ -107,6 +166,9 @@ const updateExam = async (id, body) => {
   if (body.publishAt !== undefined) {
     exam.publishAt = body.publishAt ? new Date(body.publishAt) : null;
   }
+  if (body.published === true) {
+    await assertPublishReady(exam);
+  }
   await exam.save();
   return exam.toPublicJSON();
 };
@@ -149,7 +211,16 @@ const createSection = async (examId, body, file) => {
     prompt: body.prompt || '',
     imageUrl: body.imageUrl || null,
     writingTask: body.writingTask || null,
+    writingSubtype: body.writingSubtype || null,
     minWords: body.minWords != null ? Number(body.minWords) : body.skill === 'writing' ? (body.writingTask === 'task2' ? 250 : 150) : 0,
+    suggestedMinutes:
+      body.suggestedMinutes != null
+        ? Number(body.suggestedMinutes)
+        : body.skill === 'writing'
+          ? body.writingTask === 'task1'
+            ? 20
+            : 40
+          : 0,
     speakingPrompt: body.speakingPrompt || body.prompt || '',
     speakingPart: body.speakingPart != null ? Number(body.speakingPart) : 2,
     audioFile: file ? path.basename(file.path) : body.audioFile || null,
@@ -174,7 +245,9 @@ const updateSection = async (sectionId, body, file) => {
     'prompt',
     'imageUrl',
     'writingTask',
+    'writingSubtype',
     'minWords',
+    'suggestedMinutes',
     'speakingPrompt',
     'speakingPart',
   ];
@@ -190,6 +263,10 @@ const updateSection = async (sectionId, body, file) => {
         section.speakingPart = body.speakingPart == null || body.speakingPart === ''
           ? 2
           : Number(body.speakingPart);
+      } else if (f === 'minWords' || f === 'suggestedMinutes') {
+        section[f] = Number(body[f]) || 0;
+      } else if (f === 'writingSubtype') {
+        section.writingSubtype = body.writingSubtype || null;
       } else {
         section[f] = body[f];
       }
@@ -598,4 +675,5 @@ module.exports = {
   resolveAudioPath,
   createAudioAccessToken,
   verifyAudioAccessToken,
+  assertPublishReady,
 };

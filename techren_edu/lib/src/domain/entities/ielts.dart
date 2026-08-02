@@ -1,6 +1,6 @@
 class IeltsTimers {
   const IeltsTimers({
-    this.listeningMinutes = 40,
+    this.listeningMinutes = 30,
     this.readingMinutes = 60,
     this.writingMinutes = 60,
     this.speakingMinutes = 14,
@@ -12,7 +12,7 @@ class IeltsTimers {
   final int speakingMinutes;
 
   factory IeltsTimers.fromJson(Map<String, dynamic>? json) => IeltsTimers(
-        listeningMinutes: (json?['listeningMinutes'] as num?)?.toInt() ?? 40,
+        listeningMinutes: (json?['listeningMinutes'] as num?)?.toInt() ?? 30,
         readingMinutes: (json?['readingMinutes'] as num?)?.toInt() ?? 60,
         writingMinutes: (json?['writingMinutes'] as num?)?.toInt() ?? 60,
         speakingMinutes: (json?['speakingMinutes'] as num?)?.toInt() ?? 14,
@@ -117,7 +117,9 @@ class IeltsSection {
     this.prompt = '',
     this.imageUrl,
     this.writingTask,
+    this.writingSubtype,
     this.minWords = 0,
+    this.suggestedMinutes = 0,
     this.speakingPrompt = '',
     this.speakingPart = 2,
     this.questions = const [],
@@ -139,7 +141,9 @@ class IeltsSection {
   final String prompt;
   final String? imageUrl;
   final String? writingTask;
+  final String? writingSubtype;
   final int minWords;
+  final int suggestedMinutes;
   final String speakingPrompt;
   final int speakingPart;
   final List<IeltsQuestion> questions;
@@ -163,7 +167,9 @@ class IeltsSection {
         prompt: json['prompt'] as String? ?? '',
         imageUrl: json['imageUrl'] as String?,
         writingTask: json['writingTask'] as String?,
+        writingSubtype: json['writingSubtype'] as String?,
         minWords: (json['minWords'] as num?)?.toInt() ?? 0,
+        suggestedMinutes: (json['suggestedMinutes'] as num?)?.toInt() ?? 0,
         speakingPrompt: json['speakingPrompt'] as String? ?? '',
         speakingPart: (json['speakingPart'] as num?)?.toInt() ?? 2,
         questions: (json['questions'] as List<dynamic>? ?? [])
@@ -523,6 +529,47 @@ class IeltsQuestionReview {
       );
 }
 
+class IeltsWritingCriteria {
+  const IeltsWritingCriteria({
+    required this.taskAchievement,
+    required this.coherenceCohesion,
+    required this.lexicalResource,
+    required this.grammaticalRange,
+    this.mean = 0,
+  });
+
+  final double taskAchievement;
+  final double coherenceCohesion;
+  final double lexicalResource;
+  final double grammaticalRange;
+  final double mean;
+
+  factory IeltsWritingCriteria.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const IeltsWritingCriteria(
+        taskAchievement: 0,
+        coherenceCohesion: 0,
+        lexicalResource: 0,
+        grammaticalRange: 0,
+      );
+    }
+    return IeltsWritingCriteria(
+      taskAchievement: (json['taskAchievement'] as num?)?.toDouble() ?? 0,
+      coherenceCohesion: (json['coherenceCohesion'] as num?)?.toDouble() ?? 0,
+      lexicalResource: (json['lexicalResource'] as num?)?.toDouble() ?? 0,
+      grammaticalRange: (json['grammaticalRange'] as num?)?.toDouble() ?? 0,
+      mean: (json['mean'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'taskAchievement': taskAchievement,
+        'coherenceCohesion': coherenceCohesion,
+        'lexicalResource': lexicalResource,
+        'grammaticalRange': grammaticalRange,
+      };
+}
+
 class IeltsWritingReview {
   const IeltsWritingReview({
     required this.id,
@@ -532,6 +579,8 @@ class IeltsWritingReview {
     required this.lexicalResource,
     required this.grammaticalRange,
     required this.overallBand,
+    this.task1,
+    this.task2,
     this.comments = '',
     this.corrections = '',
   });
@@ -543,6 +592,8 @@ class IeltsWritingReview {
   final double lexicalResource;
   final double grammaticalRange;
   final double overallBand;
+  final IeltsWritingCriteria? task1;
+  final IeltsWritingCriteria? task2;
   final String comments;
   final String corrections;
 
@@ -554,6 +605,12 @@ class IeltsWritingReview {
         lexicalResource: (json['lexicalResource'] as num?)?.toDouble() ?? 0,
         grammaticalRange: (json['grammaticalRange'] as num?)?.toDouble() ?? 0,
         overallBand: (json['overallBand'] as num?)?.toDouble() ?? 0,
+        task1: json['task1'] is Map<String, dynamic>
+            ? IeltsWritingCriteria.fromJson(json['task1'] as Map<String, dynamic>)
+            : null,
+        task2: json['task2'] is Map<String, dynamic>
+            ? IeltsWritingCriteria.fromJson(json['task2'] as Map<String, dynamic>)
+            : null,
         comments: json['comments'] as String? ?? '',
         corrections: json['corrections'] as String? ?? '',
       );

@@ -413,7 +413,17 @@ class IeltsWritingReviewScreen extends ConsumerStatefulWidget {
 class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScreen> {
   Future<void> _score(Map<String, dynamic> item) async {
     final attempt = IeltsAttempt.fromJson(item['attempt'] as Map<String, dynamic>);
+    final detailed = (item['writingResponsesDetailed'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final hasDual = detailed.where((e) => (e['text'] as String? ?? '').trim().isNotEmpty).length >= 2 ||
+        (detailed.any((e) => e['writingTask'] == 'task1') &&
+            detailed.any((e) => e['writingTask'] == 'task2'));
+
     double ta = 6, cc = 6, lr = 6, gra = 6;
+    double t1Ta = 6, t1Cc = 6, t1Lr = 6, t1Gra = 6;
+    double t2Ta = 6, t2Cc = 6, t2Lr = 6, t2Gra = 6;
     final comments = TextEditingController();
     final corrections = TextEditingController();
     final existing = item['writingReview'];
@@ -423,17 +433,47 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
       cc = r.coherenceCohesion;
       lr = r.lexicalResource;
       gra = r.grammaticalRange;
+      if (r.task1 != null) {
+        t1Ta = r.task1!.taskAchievement;
+        t1Cc = r.task1!.coherenceCohesion;
+        t1Lr = r.task1!.lexicalResource;
+        t1Gra = r.task1!.grammaticalRange;
+      }
+      if (r.task2 != null) {
+        t2Ta = r.task2!.taskAchievement;
+        t2Cc = r.task2!.coherenceCohesion;
+        t2Lr = r.task2!.lexicalResource;
+        t2Gra = r.task2!.grammaticalRange;
+      } else {
+        t2Ta = ta;
+        t2Cc = cc;
+        t2Lr = lr;
+        t2Gra = gra;
+      }
       comments.text = r.comments;
       corrections.text = r.corrections;
     }
 
-    final writingText = attempt.writingResponses.values.join('\n\n---\n\n');
+    final writingText = detailed.isNotEmpty
+        ? detailed
+            .map((e) {
+              final label = e['title']?.toString() ?? e['writingTask']?.toString() ?? 'Writing';
+              final text = (e['text'] as String? ?? '').trim();
+              return '### $label\n${text.isEmpty ? '(empty)' : text}';
+            })
+            .join('\n\n')
+        : attempt.writingResponses.values.join('\n\n---\n\n');
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
+            final overall = hasDual
+                ? ((((t1Ta + t1Cc + t1Lr + t1Gra) / 4) + 2 * ((t2Ta + t2Cc + t2Lr + t2Gra) / 4)) / 3 * 2)
+                        .round() /
+                    2
+                : ((ta + cc + lr + gra) / 4 * 2).round() / 2;
             return AlertDialog(
               insetPadding: IeltsUi.dialogInset,
               titlePadding: IeltsUi.titlePadding,
@@ -448,11 +488,26 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
                     children: [
                       Text(writingText.isEmpty ? '(No writing text)' : writingText),
                       const SizedBox(height: AppSpacing.md),
-                      _BandSlider('Task Achievement / Response', ta, (v) => setLocal(() => ta = v)),
-                      _BandSlider('Coherence & Cohesion', cc, (v) => setLocal(() => cc = v)),
-                      _BandSlider('Lexical Resource', lr, (v) => setLocal(() => lr = v)),
-                      _BandSlider('Grammatical Range & Accuracy', gra, (v) => setLocal(() => gra = v)),
-                      Text('Overall: ${((ta + cc + lr + gra) / 4 * 2).round() / 2}'),
+                      if (hasDual) ...[
+                        Text('Task 1 (×1)', style: Theme.of(ctx).textTheme.titleSmall),
+                        _BandSlider('Task Achievement / Response', t1Ta, (v) => setLocal(() => t1Ta = v)),
+                        _BandSlider('Coherence & Cohesion', t1Cc, (v) => setLocal(() => t1Cc = v)),
+                        _BandSlider('Lexical Resource', t1Lr, (v) => setLocal(() => t1Lr = v)),
+                        _BandSlider('Grammatical Range & Accuracy', t1Gra, (v) => setLocal(() => t1Gra = v)),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text('Task 2 (×2)', style: Theme.of(ctx).textTheme.titleSmall),
+                        _BandSlider('Task Achievement / Response', t2Ta, (v) => setLocal(() => t2Ta = v)),
+                        _BandSlider('Coherence & Cohesion', t2Cc, (v) => setLocal(() => t2Cc = v)),
+                        _BandSlider('Lexical Resource', t2Lr, (v) => setLocal(() => t2Lr = v)),
+                        _BandSlider('Grammatical Range & Accuracy', t2Gra, (v) => setLocal(() => t2Gra = v)),
+                        Text('Overall (T1 + 2×T2) / 3: $overall'),
+                      ] else ...[
+                        _BandSlider('Task Achievement / Response', ta, (v) => setLocal(() => ta = v)),
+                        _BandSlider('Coherence & Cohesion', cc, (v) => setLocal(() => cc = v)),
+                        _BandSlider('Lexical Resource', lr, (v) => setLocal(() => lr = v)),
+                        _BandSlider('Grammatical Range & Accuracy', gra, (v) => setLocal(() => gra = v)),
+                        Text('Overall: $overall'),
+                      ],
                       IeltsUi.fieldGap,
                       TextField(controller: comments, maxLines: 3, decoration: IeltsUi.field('Comments')),
                       IeltsUi.fieldGap,
@@ -471,15 +526,35 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
       },
     );
     if (ok != true) return;
-    await ref.read(ieltsApiProvider).submitWritingReview(
-          attempt.id,
-          taskAchievement: ta,
-          coherenceCohesion: cc,
-          lexicalResource: lr,
-          grammaticalRange: gra,
-          comments: comments.text,
-          corrections: corrections.text,
-        );
+    if (hasDual) {
+      await ref.read(ieltsApiProvider).submitWritingReview(
+            attempt.id,
+            task1: {
+              'taskAchievement': t1Ta,
+              'coherenceCohesion': t1Cc,
+              'lexicalResource': t1Lr,
+              'grammaticalRange': t1Gra,
+            },
+            task2: {
+              'taskAchievement': t2Ta,
+              'coherenceCohesion': t2Cc,
+              'lexicalResource': t2Lr,
+              'grammaticalRange': t2Gra,
+            },
+            comments: comments.text,
+            corrections: corrections.text,
+          );
+    } else {
+      await ref.read(ieltsApiProvider).submitWritingReview(
+            attempt.id,
+            taskAchievement: ta,
+            coherenceCohesion: cc,
+            lexicalResource: lr,
+            grammaticalRange: gra,
+            comments: comments.text,
+            corrections: corrections.text,
+          );
+    }
     ref.invalidate(ieltsWritingQueueProvider(widget.subjectId));
   }
 

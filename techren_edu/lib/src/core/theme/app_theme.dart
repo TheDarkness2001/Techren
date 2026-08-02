@@ -197,8 +197,16 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 16),
         constraints: const BoxConstraints(minHeight: 52),
         hintStyle: textTheme.bodyMedium?.copyWith(color: tokens.textMuted),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: tokens.textSecondary),
-        floatingLabelStyle: textTheme.bodySmall?.copyWith(color: tokens.primary),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: tokens.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+        floatingLabelStyle: textTheme.bodySmall?.copyWith(
+          color: colorScheme.brightness == Brightness.dark
+              ? const Color(0xFFA5B4FC)
+              : tokens.primary,
+          fontWeight: FontWeight.w700,
+        ),
         floatingLabelBehavior: FloatingLabelBehavior.auto,
         prefixIconColor: tokens.textMuted,
         suffixIconColor: tokens.textMuted,
