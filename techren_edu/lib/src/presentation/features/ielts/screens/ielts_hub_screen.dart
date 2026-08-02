@@ -8,6 +8,7 @@ import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../domain/entities/ielts.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/ielts_provider.dart';
 import '../../../shells/staff_shell.dart';
@@ -142,25 +143,17 @@ class _HubBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Six primary cards only — keep the hub tidy.
     final tiles = <_HubTile>[
       _HubTile('Mock Exams', Icons.quiz_outlined, '$base/exams', 'Full mock L→R→W→S'),
-      _HubTile('Listening', Icons.headphones_outlined, '$base/listening', 'Listening-only tests'),
-      _HubTile('Reading', Icons.menu_book_outlined, '$base/reading', 'Reading-only tests'),
-      _HubTile('Writing', Icons.edit_note_outlined, '$base/writing', 'Writing tasks'),
-      _HubTile('Speaking', Icons.record_voice_over_outlined, '$base/speaking', 'Cue card + recording'),
-      _HubTile('Results & History', Icons.history_edu_outlined, '$base/history', 'Past attempts'),
+      _HubTile('Listening', Icons.headphones_outlined, '$base/listening', 'Listening exams'),
+      _HubTile('Reading', Icons.menu_book_outlined, '$base/reading', 'Reading exams'),
+      _HubTile('Writing', Icons.edit_note_outlined, '$base/writing', 'Writing exams'),
+      _HubTile('Speaking', Icons.record_voice_over_outlined, '$base/speaking', 'Speaking exams'),
       if (isStudent)
-        _HubTile('My Analytics', Icons.insights_outlined, '$base/analytics', 'Strengths & weaknesses'),
-      if (!isStudent) ...[
-        _HubTile('Manage Exams', Icons.settings_outlined, '$base/manage', 'Create & publish'),
-        _HubTile('Sources', Icons.source_outlined, '$base/sources', 'Books, audio & articles'),
-        _HubTile('Question Bank', Icons.storage_outlined, '$base/bank', 'Reusable question library'),
-        _HubTile('Analytics', Icons.bar_chart_outlined, '$base/analytics', 'Attempt & item insights'),
-        _HubTile('Writing Review', Icons.rate_review_outlined, '$base/writing-review', 'Score writing'),
-        _HubTile('Speaking Review', Icons.mic_outlined, '$base/speaking-review', 'Score recordings'),
-        if (isFounder)
-          _HubTile('IELTS Access', Icons.lock_open_outlined, '$base/access', 'Founder unlock/lock'),
-      ],
+        _HubTile('Results & History', Icons.history_edu_outlined, '$base/history', 'Past attempts')
+      else
+        _HubTile('IELTS Access', Icons.lock_open_outlined, '$base/access', 'Unlock / lock students'),
     ];
 
     return ListView(
@@ -191,12 +184,12 @@ class _HubBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Computer IELTS practice',
+                  'IELTS Preparation',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Timed mocks for Listening, Reading, Writing, and Speaking. Instant L/R bands; Writing & Speaking reviewed by teachers.',
+                  'Open a skill to add or edit exams. Mock Exams holds full L→R→W→S tests.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted, height: 1.4),
                 ),
               ],
@@ -214,6 +207,47 @@ class _HubBody extends ConsumerWidget {
               ),
           ],
         ),
+        if (!isStudent) ...[
+          const SizedBox(height: AppSpacing.xl),
+          Text('More tools', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: muted)),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: () => context.go('$base/manage'),
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('All exams'),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('$base/writing-review'),
+                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                label: const Text('Writing review'),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('$base/speaking-review'),
+                icon: const Icon(Icons.mic_outlined, size: 18),
+                label: const Text('Speaking review'),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('$base/sources'),
+                icon: const Icon(Icons.source_outlined, size: 18),
+                label: const Text('Sources'),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('$base/bank'),
+                icon: const Icon(Icons.storage_outlined, size: 18),
+                label: const Text('Question bank'),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('$base/analytics'),
+                icon: const Icon(Icons.bar_chart_outlined, size: 18),
+                label: const Text('Analytics'),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -574,7 +608,7 @@ class _HubCard extends StatelessWidget {
   }
 }
 
-class IeltsExamListScreen extends ConsumerWidget {
+class IeltsExamListScreen extends ConsumerStatefulWidget {
   const IeltsExamListScreen({
     super.key,
     required this.subjectId,
@@ -592,56 +626,209 @@ class IeltsExamListScreen extends ConsumerWidget {
   final List<NavItem> navItems;
   final String? selectedRoute;
 
-  String get _hub => isStudent
-      ? '$routePrefix/learn/$subjectId/ielts'
-      : '$routePrefix/learning/$subjectId/ielts';
+  @override
+  ConsumerState<IeltsExamListScreen> createState() => _IeltsExamListScreenState();
+}
+
+class _IeltsExamListScreenState extends ConsumerState<IeltsExamListScreen> {
+  bool _busy = false;
+
+  String get _hub => widget.isStudent
+      ? '${widget.routePrefix}/learn/${widget.subjectId}/ielts'
+      : '${widget.routePrefix}/learning/${widget.subjectId}/ielts';
+
+  String get _examMode => widget.mode ?? 'full';
+
+  String get _title => switch (widget.mode) {
+        'listening' => 'Listening',
+        'reading' => 'Reading',
+        'writing' => 'Writing',
+        'speaking' => 'Speaking',
+        'full' => 'Mock Exams',
+        _ => 'Mock Exams',
+      };
+
+  Future<void> _createExam() async {
+    final titleCtrl = TextEditingController(
+      text: switch (_examMode) {
+        'listening' => 'New Listening exam',
+        'reading' => 'New Reading exam',
+        'writing' => 'New Writing exam',
+        'speaking' => 'New Speaking exam',
+        _ => 'New IELTS Mock',
+      },
+    );
+    var training = 'academic';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Add ${_title.toLowerCase()} exam'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: training,
+                decoration: const InputDecoration(labelText: 'Training type'),
+                items: const [
+                  DropdownMenuItem(value: 'academic', child: Text('Academic')),
+                  DropdownMenuItem(value: 'general', child: Text('General Training')),
+                ],
+                onChanged: (v) => setLocal(() => training = v ?? 'academic'),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Mode: $_examMode',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Create')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final created = await ref.read(ieltsApiProvider).createExam({
+        'subjectId': widget.subjectId,
+        'title': titleCtrl.text.trim().isEmpty ? 'New exam' : titleCtrl.text.trim(),
+        'mode': _examMode,
+        'trainingType': training,
+        'published': false,
+      });
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: widget.mode ?? 'full')));
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+      if (!mounted) return;
+      context.go('$_hub/manage/${created.id}');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _togglePublish(IeltsExam exam) async {
+    try {
+      await ref.read(ieltsApiProvider).updateExam(exam.id, {'published': !exam.published});
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: widget.mode ?? 'full')));
+      ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _deleteExam(IeltsExam exam) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${exam.title}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(ieltsApiProvider).deleteExam(exam.id);
+    ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: widget.mode ?? 'full')));
+    ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(ieltsExamsProvider((subjectId: subjectId, mode: mode)));
-    final title = switch (mode) {
-      'listening' => 'Listening mocks',
-      'reading' => 'Reading mocks',
-      'writing' => 'Writing mocks',
-      'speaking' => 'Speaking mocks',
-      _ => 'Mock exams',
-    };
+  Widget build(BuildContext context) {
+    final listMode = widget.mode ?? 'full';
+    final async = ref.watch(ieltsExamsProvider((subjectId: widget.subjectId, mode: listMode)));
 
     final body = async.when(
       loading: () => const LoadingState(message: 'Loading exams...'),
       error: (e, _) => ErrorState(
         message: e.toString(),
-        onRetry: () => ref.invalidate(ieltsExamsProvider((subjectId: subjectId, mode: mode))),
+        onRetry: () => ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: listMode))),
       ),
       data: (exams) {
-        final filtered = mode == null ? exams : exams.where((e) => e.mode == mode || e.mode == 'full').toList();
+        final filtered = exams.where((e) => e.mode == listMode).toList();
         if (filtered.isEmpty) {
           return EmptyState(
-            title: 'No exams yet',
-            message: isStudent
-                ? 'Published IELTS mocks will appear here.'
-                : 'Create and publish an exam under Manage Exams.',
+            title: 'No ${_title.toLowerCase()} yet',
+            message: widget.isStudent
+                ? 'Published exams will appear here.'
+                : 'Add an exam for this section, then edit questions and publish.',
             icon: Icons.quiz_outlined,
-            action: isStudent
+            action: widget.isStudent
                 ? null
                 : FilledButton.icon(
-                    onPressed: () => context.go('$_hub/manage'),
+                    onPressed: _busy ? null : _createExam,
                     icon: const Icon(Icons.add),
-                    label: const Text('Manage exams'),
+                    label: const Text('Add exam'),
                   ),
           );
         }
         return ListView.separated(
+          padding: widget.isStudent ? EdgeInsets.zero : AppSpacing.pagePaddingWide,
           itemCount: filtered.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, i) {
             final exam = filtered[i];
+            if (widget.isStudent) {
+              return Card(
+                child: ListTile(
+                  title: Text(exam.title),
+                  subtitle: Text('${exam.difficulty}${exam.published ? '' : ' · draft'}'),
+                  trailing: const Icon(Icons.play_arrow),
+                  onTap: () => context.go('$_hub/play/${exam.id}'),
+                ),
+              );
+            }
             return Card(
               child: ListTile(
-                title: Text(exam.title),
-                subtitle: Text('${exam.mode} · ${exam.difficulty}${exam.published ? '' : ' · draft'}'),
-                trailing: const Icon(Icons.play_arrow),
-                onTap: () => context.go('$_hub/play/${exam.id}'),
+                title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  '${exam.trainingType} · ${exam.published ? 'Published' : 'Draft'}'
+                  '${exam.archived ? ' · Archived' : ''}',
+                ),
+                trailing: Wrap(
+                  spacing: 0,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit exam',
+                      onPressed: () => context.go('$_hub/manage/${exam.id}'),
+                      icon: const Icon(Icons.edit_note),
+                    ),
+                    IconButton(
+                      tooltip: exam.published ? 'Unpublish' : 'Publish',
+                      onPressed: () => _togglePublish(exam),
+                      icon: Icon(exam.published ? Icons.visibility : Icons.visibility_off),
+                    ),
+                    IconButton(
+                      tooltip: 'Preview / play',
+                      onPressed: () => context.go('$_hub/play/${exam.id}'),
+                      icon: const Icon(Icons.play_arrow),
+                    ),
+                    PopupMenuButton<String>(
+                      onSelected: (v) {
+                        if (v == 'delete') _deleteExam(exam);
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -650,6 +837,12 @@ class IeltsExamListScreen extends ConsumerWidget {
     );
 
     final actions = <Widget>[
+      if (!widget.isStudent)
+        IconButton(
+          tooltip: 'Add exam',
+          onPressed: _busy ? null : _createExam,
+          icon: const Icon(Icons.add),
+        ),
       IconButton(
         tooltip: 'Back',
         onPressed: () => context.go(_hub),
@@ -657,28 +850,53 @@ class IeltsExamListScreen extends ConsumerWidget {
       ),
     ];
 
-    if (!isStudent) {
-      final learningSelected = selectedRoute ?? '$routePrefix/learning';
-      final items = navItems.isNotEmpty
-          ? navItems
-          : (routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+    if (!widget.isStudent) {
+      final learningSelected = widget.selectedRoute ?? '${widget.routePrefix}/learning';
+      final items = widget.navItems.isNotEmpty
+          ? widget.navItems
+          : (widget.routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
       final selectedIndex = items.indexWhere(
         (i) => learningSelected.startsWith(i.route) || i.route.contains('/learning'),
       );
       return AdaptiveScaffold(
-        title: title,
+        title: _title,
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: learningSelected,
         items: items,
         onDestinationSelected: (i) => context.go(items[i].route),
         actions: actions,
-        body: body,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+              child: Row(
+                children: [
+                  Text(
+                    'Add or edit ${_title.toLowerCase()} exams',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: context.semantic.textMuted,
+                        ),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _createExam,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add exam'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Expanded(child: body),
+          ],
+        ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(_title),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go(_hub)),
       ),
       body: Padding(padding: AppSpacing.pagePaddingWide, child: body),

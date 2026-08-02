@@ -189,6 +189,7 @@ List<GoRoute> buildSharedStaffOpsRoutes({
       path: r('/learning/:subjectId/ielts/exams'),
       builder: (_, state) => IeltsExamListScreen(
         subjectId: state.pathParameters['subjectId']!,
+        mode: 'full',
         isStudent: false,
         routePrefix: prefix,
         navItems: navItems,

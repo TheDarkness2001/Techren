@@ -147,6 +147,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/student/learn/:subjectId/ielts/exams',
         builder: (_, state) => IeltsExamListScreen(
           subjectId: state.pathParameters['subjectId']!,
+          mode: 'full',
           routePrefix: '/student',
         ),
       ),
