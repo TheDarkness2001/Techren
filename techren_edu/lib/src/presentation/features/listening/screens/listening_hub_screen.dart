@@ -21,7 +21,7 @@ class ListeningHubScreen extends ConsumerWidget {
     final navItems = studentNavItemsOf(context);
 
     return AdaptiveScaffold(
-      title: 'Listening',
+      title: 'BBC news',
       selectedIndex: 1,
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
@@ -39,8 +39,8 @@ class ListeningHubScreen extends ConsumerWidget {
         data: (levels) {
           if (levels.isEmpty) {
             return const EmptyState(
-              title: 'No levels unlocked',
-              message: 'Your teacher will unlock listening practice for your group.',
+              title: 'No BBC news tasks unlocked',
+              message: 'Your teacher will unlock BBC news listening for your group.',
               icon: Icons.headphones_outlined,
             );
           }

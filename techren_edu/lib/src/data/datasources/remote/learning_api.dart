@@ -99,7 +99,7 @@ class LearningApi {
       _ => const [
           ('words', 'Words', 'learning', 'spellcheck'),
           ('sentences', 'Sentences', 'learning', 'format_quote'),
-          ('listening', 'Listening', 'learning', 'headphones'),
+          ('listening', 'BBC news', 'learning', 'headphones'),
           ('video', 'Video Lessons', 'learning', 'play_circle'),
           ('grammar', 'Grammar', 'learning', 'menu_book'),
           ('flashcards', 'Flashcards', 'learning', 'style'),

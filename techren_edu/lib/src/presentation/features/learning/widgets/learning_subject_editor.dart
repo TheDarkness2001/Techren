@@ -281,7 +281,7 @@ class _LearningModulesEditorDialogState extends ConsumerState<_LearningModulesEd
   static const _catalog = <LearningModuleDef>[
     LearningModuleDef(key: 'words', label: 'Words', category: 'learning', icon: 'spellcheck'),
     LearningModuleDef(key: 'sentences', label: 'Sentences', category: 'learning', icon: 'format_quote'),
-    LearningModuleDef(key: 'listening', label: 'Listening', category: 'learning', icon: 'headphones'),
+    LearningModuleDef(key: 'listening', label: 'BBC news', category: 'learning', icon: 'headphones'),
     LearningModuleDef(key: 'ielts', label: 'IELTS Preparation', category: 'learning', icon: 'school'),
     LearningModuleDef(key: 'video', label: 'Video Lessons', category: 'learning', icon: 'play_circle'),
     LearningModuleDef(key: 'grammar', label: 'Grammar', category: 'learning', icon: 'menu_book'),

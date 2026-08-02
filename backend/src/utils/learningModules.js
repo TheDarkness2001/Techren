@@ -3,7 +3,7 @@
 const LANGUAGE_MODULES = [
   { key: 'words', label: 'Words', category: 'learning', icon: 'spellcheck', audience: 'all' },
   { key: 'sentences', label: 'Sentences', category: 'learning', icon: 'format_quote', audience: 'all' },
-  { key: 'listening', label: 'Listening', category: 'learning', icon: 'headphones', audience: 'all' },
+  { key: 'listening', label: 'BBC news', category: 'learning', icon: 'headphones', audience: 'all' },
   { key: 'ielts', label: 'IELTS Preparation', category: 'learning', icon: 'school', audience: 'all' },
   { key: 'video', label: 'Video Lessons', category: 'learning', icon: 'play_circle', audience: 'all' },
   { key: 'grammar', label: 'Grammar', category: 'learning', icon: 'menu_book', audience: 'all' },

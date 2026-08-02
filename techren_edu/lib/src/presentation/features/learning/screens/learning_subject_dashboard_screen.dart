@@ -49,7 +49,7 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
     final route = switch (module.key) {
       'words' => isStudent ? '/student/words' : '$prefix/words',
       'sentences' => isStudent ? '/student/sentences' : '$prefix/sentences',
-      'listening' => isStudent ? '/student/listening' : null,
+      'listening' => isStudent ? '/student/listening' : '$prefix/learning-cms',
       'video' => isStudent
           ? '/student/learn/$subjectId/video'
           : '$prefix/learning/$subjectId/video',
