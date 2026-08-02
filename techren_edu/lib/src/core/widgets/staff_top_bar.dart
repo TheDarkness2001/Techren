@@ -125,7 +125,11 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                   )
                 else
                   const Spacer(),
-                if (!widget.compact) const KeyboardShortcutHint(),
+                if (!widget.compact && user != null)
+                  KeyboardShortcutHint(
+                    prefix: user.isFounder ? '/founder' : '/admin',
+                    isFounder: user.isFounder,
+                  ),
                 if (isFounder)
                   Flexible(
                     child: Align(

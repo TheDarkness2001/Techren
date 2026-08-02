@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,50 @@ import '../theme/app_spacing.dart';
 import 'app_command_palette.dart';
 import 'staff_navigation.dart';
 
-/// Staff shell keyboard shortcuts — Ctrl+K palette, Ctrl+B sidebar, Alt+1-4 nav (Phase E).
+/// Opens the staff command palette (same as Ctrl+K / clickable top-bar hint).
+Future<void> openStaffCommandPalette(
+  BuildContext context,
+  WidgetRef ref, {
+  required String prefix,
+  required bool isFounder,
+}) async {
+  final user = ref.read(authProvider).user;
+  final rolePerms = ref.read(staffRolePermissionsProvider);
+  final walletEnabled = ref.read(walletEnabledProvider);
+  final l10n = ref.read(appLocalizationsProvider);
+  final items = staffNavigationForUser(
+    prefix: prefix,
+    isFounder: isFounder,
+    user: user,
+    rolePerms: rolePerms,
+    walletEnabled: walletEnabled,
+    l10n: l10n,
+  );
+  final flat = <CommandPaletteItem>[];
+
+  void walk(List<StaffNavItem> nodes) {
+    for (final node in nodes) {
+      if (node.route != null) {
+        flat.add(CommandPaletteItem(label: node.label, icon: node.icon, route: node.route!));
+      }
+      if (node.hasChildren) walk(node.children);
+    }
+  }
+
+  walk(items);
+  if (!context.mounted) return;
+  try {
+    await showAppCommandPalette(context, items: flat);
+  } catch (e, st) {
+    debugPrint('Command palette failed: $e\n$st');
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not open command palette: $e')),
+    );
+  }
+}
+
+/// Staff shell keyboard shortcuts — command palette, sidebar toggle, Alt+1-4 nav.
 class StaffShellShortcuts extends ConsumerWidget {
   const StaffShellShortcuts({
     super.key,
@@ -28,107 +72,80 @@ class StaffShellShortcuts extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Shortcuts(
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.keyK, control: true): _OpenCommandPaletteIntent(),
-        SingleActivator(LogicalKeyboardKey.keyB, control: true): _ToggleSidebarIntent(),
-        SingleActivator(LogicalKeyboardKey.digit1, alt: true): _QuickNavIntent(0),
-        SingleActivator(LogicalKeyboardKey.digit2, alt: true): _QuickNavIntent(1),
-        SingleActivator(LogicalKeyboardKey.digit3, alt: true): _QuickNavIntent(2),
-        SingleActivator(LogicalKeyboardKey.digit4, alt: true): _QuickNavIntent(3),
+    final bindings = <ShortcutActivator, VoidCallback>{
+      const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+        openStaffCommandPalette(context, ref, prefix: prefix, isFounder: isFounder);
       },
-      child: Actions(
-        actions: {
-          _OpenCommandPaletteIntent: CallbackAction<_OpenCommandPaletteIntent>(
-            onInvoke: (_) {
-              _openPalette(context, ref);
-              return null;
-            },
-          ),
-          _ToggleSidebarIntent: CallbackAction<_ToggleSidebarIntent>(
-            onInvoke: (_) {
-              final collapsed = ref.read(staffSidebarCollapsedProvider);
-              ref.read(staffSidebarCollapsedProvider.notifier).state = !collapsed;
-              return null;
-            },
-          ),
-          _QuickNavIntent: CallbackAction<_QuickNavIntent>(
-            onInvoke: (intent) {
-              if (intent.index < compactBottomRoutes.length) {
-                context.go(compactBottomRoutes[intent.index]);
-              }
-              return null;
-            },
-          ),
-        },
-        child: FocusTraversalGroup(
-          policy: OrderedTraversalPolicy(),
-          child: child,
-        ),
+      const SingleActivator(LogicalKeyboardKey.keyK, control: true, shift: true): () {
+        openStaffCommandPalette(context, ref, prefix: prefix, isFounder: isFounder);
+      },
+      const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
+        final collapsed = ref.read(staffSidebarCollapsedProvider);
+        ref.read(staffSidebarCollapsedProvider.notifier).state = !collapsed;
+      },
+      const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
+        if (compactBottomRoutes.isNotEmpty) context.go(compactBottomRoutes[0]);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
+        if (compactBottomRoutes.length > 1) context.go(compactBottomRoutes[1]);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit3, alt: true): () {
+        if (compactBottomRoutes.length > 2) context.go(compactBottomRoutes[2]);
+      },
+      const SingleActivator(LogicalKeyboardKey.digit4, alt: true): () {
+        if (compactBottomRoutes.length > 3) context.go(compactBottomRoutes[3]);
+      },
+    };
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      bindings[const SingleActivator(LogicalKeyboardKey.keyK, meta: true)] = () {
+        openStaffCommandPalette(context, ref, prefix: prefix, isFounder: isFounder);
+      };
+    }
+
+    return CallbackShortcuts(
+      bindings: bindings,
+      child: Focus(
+        autofocus: true,
+        canRequestFocus: true,
+        skipTraversal: true,
+        child: child,
       ),
     );
   }
-
-  void _openPalette(BuildContext context, WidgetRef ref) {
-    final user = ref.read(authProvider).user;
-    final rolePerms = ref.read(staffRolePermissionsProvider);
-    final walletEnabled = ref.read(walletEnabledProvider);
-    final l10n = ref.read(appLocalizationsProvider);
-    final items = staffNavigationForUser(
-      prefix: prefix,
-      isFounder: isFounder,
-      user: user,
-      rolePerms: rolePerms,
-      walletEnabled: walletEnabled,
-      l10n: l10n,
-    );
-    final flat = <CommandPaletteItem>[];
-
-    void walk(List<StaffNavItem> nodes) {
-      for (final node in nodes) {
-        if (node.route != null) {
-          flat.add(CommandPaletteItem(label: node.label, icon: node.icon, route: node.route!));
-        }
-        if (node.hasChildren) walk(node.children);
-      }
-    }
-
-    walk(items);
-    showAppCommandPalette(context, items: flat);
-  }
 }
 
-class _OpenCommandPaletteIntent extends Intent {
-  const _OpenCommandPaletteIntent();
-}
+/// Clickable hint in the staff top bar — opens the command palette.
+class KeyboardShortcutHint extends ConsumerWidget {
+  const KeyboardShortcutHint({
+    super.key,
+    required this.prefix,
+    required this.isFounder,
+  });
 
-class _ToggleSidebarIntent extends Intent {
-  const _ToggleSidebarIntent();
-}
-
-class _QuickNavIntent extends Intent {
-  const _QuickNavIntent(this.index);
-  final int index;
-}
-
-/// Hint chip shown in staff top bar on desktop — reminds users of Ctrl+K.
-class KeyboardShortcutHint extends StatelessWidget {
-  const KeyboardShortcutHint({super.key});
+  final String prefix;
+  final bool isFounder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Tooltip(
-      message: 'Command palette (Ctrl+K)',
-      child: Container(
-        margin: const EdgeInsets.only(right: AppSpacing.xs),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.white24),
+      message: 'Jump to a page (Ctrl+K)',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => openStaffCommandPalette(context, ref, prefix: prefix, isFounder: isFounder),
           borderRadius: BorderRadius.circular(6),
-        ),
-        child: const Text(
-          'Ctrl+K',
-          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+          child: Container(
+            margin: const EdgeInsets.only(right: AppSpacing.xs),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white24),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              'Ctrl+K',
+              style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ),
         ),
       ),
     );
