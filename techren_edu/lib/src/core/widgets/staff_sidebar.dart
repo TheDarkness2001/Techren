@@ -8,6 +8,7 @@ import '../theme/staff_shell_colors.dart';
 import '../l10n/app_localizations.dart';
 import '../../presentation/providers/app_preferences_provider.dart';
 import '../../presentation/providers/auth_provider.dart';
+import '../../presentation/providers/communications_provider.dart';
 import '../../presentation/providers/settings_provider.dart';
 import '../../presentation/providers/staff_navigation_provider.dart';
 import 'staff_navigation.dart';
@@ -157,12 +158,17 @@ class _StaffSidebarState extends ConsumerState<StaffSidebar> {
   }
 
   Widget _buildItem(StaffNavItem item, bool collapsed) {
+    final unread = (item.route != null && item.route!.endsWith('/messages'))
+        ? (ref.watch(communicationsUnreadProvider).valueOrNull ?? 0)
+        : 0;
+
     if (!item.hasChildren) {
       return _SidebarTile(
         label: item.label,
         icon: item.icon,
         selected: item.route != null && staffRouteMatches(widget.currentRoute, item),
         collapsed: collapsed,
+        badgeCount: unread,
         onTap: item.route == null ? null : () => context.go(item.route!),
       );
     }
@@ -237,6 +243,7 @@ class _SidebarTile extends StatefulWidget {
     this.nested = false,
     this.showChevron = false,
     this.chevronExpanded = false,
+    this.badgeCount = 0,
   });
 
   final String label;
@@ -247,6 +254,7 @@ class _SidebarTile extends StatefulWidget {
   final bool nested;
   final bool showChevron;
   final bool chevronExpanded;
+  final int badgeCount;
 
   @override
   State<_SidebarTile> createState() => _SidebarTileState();
@@ -305,7 +313,13 @@ class _SidebarTileState extends State<_SidebarTile> {
                       vertical: 11,
                     ),
                     child: widget.collapsed
-                        ? Center(child: Icon(widget.icon, size: 22, color: iconColor))
+                        ? Center(
+                            child: Badge(
+                              isLabelVisible: widget.badgeCount > 0,
+                              label: Text(widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}'),
+                              child: Icon(widget.icon, size: 22, color: iconColor),
+                            ),
+                          )
                         : Row(
                             children: [
                               Icon(widget.icon, size: 20, color: iconColor),
@@ -321,6 +335,8 @@ class _SidebarTileState extends State<_SidebarTile> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (widget.badgeCount > 0)
+                                Badge(label: Text(widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}')),
                               if (widget.showChevron)
                                 AnimatedRotation(
                                   turns: widget.chevronExpanded ? 0.25 : 0,

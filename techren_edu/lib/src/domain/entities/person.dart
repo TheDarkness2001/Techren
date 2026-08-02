@@ -12,6 +12,7 @@ class Person extends Equatable {
     this.branchId,
     this.parentName,
     this.parentPhone,
+    this.coursePrice,
     this.examEligibility,
     this.ieltsAccess,
     this.userType = 'student',
@@ -29,6 +30,7 @@ class Person extends Equatable {
   final String? branchId;
   final String? parentName;
   final String? parentPhone;
+  final double? coursePrice;
   final bool? examEligibility;
   final bool? ieltsAccess;
   final String userType;
@@ -50,6 +52,7 @@ class Person extends Equatable {
         branchId: json['branchId']?.toString(),
         parentName: json['parentName'] as String?,
         parentPhone: json['parentPhone'] as String?,
+        coursePrice: (json['coursePrice'] as num?)?.toDouble(),
         examEligibility: json['examEligibility'] as bool?,
         ieltsAccess: json['ieltsAccess'] as bool?,
         userType: json['userType'] as String? ?? 'student',
@@ -59,7 +62,7 @@ class Person extends Equatable {
             .toList(),
       );
 
-  Person copyWith({String? profileImage, String? status, bool? ieltsAccess}) => Person(
+  Person copyWith({String? profileImage, String? status, bool? ieltsAccess, double? coursePrice}) => Person(
         id: id,
         name: name,
         email: email,
@@ -70,12 +73,14 @@ class Person extends Equatable {
         branchId: branchId,
         parentName: parentName,
         parentPhone: parentPhone,
+        coursePrice: coursePrice ?? this.coursePrice,
         examEligibility: examEligibility,
         ieltsAccess: ieltsAccess ?? this.ieltsAccess,
         userType: userType,
         profileImage: profileImage ?? this.profileImage,
+        subjects: subjects,
       );
 
   @override
-  List<Object?> get props => [id, name, email, status, profileImage];
+  List<Object?> get props => [id, name, email, status, profileImage, coursePrice];
 }

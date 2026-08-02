@@ -15,6 +15,8 @@ import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/app_update_provider.dart';
 import '../../../providers/identity_provider.dart';
+import '../../../providers/news_provider.dart';
+import '../../news/widgets/dashboard_news_feed.dart';
 import 'dashboard_header.dart';
 import 'dashboard_portfolio_panel.dart';
 import 'dashboard_widgets.dart';
@@ -43,11 +45,14 @@ class RoleDashboardBody extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(dashboardProvider);
           ref.invalidate(appUpdateProvider);
+          ref.invalidate(newsFeedProvider);
         },
         child: ListView(
           padding: AppSpacing.pagePaddingWide,
           children: [
             const UpdateBanner(),
+            const SizedBox(height: AppSpacing.lg),
+            const DashboardNewsFeed(),
             DashboardStatRow(children: _statsForRole(data)),
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),

@@ -1,6 +1,9 @@
 import 'package:go_router/go_router.dart';
 
+import '../../presentation/features/communications/screens/communications_hub_screen.dart';
+import '../../presentation/features/communications/screens/communications_moderation_screen.dart';
 import '../../presentation/features/competition/screens/competition_hub_screen.dart';
+import '../../presentation/features/news/screens/news_cms_screen.dart';
 import '../../presentation/features/exams/screens/staff_exams_screen.dart';
 import '../../presentation/features/finance/screens/revenue_reports_screen.dart';
 import '../../presentation/features/learning/screens/learning_subject_dashboard_screen.dart';
@@ -63,6 +66,26 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     AppPageTransitions.route(
       path: r('/feedback'),
       builder: (_, __) => StaffFeedbackScreen(navItems: navItems, selectedRoute: r('/feedback')),
+    ),
+    AppPageTransitions.route(
+      path: r('/news'),
+      builder: (_, __) => NewsCmsScreen(navItems: navItems, selectedRoute: r('/news')),
+    ),
+    AppPageTransitions.route(
+      path: r('/messages/moderation'),
+      builder: (_, __) => CommunicationsModerationScreen(
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/messages/moderation'),
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/messages'),
+      builder: (_, __) => CommunicationsHubScreen(
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/messages'),
+      ),
     ),
     AppPageTransitions.route(
       path: r('/exams'),

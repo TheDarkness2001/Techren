@@ -31,6 +31,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   late final TextEditingController _emailController;
   late final TextEditingController _parentNameController;
   late final TextEditingController _parentPhoneController;
+  late final TextEditingController _coursePriceController;
   late final TextEditingController _phoneController;
   late final TextEditingController _passwordController;
   bool _obscurePassword = true;
@@ -44,6 +45,13 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _emailController = TextEditingController(text: person.email ?? '');
     _parentNameController = TextEditingController(text: person.parentName ?? '');
     _parentPhoneController = TextEditingController(text: person.parentPhone ?? '');
+    _coursePriceController = TextEditingController(
+      text: (person.coursePrice != null && person.coursePrice! > 0)
+          ? person.coursePrice!.toStringAsFixed(
+              person.coursePrice! == person.coursePrice!.roundToDouble() ? 0 : 2,
+            )
+          : '',
+    );
     _phoneController = TextEditingController(text: person.phone ?? '');
     _passwordController = TextEditingController();
   }
@@ -54,6 +62,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _emailController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _coursePriceController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -69,6 +78,18 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
       return;
     }
 
+    double? coursePrice;
+    if (widget.person.isStudent) {
+      final priceText = _coursePriceController.text.trim();
+      coursePrice = priceText.isEmpty ? 0.0 : double.tryParse(priceText);
+      if (coursePrice == null || coursePrice < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid course price')),
+        );
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     try {
       final api = ref.read(identityApiProvider);
@@ -80,6 +101,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
           email: email,
           parentName: _parentNameController.text.trim(),
           parentPhone: _parentPhoneController.text.trim(),
+          coursePrice: coursePrice,
           password: password.isEmpty ? null : password,
         );
       } else {
@@ -131,6 +153,16 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                 controller: _parentPhoneController,
                 decoration: const InputDecoration(labelText: 'Parent phone'),
                 keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _coursePriceController,
+                decoration: const InputDecoration(
+                  labelText: 'Course price (monthly)',
+                  hintText: 'Student monthly fee',
+                  prefixText: '\$ ',
+                  helperText: 'Used for dues. Leave empty to use the group/subject price.',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
             ] else
               TextField(

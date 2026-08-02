@@ -42,33 +42,39 @@ class FeatureFlags {
     this.walletEnabled = false,
     this.gamificationEnabled = true,
     this.parentPortalEnabled = false,
+    this.teachersCanCreatePolls = false,
   });
 
   final bool walletEnabled;
   final bool gamificationEnabled;
   final bool parentPortalEnabled;
+  final bool teachersCanCreatePolls;
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) => FeatureFlags(
         walletEnabled: json['walletEnabled'] as bool? ?? false,
         gamificationEnabled: json['gamificationEnabled'] as bool? ?? true,
         parentPortalEnabled: json['parentPortalEnabled'] as bool? ?? false,
+        teachersCanCreatePolls: json['teachersCanCreatePolls'] as bool? ?? false,
       );
 
   FeatureFlags copyWith({
     bool? walletEnabled,
     bool? gamificationEnabled,
     bool? parentPortalEnabled,
+    bool? teachersCanCreatePolls,
   }) =>
       FeatureFlags(
         walletEnabled: walletEnabled ?? this.walletEnabled,
         gamificationEnabled: gamificationEnabled ?? this.gamificationEnabled,
         parentPortalEnabled: parentPortalEnabled ?? this.parentPortalEnabled,
+        teachersCanCreatePolls: teachersCanCreatePolls ?? this.teachersCanCreatePolls,
       );
 
   Map<String, dynamic> toJson() => {
         'walletEnabled': walletEnabled,
         'gamificationEnabled': gamificationEnabled,
         'parentPortalEnabled': parentPortalEnabled,
+        'teachersCanCreatePolls': teachersCanCreatePolls,
       };
 }
 
@@ -94,6 +100,14 @@ const permissionLabels = <String, String>{
   'canManageVideoLessons': 'Manage video lessons',
   'canViewWallet': 'View wallet',
   'canManageWallet': 'Manage wallet',
+  'canUseCommunications': 'Use messages',
+  'canBroadcast': 'Send broadcasts',
+  'canModerateCommunications': 'Moderate messages',
+  'canViewNewsFeed': 'View news feed',
+  'canCreateNews': 'Create news posts',
+  'canManageNews': 'Manage all news',
+  'canCreatePolls': 'Create polls',
+  'canModerateNews': 'Moderate news',
 };
 
 const editableRoles = ['teacher', 'sales', 'receptionist', 'manager'];

@@ -67,6 +67,7 @@ const createStudent = async (req, data) => {
     password: data.password,
     parentName: data.parentName,
     parentPhone: data.parentPhone,
+    coursePrice: data.coursePrice != null ? Number(data.coursePrice) : 0,
     branchId,
     status: 'active',
   });
@@ -94,6 +95,7 @@ const updateStudent = async (req, id, data) => {
   if (data.name !== undefined) student.name = data.name;
   if (data.parentName !== undefined) student.parentName = data.parentName;
   if (data.parentPhone !== undefined) student.parentPhone = data.parentPhone;
+  if (data.coursePrice !== undefined) student.coursePrice = Number(data.coursePrice) || 0;
   if (data.status !== undefined) student.status = data.status;
   if (data.password) student.password = data.password;
   if (data.profileImage !== undefined) student.profileImage = data.profileImage;

@@ -79,6 +79,16 @@ List<StaffNavItem> staffNavigationFor(
       route: '$prefix/feedback',
     ),
     StaffNavItem(
+      label: l10n.navNews,
+      icon: Icons.newspaper_outlined,
+      route: '$prefix/news',
+    ),
+    StaffNavItem(
+      label: l10n.navMessages,
+      icon: Icons.chat_bubble_outline,
+      route: '$prefix/messages',
+    ),
+    StaffNavItem(
       label: l10n.navLearning,
       icon: Icons.menu_book_outlined,
       route: '$prefix/learning',

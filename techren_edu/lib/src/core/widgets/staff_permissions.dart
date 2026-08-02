@@ -7,6 +7,8 @@ String? permissionKeyForStaffRoute(String route) {
   if (route.contains('/schedule')) return 'canViewScheduler';
   if (route.contains('/attendance')) return 'canViewAttendance';
   if (route.endsWith('/feedback')) return 'canViewFeedback';
+  if (route.endsWith('/news')) return 'canCreateNews';
+  if (route.endsWith('/messages')) return 'canUseCommunications';
   if (route.endsWith('/exams')) return 'canViewExams';
   if (route.endsWith('/learning') ||
       route.contains('/learning/') ||

@@ -318,13 +318,26 @@ class _SummaryRow extends StatelessWidget {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 720;
         if (wide) {
-          return Row(
-            children: cards
-                .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: AppSpacing.xs), child: c)))
-                .toList(),
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: cards[i]),
+                ],
+              ],
+            ),
           );
         }
-        return Column(children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: AppSpacing.xs), child: c)).toList());
+        return Column(
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.sm),
+              cards[i],
+            ],
+          ],
+        );
       },
     );
   }
@@ -345,24 +358,40 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            Icon(icon, size: 32),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.bodySmall),
-                  Text(value, style: Theme.of(context).textTheme.titleMedium),
-                  if (subtitle != null) Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
-                ],
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 96,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(icon, size: 32),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(title, style: muted, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle ?? ' ',
+                      style: muted,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

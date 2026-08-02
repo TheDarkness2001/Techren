@@ -188,6 +188,11 @@ const buildDuesByStudent = async ({ studentIds, month, year, branchFilter = {} }
     .populate('subject', 'name pricePerClass code')
     .select('subject students groupName');
 
+  const students = await Student.find({ _id: { $in: studentIds } }).select('_id coursePrice');
+  const studentPriceById = new Map(
+    students.map((s) => [String(s._id), Number(s.coursePrice || 0)])
+  );
+
   const payments = await Payment.find({
     student: { $in: studentIds },
     month,
@@ -209,9 +214,11 @@ const buildDuesByStudent = async ({ studentIds, month, year, branchFilter = {} }
     const subjectDoc = group.subject;
     const subjectName = subjectDoc?.name || group.groupName || 'Course';
     const subjectId = subjectDoc?._id ? String(subjectDoc._id) : null;
-    const amountDue = Number(subjectDoc?.pricePerClass || 0);
+    const subjectPrice = Number(subjectDoc?.pricePerClass || 0);
     for (const studentRef of group.students || []) {
       const sid = String(studentRef);
+      const studentPrice = studentPriceById.get(sid) || 0;
+      const amountDue = studentPrice > 0 ? studentPrice : subjectPrice;
       if (!coursesByStudent.has(sid)) coursesByStudent.set(sid, new Map());
       const map = coursesByStudent.get(sid);
       const courseKey = subjectName.toLowerCase();

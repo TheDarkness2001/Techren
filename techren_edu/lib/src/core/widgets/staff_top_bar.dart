@@ -14,6 +14,7 @@ import '../theme/app_spacing.dart';
 import '../theme/staff_shell_colors.dart';
 import '../utils/media_url.dart';
 import 'appearance_controls.dart';
+import 'messages_icon_button.dart';
 import 'notification_icon_button.dart';
 import 'staff_shell_shortcuts.dart';
 
@@ -147,6 +148,10 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                 if (user != null) ...[
                   NotificationIconButton(
                     route: user.isFounder ? '/founder/notifications' : '/admin/notifications',
+                    iconColor: shell.textPrimary,
+                  ),
+                  MessagesIconButton(
+                    route: user.isFounder ? '/founder/messages' : '/admin/messages',
                     iconColor: shell.textPrimary,
                   ),
                   _ProfileMenuAnchor(

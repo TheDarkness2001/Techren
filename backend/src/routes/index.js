@@ -35,6 +35,9 @@ const learningRoutes = require('./learningRoutes');
 const ieltsRoutes = require('./ieltsRoutes');
 const learningQuizRoutes = require('./learningQuizRoutes');
 const typingRoutes = require('./typingRoutes');
+const communicationRoutes = require('./communicationRoutes');
+const newsRoutes = require('./newsRoutes');
+const pollRoutes = require('./pollRoutes');
 
 const router = express.Router();
 
@@ -74,6 +77,9 @@ router.use('/learning', learningRoutes);
 router.use('/ielts', ieltsRoutes);
 router.use('/quizzes', learningQuizRoutes);
 router.use('/typing', typingRoutes);
+router.use('/communications', communicationRoutes);
+router.use('/news', newsRoutes);
+router.use('/polls', pollRoutes);
 
 const { getConnectionInfo } = require('../config/database');
 

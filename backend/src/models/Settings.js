@@ -12,6 +12,7 @@ const settingsSchema = new mongoose.Schema(
       walletEnabled: { type: Boolean, default: false },
       gamificationEnabled: { type: Boolean, default: true },
       parentPortalEnabled: { type: Boolean, default: false },
+      teachersCanCreatePolls: { type: Boolean, default: false },
     },
     features: {
       walletSystem: { type: Boolean },

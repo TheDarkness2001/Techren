@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/adaptive_scaffold.dart';
+import '../../core/widgets/messages_icon_button.dart';
 import '../features/attendance/screens/teacher_attendance_screen.dart';
 import '../features/dashboard/widgets/role_dashboard_body.dart';
 import '../features/people/widgets/profile_photo_picker.dart';
@@ -10,11 +11,13 @@ import '../features/scheduling/screens/schedule_hub_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/identity_provider.dart';
 import '../providers/staff_navigation_provider.dart';
+
 const teacherNavItems = [
   NavItem(label: 'Home', icon: Icons.home_outlined, route: '/teacher/dashboard'),
   NavItem(label: 'Classes', icon: Icons.class_outlined, route: '/teacher/classes'),
   NavItem(label: 'Attendance', icon: Icons.fact_check_outlined, route: '/teacher/attendance'),
   NavItem(label: 'Progress', icon: Icons.insights_outlined, route: '/teacher/progress'),
+  NavItem(label: 'Messages', icon: Icons.chat_bubble_outline, route: '/teacher/messages'),
   NavItem(label: 'Profile', icon: Icons.person_outline, route: '/teacher/profile'),
 ];
 
@@ -30,6 +33,9 @@ class TeacherDashboardScreen extends ConsumerWidget {
       selectedRoute: '/teacher/dashboard',
       items: teacherNavItems,
       onDestinationSelected: (i) => context.go(teacherNavItems[i].route),
+      actions: const [
+        MessagesIconButton(route: '/teacher/messages'),
+      ],
       body: RoleDashboardBody(dashboardAsync: dashboard),
     );
   }
@@ -71,7 +77,7 @@ class TeacherProfileScreen extends ConsumerWidget {
     final rolePerms = ref.watch(staffRolePermissionsProvider);
     return AdaptiveScaffold(
       title: 'Profile',
-      selectedIndex: 4,
+      selectedIndex: 5,
       selectedRoute: '/teacher/profile',
       items: teacherNavItems,
       onDestinationSelected: (i) => context.go(teacherNavItems[i].route),

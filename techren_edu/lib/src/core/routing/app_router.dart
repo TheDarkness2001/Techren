@@ -16,6 +16,7 @@ import '../../presentation/features/sentences/screens/sentences_leaderboard_scre
 import '../../presentation/features/listening/screens/listening_hub_screen.dart';
 import '../../presentation/features/listening/screens/listening_leaderboard_screen.dart';
 import '../../presentation/features/video/screens/video_hub_screen.dart';
+import '../../presentation/features/communications/screens/communications_hub_screen.dart';
 import '../../presentation/features/competition/screens/competition_hub_screen.dart';
 import '../../presentation/features/competition/screens/student_competition_screen.dart';
 import '../../presentation/features/staff_finance/screens/staff_finance_hub_screen.dart';
@@ -226,6 +227,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(path: '/student/video', builder: (_, __) => const VideoHubScreen()),
       AppPageTransitions.route(path: '/student/schedule', builder: (_, __) => const StudentScheduleScreen()),
       AppPageTransitions.route(path: '/student/feedback', builder: (_, __) => const StudentFeedbackScreenWrapper()),
+      AppPageTransitions.route(path: '/student/messages', builder: (_, __) => const StudentMessagesScreen()),
       AppPageTransitions.route(path: '/student/exams', builder: (_, __) => const StudentExamsScreenWrapper()),
       AppPageTransitions.route(path: '/student/payments', builder: (_, __) => const StudentPaymentsScreenWrapper()),
       AppPageTransitions.route(
@@ -253,6 +255,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(path: '/teacher/classes', builder: (_, __) => const TeacherClassesScreen()),
       AppPageTransitions.route(path: '/teacher/attendance', builder: (_, __) => const TeacherAttendanceScreen()),
       AppPageTransitions.route(path: '/teacher/progress', builder: (_, __) => const TeacherProgressScreen()),
+      AppPageTransitions.route(
+        path: '/teacher/messages',
+        builder: (_, __) => const CommunicationsHubScreen(
+          routePrefix: '/teacher',
+          navItems: teacherNavItems,
+          selectedRoute: '/teacher/messages',
+        ),
+      ),
       AppPageTransitions.route(
         path: '/teacher/competition',
         builder: (_, __) => const CompetitionHubScreen(navItems: teacherNavItems, selectedRoute: '/teacher/competition'),

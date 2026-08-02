@@ -8,8 +8,10 @@ import '../../core/theme/app_semantic_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/adaptive_scaffold.dart';
 import '../../core/widgets/appearance_controls.dart';
+import '../../core/widgets/messages_icon_button.dart';
 import '../../core/widgets/notification_icon_button.dart';
 import '../features/attendance/screens/student_feedback_screen.dart';
+import '../features/communications/screens/communications_hub_screen.dart';
 import '../features/dashboard/widgets/role_dashboard_body.dart';
 import '../features/finance/screens/student_finance_screens.dart';
 import '../features/learning/screens/learning_subjects_hub_screen.dart';
@@ -36,6 +38,7 @@ class StudentDashboardScreen extends ConsumerWidget {
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
       actions: [
+        const MessagesIconButton(route: '/student/messages'),
         const NotificationIconButton(route: '/student/notifications'),
         IconButton(
           icon: const Icon(Icons.military_tech_outlined),
@@ -120,6 +123,19 @@ class StudentFeedbackScreenWrapper extends StatelessWidget {
     return const StudentFeedbackScreen(
       selectedRoute: '/student/feedback',
       selectedIndex: 4,
+    );
+  }
+}
+
+class StudentMessagesScreen extends StatelessWidget {
+  const StudentMessagesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CommunicationsHubScreen(
+      routePrefix: '/student',
+      isStudent: true,
+      selectedRoute: '/student/messages',
     );
   }
 }

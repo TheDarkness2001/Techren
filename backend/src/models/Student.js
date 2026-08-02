@@ -10,6 +10,8 @@ const studentSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     parentName: { type: String, trim: true },
     parentPhone: { type: String, trim: true },
+    /** Monthly course fee for this student (dues). Falls back to subject pricePerClass when 0. */
+    coursePrice: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     examEligibility: { type: Boolean, default: true },
     /** Founder-gated premium IELTS Preparation module under English. */
@@ -60,6 +62,7 @@ studentSchema.methods.toPublicJSON = function toPublicJSON() {
     email: this.email,
     parentName: this.parentName,
     parentPhone: this.parentPhone,
+    coursePrice: Number(this.coursePrice || 0),
     status: this.status,
     examEligibility: this.examEligibility,
     ieltsAccess: this.ieltsAccess === true,

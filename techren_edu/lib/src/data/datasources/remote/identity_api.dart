@@ -93,6 +93,7 @@ class IdentityApi {
     required String password,
     String? parentName,
     String? parentPhone,
+    double? coursePrice,
     String? branchId,
   }) async {
     final response = await _client.dio.post('/students', data: {
@@ -101,6 +102,7 @@ class IdentityApi {
       'password': password,
       if (parentName != null) 'parentName': parentName,
       if (parentPhone != null) 'parentPhone': parentPhone,
+      if (coursePrice != null) 'coursePrice': coursePrice,
       if (branchId != null) 'branchId': branchId,
     });
     return Person.fromJson({...response.data['data'] as Map<String, dynamic>, 'userType': 'student'});
@@ -131,6 +133,7 @@ class IdentityApi {
     required String email,
     String? parentName,
     String? parentPhone,
+    double? coursePrice,
     String? password,
   }) async {
     final response = await _client.dio.put('/students/$id', data: {
@@ -138,6 +141,7 @@ class IdentityApi {
       'email': email,
       if (parentName != null) 'parentName': parentName,
       if (parentPhone != null) 'parentPhone': parentPhone,
+      if (coursePrice != null) 'coursePrice': coursePrice,
       if (password != null && password.isNotEmpty) 'password': password,
     });
     return Person.fromJson({...response.data['data'] as Map<String, dynamic>, 'userType': 'student'});

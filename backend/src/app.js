@@ -74,6 +74,8 @@ const createApp = () => {
   app.use('/api/v1/uploads/audio', express.static(path.join(uploadsRoot, 'audio'), staticOpts));
   app.use('/api/v1/uploads/listening', express.static(path.join(uploadsRoot, 'listening'), staticOpts));
   app.use('/api/v1/uploads/ielts', express.static(path.join(uploadsRoot, 'ielts'), staticOpts));
+  app.use('/api/v1/uploads/communications', express.static(path.join(uploadsRoot, 'communications'), staticOpts));
+  app.use('/api/v1/uploads/news', express.static(path.join(uploadsRoot, 'news'), staticOpts));
 
   app.use('/api/v1', routes);
 

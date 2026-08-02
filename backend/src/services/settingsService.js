@@ -19,6 +19,7 @@ const initDefaults = async () => {
         walletEnabled: false,
         gamificationEnabled: true,
         parentPortalEnabled: false,
+        teachersCanCreatePolls: false,
       },
     });
   }

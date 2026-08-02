@@ -31,6 +31,7 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
   final _passwordController = TextEditingController();
   final _parentNameController = TextEditingController();
   final _parentPhoneController = TextEditingController();
+  final _coursePriceController = TextEditingController();
   final _phoneController = TextEditingController();
   bool _obscurePassword = true;
   bool _saving = false;
@@ -42,6 +43,7 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
     _passwordController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _coursePriceController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -55,6 +57,18 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
         const SnackBar(content: Text('Name, email, and password (min 6 chars) are required')),
       );
       return;
+    }
+
+    double? coursePrice;
+    if (!widget.isTeacher) {
+      final priceText = _coursePriceController.text.trim();
+      coursePrice = priceText.isEmpty ? null : double.tryParse(priceText);
+      if (priceText.isNotEmpty && (coursePrice == null || coursePrice < 0)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid course price')),
+        );
+        return;
+      }
     }
 
     setState(() => _saving = true);
@@ -74,6 +88,7 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
           password: password,
           parentName: _parentNameController.text.trim().isEmpty ? null : _parentNameController.text.trim(),
           parentPhone: _parentPhoneController.text.trim().isEmpty ? null : _parentPhoneController.text.trim(),
+          coursePrice: coursePrice,
         );
       }
       if (mounted) Navigator.pop(context, true);
@@ -134,6 +149,15 @@ class _PersonCreateDialogState extends ConsumerState<_PersonCreateDialog> {
                 controller: _parentPhoneController,
                 decoration: const InputDecoration(labelText: 'Parent phone (optional)'),
                 keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _coursePriceController,
+                decoration: const InputDecoration(
+                  labelText: 'Course price (monthly)',
+                  hintText: 'Student monthly fee',
+                  prefixText: '\$ ',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
             ],
           ],

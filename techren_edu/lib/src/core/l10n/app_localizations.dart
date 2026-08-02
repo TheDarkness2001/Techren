@@ -82,6 +82,8 @@ class AppLocalizations {
   String get navTeacherAttendance => _t(en: 'Teacher Attendance', ru: 'Посещаемость учителей', uz: 'O\'qituvchi davomati');
   String get navExams => _t(en: 'Exams', ru: 'Экзамены', uz: 'Imtihonlar');
   String get navFeedback => _t(en: 'Feedback', ru: 'Отзывы', uz: 'Fikr-mulohaza');
+  String get navNews => _t(en: 'News', ru: 'Новости', uz: 'Yangiliklar');
+  String get navMessages => _t(en: 'Messages', ru: 'Сообщения', uz: 'Xabarlar');
   String get navLearning => _t(en: 'Learning', ru: 'Обучение', uz: 'O\'qitish');
   String get navWords => _t(en: 'Words', ru: 'Слова', uz: 'So\'zlar');
   String get navSentences => _t(en: 'Sentences', ru: 'Предложения', uz: 'Gaplar');

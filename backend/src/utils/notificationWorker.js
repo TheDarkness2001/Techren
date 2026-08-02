@@ -24,6 +24,14 @@ const register = () => {
     notificationService.runPaymentDueReminders().catch((error) => {
       logger.warn(`payment due reminder job failed: ${error.message}`);
     });
+    try {
+      const communicationService = require('../services/communicationService');
+      communicationService.flushScheduledMessages().catch((error) => {
+        logger.warn(`scheduled chat messages job failed: ${error.message}`);
+      });
+    } catch (error) {
+      logger.warn(`scheduled chat messages tick failed: ${error.message}`);
+    }
   }, 60 * 1000);
 
   // Kick once shortly after boot in case we restart during a slot window.

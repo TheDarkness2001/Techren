@@ -1,0 +1,1067 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+
+import '../../../../core/network/communications_socket.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/media_url.dart';
+import '../../../../core/widgets/adaptive_scaffold.dart';
+import '../../../../core/widgets/common_widgets.dart';
+import '../../../../domain/entities/communication.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/communications_provider.dart';
+import '../../../providers/staff_navigation_provider.dart';
+import '../../../shells/staff_shell.dart';
+import '../widgets/voice_note_player.dart';
+
+class CommunicationsHubScreen extends ConsumerStatefulWidget {
+  const CommunicationsHubScreen({
+    super.key,
+    this.routePrefix = '/admin',
+    this.navItems = const [],
+    this.selectedRoute,
+    this.isStudent = false,
+  });
+
+  final String routePrefix;
+  final List<NavItem> navItems;
+  final String? selectedRoute;
+  final bool isStudent;
+
+  @override
+  ConsumerState<CommunicationsHubScreen> createState() => _CommunicationsHubScreenState();
+}
+
+class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScreen> {
+  Conversation? _selected;
+  final _messageCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  String? _typingLabel;
+  Timer? _typingDebounce;
+  List<ChatMessage> _liveMessages = [];
+  bool _sending = false;
+  String _filter = 'all';
+  bool _socketBound = false;
+  CommunicationsSocket? _socket;
+  ChatMessage? _replyTo;
+  String _threadSearch = '';
+  final _recorder = AudioRecorder();
+  bool _recording = false;
+  int _recordElapsed = 0;
+  Timer? _recordTick;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initSocket());
+  }
+
+  Future<void> _initSocket() async {
+    final socket = ref.read(communicationsSocketProvider);
+    _socket = socket;
+    await socket.connect();
+    if (_socketBound) return;
+    socket.on('message', _onSocketMessage);
+    socket.on('typing', _onTyping);
+    socket.on('stop-typing', _onStopTyping);
+    _socketBound = true;
+  }
+
+  void _onSocketMessage(dynamic data) {
+    if (data is! Map) return;
+    final msg = ChatMessage.fromJson(Map<String, dynamic>.from(data));
+    if (_selected?.id != msg.conversationId) {
+      ref.invalidate(conversationsProvider);
+      ref.invalidate(communicationsUnreadProvider);
+      return;
+    }
+    setState(() {
+      if (!_liveMessages.any((m) => m.id == msg.id || (msg.clientId != null && m.clientId == msg.clientId))) {
+        _liveMessages = [..._liveMessages, msg];
+      }
+    });
+    ref.read(communicationsApiProvider).markRead(msg.conversationId);
+  }
+
+  void _onTyping(dynamic data) {
+    if (data is! Map) return;
+    final convId = data['conversationId']?.toString();
+    if (convId != _selected?.id) return;
+    final me = ref.read(authProvider).user;
+    if (me != null && data['userId']?.toString() == me.id) return;
+    setState(() => _typingLabel = '${data['name'] ?? 'Someone'} is typing…');
+  }
+
+  void _onStopTyping(dynamic data) {
+    if (data is! Map) return;
+    if (data['conversationId']?.toString() != _selected?.id) return;
+    setState(() => _typingLabel = null);
+  }
+
+  Future<void> _openConversation(Conversation c) async {
+    final socket = ref.read(communicationsSocketProvider);
+    if (_selected != null) socket.leaveRoom(_selected!.id);
+    setState(() {
+      _selected = c;
+      _liveMessages = [];
+      _typingLabel = null;
+    });
+    socket.joinRoom(c.id);
+    final messages = await ref.read(communicationsApiProvider).listMessages(c.id);
+    if (!mounted) return;
+    setState(() => _liveMessages = messages);
+    await ref.read(communicationsApiProvider).markRead(c.id);
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(communicationsUnreadProvider);
+  }
+
+  Future<void> _send({String? filePath, String? fileName, DateTime? scheduledAt, int? durationSec}) async {
+    final conv = _selected;
+    if (conv == null) return;
+    final text = _messageCtrl.text.trim();
+    if (text.isEmpty && filePath == null) return;
+    setState(() => _sending = true);
+    try {
+      final clientId = DateTime.now().millisecondsSinceEpoch.toString();
+      final msg = await ref.read(communicationsApiProvider).sendMessage(
+            conv.id,
+            body: text,
+            clientId: clientId,
+            replyToId: _replyTo?.id,
+            filePath: filePath,
+            fileName: fileName,
+            scheduledAt: scheduledAt,
+            durationSec: durationSec,
+          );
+      _messageCtrl.clear();
+      ref.read(communicationsSocketProvider).stopTyping(conv.id);
+      setState(() {
+        _replyTo = null;
+        if (!_liveMessages.any((m) => m.id == msg.id)) {
+          _liveMessages = [..._liveMessages, msg];
+        } else {
+          _liveMessages = [
+            for (final m in _liveMessages) m.id == msg.id ? msg : m,
+          ];
+        }
+      });
+      ref.invalidate(conversationsProvider);
+      if (msg.isScheduled && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scheduled for ${msg.scheduledAt?.toLocal()}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _toggleVoice() async {
+    if (_recording) {
+      _recordTick?.cancel();
+      final path = await _recorder.stop();
+      setState(() => _recording = false);
+      if (path == null || !File(path).existsSync()) return;
+      await _send(filePath: path, fileName: 'voice_note.wav', durationSec: _recordElapsed);
+      return;
+    }
+    final ok = await _recorder.hasPermission();
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission required')),
+        );
+      }
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav';
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 44100, numChannels: 1),
+      path: path,
+    );
+    _recordElapsed = 0;
+    _recordTick?.cancel();
+    _recordTick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _recordElapsed += 1);
+    });
+    setState(() => _recording = true);
+  }
+
+  Future<void> _scheduleSend() async {
+    final text = _messageCtrl.text.trim();
+    if (text.isEmpty || _selected == null) return;
+    final when = await showDatePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+      initialDate: DateTime.now().add(const Duration(hours: 1)),
+    );
+    if (when == null || !mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (time == null) return;
+    final scheduled = DateTime(when.year, when.month, when.day, time.hour, time.minute);
+    await _send(scheduledAt: scheduled);
+  }
+
+  Future<void> _createPoll() async {
+    final conv = _selected;
+    if (conv == null) return;
+    final q = TextEditingController();
+    var type = 'yes_no';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Chat poll'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: q, decoration: const InputDecoration(labelText: 'Question')),
+              DropdownButtonFormField<String>(
+                value: type,
+                decoration: const InputDecoration(labelText: 'Type'),
+                items: const [
+                  DropdownMenuItem(value: 'yes_no', child: Text('Yes / No')),
+                  DropdownMenuItem(value: 'true_false', child: Text('True / False')),
+                  DropdownMenuItem(value: 'rating', child: Text('Rating 1–5')),
+                  DropdownMenuItem(value: 'emoji', child: Text('Emoji mood')),
+                  DropdownMenuItem(value: 'single', child: Text('Single choice')),
+                ],
+                onChanged: (v) => setLocal(() => type = v ?? 'yes_no'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Post')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || q.text.trim().isEmpty) return;
+    try {
+      final msg = await ref.read(communicationsApiProvider).createChatPoll(
+            conv.id,
+            question: q.text.trim(),
+            pollType: type,
+            options: type == 'single'
+                ? [
+                    {'label': 'Option A'},
+                    {'label': 'Option B'},
+                  ]
+                : null,
+          );
+      setState(() => _liveMessages = [..._liveMessages, msg]);
+      ref.invalidate(conversationsProvider);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _startCall({String media = 'audio'}) async {
+    final conv = _selected;
+    if (conv == null) return;
+    try {
+      final msg = await ref.read(communicationsApiProvider).signalCall(conv.id, media: media);
+      setState(() => _liveMessages = [..._liveMessages, msg]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${media == 'video' ? 'Video' : 'Audio'} call invite sent')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _messageAction(ChatMessage m) async {
+    final me = ref.read(authProvider).user;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(Icons.reply), title: const Text('Reply'), onTap: () => Navigator.pop(ctx, 'reply')),
+            ListTile(leading: const Icon(Icons.emoji_emotions_outlined), title: const Text('React 👍'), onTap: () => Navigator.pop(ctx, 'react')),
+            ListTile(
+              leading: Icon(m.starred ? Icons.star : Icons.star_border),
+              title: Text(m.starred ? 'Unstar' : 'Star'),
+              onTap: () => Navigator.pop(ctx, 'star'),
+            ),
+            ListTile(leading: const Icon(Icons.push_pin_outlined), title: const Text('Pin in chat'), onTap: () => Navigator.pop(ctx, 'pin')),
+            if (me != null && m.senderId == me.id) ...[
+              ListTile(leading: const Icon(Icons.edit), title: const Text('Edit'), onTap: () => Navigator.pop(ctx, 'edit')),
+              ListTile(leading: const Icon(Icons.delete_outline), title: const Text('Delete'), onTap: () => Navigator.pop(ctx, 'delete')),
+            ],
+            ListTile(leading: const Icon(Icons.forward), title: const Text('Forward'), onTap: () => Navigator.pop(ctx, 'forward')),
+          ],
+        ),
+      ),
+    );
+    if (action == null || _selected == null) return;
+    final api = ref.read(communicationsApiProvider);
+    try {
+      switch (action) {
+        case 'reply':
+          setState(() => _replyTo = m);
+          break;
+        case 'react':
+          final updated = await api.react(m.id, '👍');
+          setState(() => _liveMessages = [for (final x in _liveMessages) x.id == updated.id ? updated : x]);
+          break;
+        case 'star':
+          final updated = await api.star(m.id, starred: !m.starred);
+          setState(() => _liveMessages = [for (final x in _liveMessages) x.id == updated.id ? updated : x]);
+          break;
+        case 'pin':
+          await api.pinMessage(_selected!.id, m.id);
+          ref.invalidate(conversationsProvider);
+          break;
+        case 'edit':
+          final ctrl = TextEditingController(text: m.body);
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Edit message'),
+              content: TextField(controller: ctrl, maxLines: 4),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+              ],
+            ),
+          );
+          if (ok == true) {
+            final updated = await api.updateMessage(m.id, body: ctrl.text.trim());
+            setState(() => _liveMessages = [for (final x in _liveMessages) x.id == updated.id ? updated : x]);
+          }
+          break;
+        case 'delete':
+          final updated = await api.updateMessage(m.id, deleted: true);
+          setState(() => _liveMessages = [for (final x in _liveMessages) x.id == updated.id ? updated : x]);
+          break;
+        case 'forward':
+          final convs = await api.listConversations();
+          if (!mounted) return;
+          final target = await showModalBottomSheet<Conversation>(
+            context: context,
+            builder: (ctx) => ListView(
+              children: [
+                for (final c in convs.where((c) => c.id != _selected!.id))
+                  ListTile(
+                    title: Text(c.title.isEmpty ? c.type : c.title),
+                    onTap: () => Navigator.pop(ctx, c),
+                  ),
+              ],
+            ),
+          );
+          if (target != null) {
+            await api.forward(m.id, target.id);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Forwarded')));
+            }
+          }
+          break;
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _toggleChat({bool? pinned, bool? muted, bool? archived}) async {
+    final conv = _selected;
+    if (conv == null) return;
+    try {
+      final updated = await ref.read(communicationsApiProvider).togglePinMute(
+            conv.id,
+            pinned: pinned,
+            muted: muted,
+            archived: archived,
+          );
+      setState(() => _selected = updated);
+      ref.invalidate(conversationsProvider);
+      if (archived == true) setState(() => _selected = null);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _globalSearch() async {
+    final q = _searchCtrl.text.trim();
+    if (q.isEmpty) return;
+    try {
+      final hits = await ref.read(communicationsApiProvider).search(q: q);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SizedBox(
+          height: MediaQuery.sizeOf(ctx).height * 0.7,
+          child: ListView(
+            children: [
+              const ListTile(title: Text('Search results')),
+              if (hits.isEmpty) const ListTile(title: Text('No messages found')),
+              for (final m in hits)
+                ListTile(
+                  title: Text(m.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(m.conversationId),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final conv = await ref.read(communicationsApiProvider).getConversation(m.conversationId);
+                    await _openConversation(conv);
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  void _onComposerChanged(String value) {
+    final conv = _selected;
+    if (conv == null) return;
+    ref.read(communicationsSocketProvider).typing(conv.id);
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(seconds: 2), () {
+      ref.read(communicationsSocketProvider).stopTyping(conv.id);
+    });
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(withData: false);
+    if (result == null || result.files.isEmpty) return;
+    final f = result.files.single;
+    if (f.path == null) return;
+    await _send(filePath: f.path, fileName: f.name);
+  }
+
+  Future<void> _startNewChat() async {
+    try {
+      final users = await ref.read(communicationsApiProvider).directory(search: _searchCtrl.text.trim());
+      if (!mounted) return;
+      final picked = await showModalBottomSheet<DirectoryUser>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SizedBox(
+          height: MediaQuery.sizeOf(ctx).height * 0.7,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Start chat', style: Theme.of(ctx).textTheme.titleMedium),
+              ),
+              Expanded(
+                child: users.isEmpty
+                    ? const Center(child: Text('No contacts found'))
+                    : ListView.builder(
+                        itemCount: users.length,
+                        itemBuilder: (_, i) {
+                          final u = users[i];
+                          return ListTile(
+                            title: Text(u.name),
+                            subtitle: Text('${u.userType}${u.role != null ? ' · ${u.role}' : ''}'),
+                            onTap: () => Navigator.pop(ctx, u),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (picked == null) return;
+      final conv = await ref.read(communicationsApiProvider).createPrivate(
+            targetUserId: picked.id,
+            targetUserType: picked.userType,
+          );
+      ref.invalidate(conversationsProvider);
+      await _openConversation(conv);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _support() async {
+    try {
+      final conv = await ref.read(communicationsApiProvider).createSupport();
+      ref.invalidate(conversationsProvider);
+      await _openConversation(conv);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _broadcast() async {
+    final title = TextEditingController(text: 'Announcement');
+    final body = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Broadcast'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
+            TextField(controller: body, decoration: const InputDecoration(labelText: 'Message'), maxLines: 4),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+        ],
+      ),
+    );
+    if (ok != true || body.text.trim().isEmpty) return;
+    try {
+      final conv = await ref.read(communicationsApiProvider).createBroadcast(
+            title: title.text.trim(),
+            body: body.text.trim(),
+          );
+      ref.invalidate(conversationsProvider);
+      await _openConversation(conv);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _createSubjectRoom() async {
+    try {
+      final subjects = await ref.read(communicationsApiProvider).listSubjectOptions();
+      if (!mounted) return;
+      if (subjects.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No subjects found for a discussion room')),
+        );
+        return;
+      }
+      final picked = await showModalBottomSheet<({String id, String name})>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SizedBox(
+          height: MediaQuery.sizeOf(ctx).height * 0.6,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Subject discussion room', style: Theme.of(ctx).textTheme.titleMedium),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: subjects.length,
+                  itemBuilder: (_, i) {
+                    final s = subjects[i];
+                    return ListTile(
+                      leading: const Icon(Icons.menu_book_outlined),
+                      title: Text(s.name),
+                      onTap: () => Navigator.pop(ctx, s),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (picked == null) return;
+      final conv = await ref.read(communicationsApiProvider).createSubjectRoom(subjectId: picked.id);
+      ref.invalidate(conversationsProvider);
+      await _openConversation(conv);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_selected != null) _socket?.leaveRoom(_selected!.id);
+    if (_socketBound) {
+      _socket?.off('message');
+      _socket?.off('typing');
+      _socket?.off('stop-typing');
+    }
+    _messageCtrl.dispose();
+    _searchCtrl.dispose();
+    _typingDebounce?.cancel();
+    _recordTick?.cancel();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(conversationsProvider);
+    final me = ref.watch(authProvider).user;
+    final rolePerms = ref.watch(staffRolePermissionsProvider);
+    final canBroadcast = !widget.isStudent &&
+        (me?.hasFullStaffAccess == true || me?.hasPermission('canBroadcast', rolePerms) == true);
+    final messagesRoute = '${widget.routePrefix}/messages';
+
+    Widget listPane() {
+      return async.when(
+        loading: () => const LoadingState(message: 'Loading chats…'),
+        error: (e, _) => ErrorState(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(conversationsProvider),
+        ),
+        data: (items) {
+          var filtered = items;
+          if (_filter == 'groups') filtered = items.where((c) => c.type == 'group').toList();
+          if (_filter == 'subject') filtered = items.where((c) => c.type == 'subject').toList();
+          if (_filter == 'broadcast') filtered = items.where((c) => c.type == 'broadcast').toList();
+          if (_filter == 'support') filtered = items.where((c) => c.type == 'support').toList();
+          if (_filter == 'private') filtered = items.where((c) => c.type == 'private').toList();
+          final q = _searchCtrl.text.trim().toLowerCase();
+          if (q.isNotEmpty) {
+            filtered = filtered
+                .where((c) => c.title.toLowerCase().contains(q) || c.lastMessagePreview.toLowerCase().contains(q))
+                .toList();
+          }
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: 'Search chats or messages…',
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      tooltip: 'Search messages',
+                      icon: const Icon(Icons.manage_search),
+                      onPressed: _globalSearch,
+                    ),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _globalSearch(),
+                ),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    for (final f in [
+                      ('all', 'Recent'),
+                      ('private', 'Direct'),
+                      ('groups', 'Groups'),
+                      ('subject', 'Subjects'),
+                      ('broadcast', 'Broadcast'),
+                      ('support', 'Support'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(f.$2),
+                          selected: _filter == f.$1,
+                          onSelected: (_) => setState(() => _filter = f.$1),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Expanded(
+                child: filtered.isEmpty
+                    ? const EmptyState(title: 'No chats yet', message: 'Start a conversation or open Support.')
+                    : ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, i) {
+                          final c = filtered[i];
+                          final selected = _selected?.id == c.id;
+                          return ListTile(
+                            selected: selected,
+                            leading: CircleAvatar(
+                              child: Icon(_iconForType(c.type), size: 20),
+                            ),
+                            title: Text(c.title.isEmpty ? c.type : c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(c.lastMessagePreview, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            trailing: c.unreadCount > 0 ? Badge(label: Text('${c.unreadCount}')) : null,
+                            onTap: () => _openConversation(c),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    Widget threadPane() {
+      final conv = _selected;
+      if (conv == null) {
+        return const Center(child: Text('Select a conversation'));
+      }
+      final canReply = conv.type != 'broadcast' || conv.allowReplies || !widget.isStudent;
+      final visibleMessages = _threadSearch.trim().isEmpty
+          ? _liveMessages
+          : _liveMessages
+              .where((m) => m.body.toLowerCase().contains(_threadSearch.trim().toLowerCase()))
+              .toList();
+      return Column(
+        children: [
+          ListTile(
+            title: Text(conv.title.isEmpty ? conv.type : conv.title),
+            subtitle: Text('${conv.type} · ${conv.participantCount} members'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: conv.pinned ? 'Unpin' : 'Pin',
+                  onPressed: () => _toggleChat(pinned: !conv.pinned),
+                  icon: Icon(conv.pinned ? Icons.push_pin : Icons.push_pin_outlined),
+                ),
+                IconButton(
+                  tooltip: conv.muted ? 'Unmute' : 'Mute',
+                  onPressed: () => _toggleChat(muted: !conv.muted),
+                  icon: Icon(conv.muted ? Icons.notifications_off : Icons.notifications_outlined),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (v) {
+                    if (v == 'archive') _toggleChat(archived: true);
+                    if (v == 'refresh') _openConversation(conv);
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+                    PopupMenuItem(value: 'archive', child: Text('Archive')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Filter in thread…',
+                isDense: true,
+                prefixIcon: Icon(Icons.filter_list, size: 18),
+              ),
+              onChanged: (v) => setState(() => _threadSearch = v),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: visibleMessages.length,
+              itemBuilder: (context, i) {
+                final m = visibleMessages[i];
+                final mine = me != null && m.senderId == me.id;
+                return Align(
+                  alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                  child: GestureDetector(
+                    onLongPress: () => _messageAction(m),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
+                      decoration: BoxDecoration(
+                        color: mine
+                            ? AppColors.primary.withValues(alpha: 0.25)
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: AppRadius.card,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (m.replyToId != null)
+                            Text('↩ reply', style: Theme.of(context).textTheme.labelSmall),
+                          if (m.forwardFromId != null)
+                            Text('↪ forwarded', style: Theme.of(context).textTheme.labelSmall),
+                          if (m.isDeleted)
+                            Text(
+                              'Message deleted',
+                              style: TextStyle(fontStyle: FontStyle.italic, color: context.semantic.textMuted),
+                            )
+                          else ...[
+                            if (m.isScheduled)
+                              Text(
+                                'Scheduled · ${m.scheduledAt?.toLocal()}',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            if (m.messageType == 'call')
+                              Text(m.body.isEmpty ? '📞 Call' : m.body),
+                            if (m.body.isNotEmpty && m.messageType != 'call') Text(m.body),
+                            if (m.mentions.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Wrap(
+                                  spacing: 4,
+                                  children: [
+                                    for (final mention in m.mentions)
+                                      Chip(
+                                        avatar: const Icon(Icons.alternate_email, size: 14),
+                                        label: Text(mention.name.isEmpty ? mention.userType : mention.name),
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            for (final a in m.attachments)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: a.kind == 'image'
+                                    ? Image.network(
+                                        resolveMediaUrl(a.url),
+                                        height: 140,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Text(a.name.isEmpty ? 'Image' : a.name),
+                                      )
+                                    : a.kind == 'audio'
+                                        ? VoiceNotePlayer(url: a.url, durationSec: a.durationSec)
+                                        : Text('📎 ${a.name.isEmpty ? a.url : a.name}'),
+                              ),
+                          ],
+                          if (m.reactions.isNotEmpty)
+                            Wrap(
+                              spacing: 4,
+                              children: [
+                                for (final e in m.reactions.entries)
+                                  Chip(
+                                    label: Text('${e.key} ${e.value}'),
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              m.status,
+                              if (m.editedAt != null) 'edited',
+                              if (m.starred) '★',
+                            ].join(' · '),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (_typingLabel != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(_typingLabel!, style: Theme.of(context).textTheme.bodySmall),
+              ),
+            ),
+          if (_replyTo != null)
+            Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: ListTile(
+                dense: true,
+                title: Text('Replying to: ${_replyTo!.body}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => _replyTo = null),
+                ),
+              ),
+            ),
+          if (canReply)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: _recording ? 'Stop & send ($_recordElapsed s)' : 'Voice note',
+                      onPressed: _sending ? null : _toggleVoice,
+                      icon: Icon(
+                        _recording ? Icons.stop_circle : Icons.mic_none,
+                        color: _recording ? Colors.red : null,
+                      ),
+                    ),
+                    IconButton(onPressed: _sending ? null : _pickFile, icon: const Icon(Icons.attach_file)),
+                    PopupMenuButton<String>(
+                      tooltip: 'More',
+                      onSelected: (v) {
+                        if (v == 'schedule') _scheduleSend();
+                        if (v == 'poll') _createPoll();
+                        if (v == 'audio') _startCall(media: 'audio');
+                        if (v == 'video') _startCall(media: 'video');
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'schedule', child: Text('Schedule send')),
+                        PopupMenuItem(value: 'poll', child: Text('Create poll')),
+                        PopupMenuItem(value: 'audio', child: Text('Audio call invite')),
+                        PopupMenuItem(value: 'video', child: Text('Video call invite')),
+                      ],
+                      icon: const Icon(Icons.more_horiz),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _messageCtrl,
+                        onChanged: _onComposerChanged,
+                        decoration: InputDecoration(
+                          hintText: _recording ? 'Recording…' : 'Message… (@name to mention)',
+                          isDense: true,
+                        ),
+                        minLines: 1,
+                        maxLines: 4,
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _sending ? null : () => _send(),
+                      icon: _sending
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Replies are disabled on this broadcast.'),
+            ),
+        ],
+      );
+    }
+
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final body = wide
+        ? Row(
+            children: [
+              SizedBox(width: 340, child: Material(elevation: 0, child: listPane())),
+              const VerticalDivider(width: 1),
+              Expanded(child: threadPane()),
+            ],
+          )
+        : (_selected == null
+            ? listPane()
+            : Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        if (_selected != null) {
+                          ref.read(communicationsSocketProvider).leaveRoom(_selected!.id);
+                        }
+                        setState(() => _selected = null);
+                      },
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Chats'),
+                    ),
+                  ),
+                  Expanded(child: threadPane()),
+                ],
+              ));
+
+    final actions = <Widget>[
+      if (widget.isStudent)
+        IconButton(tooltip: 'Support', onPressed: _support, icon: const Icon(Icons.support_agent)),
+      if (!widget.isStudent)
+        IconButton(
+          tooltip: 'Subject room',
+          onPressed: _createSubjectRoom,
+          icon: const Icon(Icons.menu_book_outlined),
+        ),
+      if (!widget.isStudent)
+        IconButton(
+          tooltip: 'Moderation',
+          onPressed: () => context.go('${widget.routePrefix}/messages/moderation'),
+          icon: const Icon(Icons.gavel_outlined),
+        ),
+      if (canBroadcast)
+        IconButton(tooltip: 'Broadcast', onPressed: _broadcast, icon: const Icon(Icons.campaign_outlined)),
+      IconButton(tooltip: 'New chat', onPressed: _startNewChat, icon: const Icon(Icons.edit_square)),
+    ];
+
+    if (widget.isStudent) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Messages'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('${widget.routePrefix}/dashboard'),
+          ),
+          actions: actions,
+        ),
+        body: body,
+      );
+    }
+
+    if (widget.routePrefix == '/teacher') {
+      final items = widget.navItems;
+      final selected = widget.selectedRoute ?? messagesRoute;
+      final selectedIndex = items.indexWhere((i) => i.route == selected);
+      return AdaptiveScaffold(
+        title: 'Messages',
+        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+        selectedRoute: selected,
+        items: items,
+        onDestinationSelected: (i) => context.go(items[i].route),
+        actions: actions,
+        body: body,
+      );
+    }
+
+    final items = widget.navItems.isNotEmpty
+        ? widget.navItems
+        : (widget.routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
+    final selected = widget.selectedRoute ?? messagesRoute;
+    final selectedIndex = items.indexWhere((i) => selected.startsWith(i.route) || i.route.contains('/messages'));
+
+    return AdaptiveScaffold(
+      title: 'Messages',
+      selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+      selectedRoute: selected,
+      items: items,
+      onDestinationSelected: (i) => context.go(items[i].route),
+      actions: actions,
+      body: body,
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'subject':
+        return Icons.menu_book_outlined;
+      case 'group':
+        return Icons.groups_outlined;
+      case 'broadcast':
+        return Icons.campaign_outlined;
+      case 'support':
+        return Icons.support_agent;
+      default:
+        return Icons.chat_bubble_outline;
+    }
+  }
+}

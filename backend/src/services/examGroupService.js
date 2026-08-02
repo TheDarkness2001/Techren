@@ -106,6 +106,13 @@ const updateExamGroup = async (id, filter, data) => {
     await ClassSchedule.updateMany({ subjectGroup: id }, { $set: scheduleUpdates });
   }
 
+  try {
+    const communicationService = require('./communicationService');
+    await communicationService.syncGroupConversation(group);
+  } catch (_) {
+    /* non-fatal */
+  }
+
   return formatGroup(group);
 };
 
@@ -158,6 +165,13 @@ const createUnified = async (data) => {
   });
 
   await linkScheduleAndGroup(group._id, schedule._id);
+
+  try {
+    const communicationService = require('./communicationService');
+    await communicationService.syncGroupConversation(group);
+  } catch (e) {
+    // Non-fatal: chat sync should not block group creation
+  }
 
   const classScheduleService = require('./classScheduleService');
   const formattedSchedule = await classScheduleService.getSchedule(schedule._id, {});

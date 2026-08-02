@@ -132,6 +132,10 @@ class _StaffQuickActions extends StatelessWidget {
         (label: 'Attendance', icon: Icons.fact_check_outlined, route: '$prefix/attendance'),
       if (canAccessStaffRoute(user, '$prefix/feedback', rolePerms))
         (label: 'Feedback', icon: Icons.rate_review_outlined, route: '$prefix/feedback'),
+      if (canAccessStaffRoute(user, '$prefix/news', rolePerms))
+        (label: 'News', icon: Icons.newspaper_outlined, route: '$prefix/news'),
+      if (canAccessStaffRoute(user, '$prefix/messages', rolePerms))
+        (label: 'Messages', icon: Icons.chat_bubble_outline, route: '$prefix/messages'),
       if (canAccessStaffRoute(user, '$prefix/exams', rolePerms))
         (label: 'Exams', icon: Icons.quiz_outlined, route: '$prefix/exams'),
       if (canAccessStaffRoute(user, '$prefix/revenue-reports', rolePerms))

@@ -101,6 +101,13 @@ Future<void> showPersonDetailSheet({
             if (person.parentPhone != null)
               Text(person.parentPhone!, style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(color: muted)),
           ],
+          if (person.isStudent && (person.coursePrice ?? 0) > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Course price: \$${person.coursePrice!.toStringAsFixed(person.coursePrice! == person.coursePrice!.roundToDouble() ? 0 : 2)} / month',
+              style: Theme.of(sheetContext).textTheme.bodyMedium,
+            ),
+          ],
           if (person.isStudent && (user?.isFounder ?? false)) ...[
             const SizedBox(height: AppSpacing.lg),
             SwitchListTile(

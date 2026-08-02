@@ -52,6 +52,7 @@ const studentCreateRules = [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('parentName').optional().trim(),
   body('parentPhone').optional().trim(),
+  body('coursePrice').optional().isFloat({ min: 0 }),
   body('branchId').optional().isMongoId(),
 ];
 
@@ -62,6 +63,7 @@ const studentUpdateRules = [
   body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('parentName').optional().trim(),
   body('parentPhone').optional().trim(),
+  body('coursePrice').optional().isFloat({ min: 0 }),
   body('status').optional().isIn(['active', 'inactive']),
 ];
 

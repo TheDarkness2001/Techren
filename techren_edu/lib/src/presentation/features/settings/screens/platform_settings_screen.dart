@@ -118,6 +118,15 @@ class _PlatformSettingsScreenState extends ConsumerState<PlatformSettingsScreen>
                         _dirty = true;
                       }),
                     ),
+                    SwitchListTile(
+                      title: const Text('Teachers can create polls'),
+                      subtitle: const Text('Allow teachers to create news/chat polls without canCreatePolls'),
+                      value: flags.teachersCanCreatePolls,
+                      onChanged: (v) => setState(() {
+                        _flags = flags.copyWith(teachersCanCreatePolls: v);
+                        _dirty = true;
+                      }),
+                    ),
                   ],
                 ),
               ),

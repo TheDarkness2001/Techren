@@ -6,6 +6,14 @@ const UPLOAD_ROOT = ensureUploadDirs();
 const DOCX_DIR = path.join(UPLOAD_ROOT, 'imports');
 const IMAGE_DIR = path.join(UPLOAD_ROOT, 'images');
 const AUDIO_DIR = path.join(UPLOAD_ROOT, 'audio');
+const COMMUNICATIONS_DIR = path.join(UPLOAD_ROOT, 'communications');
+if (!require('fs').existsSync(COMMUNICATIONS_DIR)) {
+  require('fs').mkdirSync(COMMUNICATIONS_DIR, { recursive: true });
+}
+const NEWS_DIR = path.join(UPLOAD_ROOT, 'news');
+if (!require('fs').existsSync(NEWS_DIR)) {
+  require('fs').mkdirSync(NEWS_DIR, { recursive: true });
+}
 
 const makeStorage = (folder, prefix) =>
   multer.diskStorage({
@@ -56,13 +64,50 @@ const ocrUpload = multer({
   },
 });
 
+const communicationsUpload = multer({
+  storage: makeStorage(COMMUNICATIONS_DIR, 'chat'),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed =
+      /\.(jpe?g|png|webp|gif|pdf|docx?|xlsx?|pptx?|mp3|wav|ogg|m4a|mp4|webm|mov|txt|zip)$/i;
+    if (allowed.test(file.originalname) || file.mimetype.startsWith('image/') || file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not allowed'));
+    }
+  },
+});
+
+const newsUpload = multer({
+  storage: makeStorage(NEWS_DIR, 'news'),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpe?g|png|webp|gif|pdf|mp4|webm|mov|mp3|wav|m4a)$/i;
+    if (
+      allowed.test(file.originalname) ||
+      file.mimetype.startsWith('image/') ||
+      file.mimetype.startsWith('video/') ||
+      file.mimetype.startsWith('audio/') ||
+      file.mimetype === 'application/pdf'
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not allowed for news'));
+    }
+  },
+});
+
 module.exports = {
   UPLOAD_ROOT,
   DOCX_DIR,
   IMAGE_DIR,
   AUDIO_DIR,
+  COMMUNICATIONS_DIR,
+  NEWS_DIR,
   docxUpload,
   imageUpload,
   audioUpload,
   ocrUpload,
+  communicationsUpload,
+  newsUpload,
 };
