@@ -31,7 +31,7 @@ const assertTypingSubject = async (subjectId) => {
 const resolveStudentId = (req, bodyStudentId) => {
   if (req.userType === 'student') return String(req.user._id);
   if (bodyStudentId) return String(bodyStudentId);
-  throw bad('studentId is required for staff');
+  return null;
 };
 
 const utcDateString = (date = new Date()) => date.toISOString().slice(0, 10);
@@ -219,9 +219,6 @@ const finish = async (req, body = {}) => {
   await assertTypingSubject(subjectId);
   const studentId = resolveStudentId(req, body.studentId);
 
-  const student = await Student.findById(studentId);
-  if (!student) throw bad('Student not found', 404, 'NOT_FOUND');
-
   const mode = ['english', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
   const difficulty = ['easy', 'medium', 'hard', 'expert'].includes(body.difficulty)
     ? body.difficulty
@@ -230,6 +227,55 @@ const finish = async (req, body = {}) => {
   const unlimited = body.unlimited === true || durationSec === 0;
   const isDaily = body.isDaily === true;
   const metrics = sanitizeMetrics(body);
+
+  // Staff preview practice — return result without persisting XP / leaderboard.
+  if (!studentId) {
+    const { xp, reasons } = computeXp({
+      accuracy: metrics.accuracy,
+      wpm: metrics.wpm,
+      bestWpm: 0,
+      isDaily: false,
+    });
+    return {
+      result: {
+        id: null,
+        wpm: metrics.wpm,
+        rawWpm: metrics.rawWpm,
+        accuracy: metrics.accuracy,
+        correctWords: metrics.correctWords,
+        wrongWords: metrics.wrongWords,
+        totalChars: metrics.totalChars,
+        correctChars: metrics.correctChars,
+        incorrectChars: metrics.incorrectChars,
+        mistakes: metrics.mistakes,
+        wordsTyped: metrics.wordsTyped,
+        xpEarned: 0,
+        xpReasons: ['Staff preview — results are not saved'],
+        mode,
+        difficulty,
+        isDaily,
+        improvementVsLast: 0,
+        previousWpm: 0,
+      },
+      rank: null,
+      level: 1,
+      totalXp: 0,
+      currentStreak: 0,
+      achievements: [],
+      stats: {
+        bestWpm: metrics.wpm,
+        averageWpm: metrics.wpm,
+        averageAccuracy: metrics.accuracy,
+        testsCompleted: 0,
+      },
+      staffPreview: true,
+      previewXpWouldEarn: xp,
+      previewXpReasons: reasons,
+    };
+  }
+
+  const student = await Student.findById(studentId);
+  if (!student) throw bad('Student not found', 404, 'NOT_FOUND');
 
   const stats = await getOrCreateStats(studentId, subjectId);
   const previousWpm = stats.lastWpm || 0;
@@ -329,21 +375,50 @@ const dashboard = async (req, query = {}) => {
   await assertTypingSubject(subjectId);
   const studentId = resolveStudentId(req, query.studentId);
 
+  const leaderboardSize = await TypingStudentStats.countDocuments({
+    subjectId,
+    bestWpm: { $gt: 0 },
+  });
+  const testsTotal = await TypingResult.countDocuments({ subjectId });
+
+  // Staff opening IT → Typing without a student profile.
+  if (!studentId) {
+    return {
+      subjectId: String(subjectId),
+      staffView: true,
+      level: 1,
+      xp: 0,
+      xpInLevel: 0,
+      xpToNextLevel: 100,
+      currentRank: null,
+      leaderboardSize,
+      bestWpm: 0,
+      averageWpm: 0,
+      accuracy: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      timePracticedSec: 0,
+      wordsTyped: 0,
+      testsCompleted: testsTotal,
+      favoriteMode: null,
+      dailyChallengeCompleted: false,
+      settings: {},
+      message: 'Staff view — open Practice to try a session. Student XP and ranks appear on student accounts.',
+    };
+  }
+
   const [stats, profileDoc, bestRank] = await Promise.all([
     getOrCreateStats(studentId, subjectId),
     getOrCreateProfile(studentId),
-    TypingStudentStats.countDocuments({
-      subjectId,
-      bestWpm: { $gt: 0 },
-    }).then(async (total) => {
+    (async () => {
       const mine = await TypingStudentStats.findOne({ studentId, subjectId }).lean();
-      if (!mine || !mine.bestWpm) return { rank: null, total };
+      if (!mine || !mine.bestWpm) return { rank: null, total: leaderboardSize };
       const better = await TypingStudentStats.countDocuments({
         subjectId,
         bestWpm: { $gt: mine.bestWpm },
       });
-      return { rank: better + 1, total };
-    }),
+      return { rank: better + 1, total: leaderboardSize };
+    })(),
   ]);
 
   const profile = formatProfile(profileDoc.toObject(), bestRank.rank);
@@ -353,6 +428,7 @@ const dashboard = async (req, query = {}) => {
 
   return {
     subjectId: String(subjectId),
+    staffView: false,
     level: typingLevel.level,
     xp: profile.totalXp,
     xpInLevel: typingLevel.xpInLevel,
@@ -475,6 +551,9 @@ const history = async (req, query = {}) => {
   const studentId = resolveStudentId(req, query.studentId);
   const page = Math.max(1, Number(query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+  if (!studentId) {
+    return { items: [], page, limit, total: 0, staffView: true };
+  }
   const filter = { studentId, subjectId };
   const [items, total] = await Promise.all([
     TypingResult.find(filter)

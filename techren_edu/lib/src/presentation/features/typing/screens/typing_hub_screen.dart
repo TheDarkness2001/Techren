@@ -110,8 +110,17 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
                 data: (dash) => ListView(
                   padding: AppSpacing.pagePadding,
                   children: [
+                    if (dash.staffView && (dash.message?.isNotEmpty ?? false)) ...[
+                      Text(
+                        dash.message!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
                     Text(
-                      'Level ${dash.level} · ${dash.xp} XP · ${dash.xpToNextLevel} to next',
+                      dash.staffView
+                          ? 'Subject overview · ${dash.testsCompleted} student tests · ${dash.leaderboardSize} ranked'
+                          : 'Level ${dash.level} · ${dash.xp} XP · ${dash.xpToNextLevel} to next',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -124,7 +133,7 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
                         FilledButton.icon(
                           onPressed: () => _openPractice(),
                           icon: const Icon(Icons.play_arrow),
-                          label: const Text('Continue practice'),
+                          label: Text(dash.staffView ? 'Try practice' : 'Continue practice'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: dash.dailyChallengeCompleted

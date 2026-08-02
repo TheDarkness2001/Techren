@@ -21,9 +21,9 @@ router.post(
   body('subjectId').isMongoId(),
   body('mode').optional().isIn(['english', 'programming', 'code']),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'expert']),
-  body('durationSec').optional().isInt({ min: 0, max: 300 }),
-  body('isDaily').optional().isBoolean(),
-  body('unlimited').optional().isBoolean(),
+  body('durationSec').optional().isInt({ min: 0, max: 300 }).toInt(),
+  body('isDaily').optional().isBoolean().toBoolean(),
+  body('unlimited').optional().isBoolean().toBoolean(),
   validate,
   controller.start
 );
@@ -32,8 +32,8 @@ router.post(
   '/finish',
   body('subjectId').isMongoId(),
   body('mode').optional().isIn(['english', 'programming', 'code']),
-  body('wpm').isFloat({ min: 0 }),
-  body('accuracy').isFloat({ min: 0, max: 100 }),
+  body('wpm').isFloat({ min: 0 }).toFloat(),
+  body('accuracy').isFloat({ min: 0, max: 100 }).toFloat(),
   validate,
   controller.finish
 );

@@ -17,6 +17,8 @@ class TypingDashboard {
     this.testsCompleted = 0,
     this.favoriteMode,
     this.dailyChallengeCompleted = false,
+    this.staffView = false,
+    this.message,
   });
 
   final String subjectId;
@@ -36,6 +38,8 @@ class TypingDashboard {
   final int testsCompleted;
   final String? favoriteMode;
   final bool dailyChallengeCompleted;
+  final bool staffView;
+  final String? message;
 
   factory TypingDashboard.fromJson(Map<String, dynamic> json) => TypingDashboard(
         subjectId: json['subjectId']?.toString() ?? '',
@@ -55,6 +59,8 @@ class TypingDashboard {
         testsCompleted: (json['testsCompleted'] as num?)?.toInt() ?? 0,
         favoriteMode: json['favoriteMode'] as String?,
         dailyChallengeCompleted: json['dailyChallengeCompleted'] == true,
+        staffView: json['staffView'] == true,
+        message: json['message'] as String?,
       );
 }
 
