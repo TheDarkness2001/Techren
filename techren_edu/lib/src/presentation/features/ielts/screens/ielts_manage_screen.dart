@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -61,10 +62,11 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
             DropdownButtonFormField<String>(
               value: mode,
               items: const [
-                DropdownMenuItem(value: 'full', child: Text('Full mock')),
+                DropdownMenuItem(value: 'full', child: Text('Full mock (L→R→W→S)')),
                 DropdownMenuItem(value: 'listening', child: Text('Listening only')),
                 DropdownMenuItem(value: 'reading', child: Text('Reading only')),
                 DropdownMenuItem(value: 'writing', child: Text('Writing only')),
+                DropdownMenuItem(value: 'speaking', child: Text('Speaking only')),
               ],
               onChanged: (v) => mode = v ?? 'full',
               decoration: IeltsUi.field('Mode'),
@@ -183,6 +185,28 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
   }
 
   Future<void> _togglePublish(IeltsExam exam) async {
+    if (!exam.published && exam.mode == 'full') {
+      final bundle = await ref.read(ieltsApiProvider).getExam(exam.id);
+      final skills = bundle.sections.map((s) => s.skill).toSet();
+      final missing = kIeltsSkillOrder.where((s) => !skills.contains(s)).toList();
+      if (missing.isNotEmpty && mounted) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Full Mock incomplete'),
+            content: Text(
+              'This Full Mock is missing: ${missing.join(', ')}. '
+              'Real IELTS order is Listening → Reading → Writing → Speaking. Publish anyway?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Publish')),
+            ],
+          ),
+        );
+        if (proceed != true) return;
+      }
+    }
     await ref.read(ieltsApiProvider).updateExam(exam.id, {'published': !exam.published});
     ref.invalidate(ieltsExamsProvider((subjectId: widget.subjectId, mode: null)));
   }
@@ -235,7 +259,7 @@ class _IeltsManageScreenState extends ConsumerState<IeltsManageScreen> {
           return EmptyState(
             title: 'No exams yet',
             message:
-                'Create a mock here, then open it from IELTS Preparation (Listening / Reading / Writing).',
+                'Create a mock here, then open it from IELTS Preparation (Listening / Reading / Writing / Speaking).',
             icon: Icons.quiz_outlined,
             action: FilledButton.icon(
               onPressed: _create,
@@ -502,6 +526,221 @@ class _IeltsWritingReviewScreenState extends ConsumerState<IeltsWritingReviewScr
           );
         },
       ),
+    );
+  }
+}
+
+class IeltsSpeakingReviewScreen extends ConsumerStatefulWidget {
+  const IeltsSpeakingReviewScreen({
+    super.key,
+    required this.subjectId,
+    this.routePrefix = '/admin',
+  });
+
+  final String subjectId;
+  final String routePrefix;
+
+  @override
+  ConsumerState<IeltsSpeakingReviewScreen> createState() => _IeltsSpeakingReviewScreenState();
+}
+
+class _IeltsSpeakingReviewScreenState extends ConsumerState<IeltsSpeakingReviewScreen> {
+  Future<void> _score(Map<String, dynamic> item) async {
+    final attempt = IeltsAttempt.fromJson(item['attempt'] as Map<String, dynamic>);
+    double fc = 6, lr = 6, gra = 6, pr = 6;
+    final comments = TextEditingController();
+    final existing = item['speakingReview'];
+    if (existing is Map<String, dynamic>) {
+      final r = IeltsSpeakingReview.fromJson(existing);
+      fc = r.fluencyCoherence;
+      lr = r.lexicalResource;
+      gra = r.grammaticalRange;
+      pr = r.pronunciation;
+      comments.text = r.comments;
+    }
+
+    final sectionIds = attempt.speakingRecordings.entries
+        .where((e) => e.value.hasRecording)
+        .map((e) => e.key)
+        .toList();
+    final sectionId = sectionIds.isNotEmpty ? sectionIds.first : null;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              insetPadding: IeltsUi.dialogInset,
+              titlePadding: IeltsUi.titlePadding,
+              contentPadding: IeltsUi.contentPadding,
+              actionsPadding: IeltsUi.actionsPadding,
+              title: const Text('Score speaking'),
+              content: ConstrainedBox(
+                constraints: IeltsUi.dialogConstraints(ctx),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (sectionId != null)
+                        _SpeakingAudioPlayer(
+                          attemptId: attempt.id,
+                          sectionId: sectionId,
+                        )
+                      else
+                        const Text('(No recording)'),
+                      const SizedBox(height: AppSpacing.md),
+                      _BandSlider('Fluency & Coherence', fc, (v) => setLocal(() => fc = v)),
+                      _BandSlider('Lexical Resource', lr, (v) => setLocal(() => lr = v)),
+                      _BandSlider('Grammatical Range & Accuracy', gra, (v) => setLocal(() => gra = v)),
+                      _BandSlider('Pronunciation', pr, (v) => setLocal(() => pr = v)),
+                      Text('Overall: ${((fc + lr + gra + pr) / 4 * 2).round() / 2}'),
+                      IeltsUi.fieldGap,
+                      TextField(controller: comments, maxLines: 3, decoration: IeltsUi.field('Comments')),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save score')),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok != true) return;
+    await ref.read(ieltsApiProvider).submitSpeakingReview(
+          attempt.id,
+          fluencyCoherence: fc,
+          lexicalResource: lr,
+          grammaticalRange: gra,
+          pronunciation: pr,
+          comments: comments.text,
+        );
+    ref.invalidate(ieltsSpeakingQueueProvider(widget.subjectId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(ieltsSpeakingQueueProvider(widget.subjectId));
+    final hub = ieltsHubRoute(widget.routePrefix, widget.subjectId);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Speaking review'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(hub),
+        ),
+      ),
+      body: async.when(
+        loading: () => const LoadingState(message: 'Loading queue...'),
+        error: (e, _) => ErrorState(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(ieltsSpeakingQueueProvider(widget.subjectId)),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return const EmptyState(title: 'Queue empty', message: 'Submitted speaking will appear here.');
+          }
+          return ListView.separated(
+            padding: AppSpacing.pagePaddingWide,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: IeltsUi.listGap),
+            itemBuilder: (context, i) {
+              final item = items[i];
+              final attempt = IeltsAttempt.fromJson(item['attempt'] as Map<String, dynamic>);
+              final pending = item['pending'] == true;
+              return ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.card,
+                  side: BorderSide(color: context.semantic.border),
+                ),
+                title: Text('Attempt ${attempt.id.substring(0, 8)}…'),
+                subtitle: Text(pending ? 'Pending review' : 'Scored · band ${attempt.scores.speakingBand}'),
+                trailing: FilledButton.tonal(
+                  onPressed: () => _score(item),
+                  child: Text(pending ? 'Score' : 'Edit'),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SpeakingAudioPlayer extends ConsumerStatefulWidget {
+  const _SpeakingAudioPlayer({required this.attemptId, required this.sectionId});
+
+  final String attemptId;
+  final String sectionId;
+
+  @override
+  ConsumerState<_SpeakingAudioPlayer> createState() => _SpeakingAudioPlayerState();
+}
+
+class _SpeakingAudioPlayerState extends ConsumerState<_SpeakingAudioPlayer> {
+  final _player = AudioPlayer();
+  bool _loading = false;
+  bool _playing = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_playing) {
+      await _player.stop();
+      setState(() => _playing = false);
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final path = await ref.read(ieltsApiProvider).downloadSpeakingAudio(widget.attemptId, widget.sectionId);
+      await _player.setFilePath(path);
+      setState(() => _playing = true);
+      await _player.play();
+      await _player.playerStateStream.firstWhere((s) => s.processingState == ProcessingState.completed);
+      if (mounted) setState(() => _playing = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _playing = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _toggle,
+          icon: _loading
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(_playing ? Icons.stop : Icons.play_arrow),
+          label: Text(_playing ? 'Stop' : 'Play recording'),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+      ],
     );
   }
 }

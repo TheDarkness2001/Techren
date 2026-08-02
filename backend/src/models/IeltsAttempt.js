@@ -9,6 +9,7 @@ const scoreSchema = new mongoose.Schema(
     readingMax: { type: Number, default: null },
     readingBand: { type: Number, default: null },
     writingBand: { type: Number, default: null },
+    speakingBand: { type: Number, default: null },
     overallBand: { type: Number, default: null },
   },
   { _id: false }
@@ -47,6 +48,12 @@ const ieltsAttemptSchema = new mongoose.Schema(
     flags: { type: Map, of: Boolean, default: {} },
     /** writing sectionId -> essay text */
     writingResponses: { type: Map, of: String, default: {} },
+    /** speaking sectionId -> { filePath, uploadedAt, durationSec } */
+    speakingRecordings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
+    /** Full Mock current skill phase: listening|reading|writing|speaking */
+    currentSkill: { type: String, default: null },
+    /** Skills the student has finished in Full Mock */
+    completedSkills: { type: [String], default: [] },
     currentSectionId: { type: mongoose.Schema.Types.ObjectId, ref: 'IeltsSection', default: null },
     sectionStartedAt: { type: Date, default: null },
     remainingSeconds: { type: Number, default: null },
@@ -83,6 +90,17 @@ ieltsAttemptSchema.methods.toPublicJSON = function toPublicJSON({ includeKeys = 
   if (this.writingResponses) {
     for (const [k, v] of this.writingResponses.entries()) writingResponses[k] = v;
   }
+  const speakingRecordings = {};
+  if (this.speakingRecordings) {
+    for (const [k, v] of this.speakingRecordings.entries()) {
+      const rec = v && typeof v === 'object' ? v : {};
+      speakingRecordings[k] = {
+        hasRecording: Boolean(rec.filePath),
+        uploadedAt: rec.uploadedAt || null,
+        durationSec: rec.durationSec ?? null,
+      };
+    }
+  }
   const audioPlayedBySection = {};
   if (this.audioPlayedBySection) {
     for (const [k, v] of this.audioPlayedBySection.entries()) {
@@ -99,6 +117,9 @@ ieltsAttemptSchema.methods.toPublicJSON = function toPublicJSON({ includeKeys = 
     answers,
     flags,
     writingResponses,
+    speakingRecordings,
+    currentSkill: this.currentSkill || null,
+    completedSkills: Array.isArray(this.completedSkills) ? this.completedSkills : [],
     currentSectionId: this.currentSectionId,
     sectionStartedAt: this.sectionStartedAt,
     remainingSeconds: this.remainingSeconds,

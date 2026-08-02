@@ -111,13 +111,17 @@ class _StaffSidebarState extends ConsumerState<StaffSidebar> {
         children: [
           SizedBox(height: widget.embedded ? AppSpacing.sm : AppSpacing.md),
           Expanded(
-            child: Scrollbar(
-              thumbVisibility: !collapsed,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                children: [
-                  for (final item in mainItems) _buildItem(item, collapsed),
-                ],
+            child: ScrollConfiguration(
+              // Avoid nested app scrollbars + gutter inside the narrow sidebar.
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: Scrollbar(
+                thumbVisibility: !collapsed,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  children: [
+                    for (final item in mainItems) _buildItem(item, collapsed),
+                  ],
+                ),
               ),
             ),
           ),

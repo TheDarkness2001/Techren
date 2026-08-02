@@ -3,31 +3,54 @@ class IeltsTimers {
     this.listeningMinutes = 40,
     this.readingMinutes = 60,
     this.writingMinutes = 60,
+    this.speakingMinutes = 14,
   });
 
   final int listeningMinutes;
   final int readingMinutes;
   final int writingMinutes;
+  final int speakingMinutes;
 
   factory IeltsTimers.fromJson(Map<String, dynamic>? json) => IeltsTimers(
         listeningMinutes: (json?['listeningMinutes'] as num?)?.toInt() ?? 40,
         readingMinutes: (json?['readingMinutes'] as num?)?.toInt() ?? 60,
         writingMinutes: (json?['writingMinutes'] as num?)?.toInt() ?? 60,
+        speakingMinutes: (json?['speakingMinutes'] as num?)?.toInt() ?? 14,
       );
 
   Map<String, dynamic> toJson() => {
         'listeningMinutes': listeningMinutes,
         'readingMinutes': readingMinutes,
         'writingMinutes': writingMinutes,
+        'speakingMinutes': speakingMinutes,
       };
 
+  int secondsForSkill(String skill) {
+    switch (skill) {
+      case 'listening':
+        return listeningMinutes * 60;
+      case 'reading':
+        return readingMinutes * 60;
+      case 'writing':
+        return writingMinutes * 60;
+      case 'speaking':
+        return speakingMinutes * 60;
+      default:
+        return listeningMinutes * 60;
+    }
+  }
+
   int totalSecondsForMode(String mode) {
-    if (mode == 'listening') return listeningMinutes * 60;
-    if (mode == 'reading') return readingMinutes * 60;
-    if (mode == 'writing') return writingMinutes * 60;
-    return (listeningMinutes + readingMinutes + writingMinutes) * 60;
+    if (mode == 'listening' || mode == 'reading' || mode == 'writing' || mode == 'speaking') {
+      return secondsForSkill(mode);
+    }
+    // Full Mock uses per-skill phases; initial clock is Listening.
+    return secondsForSkill('listening');
   }
 }
+
+/// Real IELTS Full Mock skill order.
+const kIeltsSkillOrder = ['listening', 'reading', 'writing', 'speaking'];
 
 class IeltsExam {
   const IeltsExam({
@@ -95,6 +118,8 @@ class IeltsSection {
     this.imageUrl,
     this.writingTask,
     this.minWords = 0,
+    this.speakingPrompt = '',
+    this.speakingPart = 2,
     this.questions = const [],
   });
 
@@ -115,6 +140,8 @@ class IeltsSection {
   final String? imageUrl;
   final String? writingTask;
   final int minWords;
+  final String speakingPrompt;
+  final int speakingPart;
   final List<IeltsQuestion> questions;
 
   bool get isHtmlPassage => passageFormat == 'html';
@@ -137,6 +164,8 @@ class IeltsSection {
         imageUrl: json['imageUrl'] as String?,
         writingTask: json['writingTask'] as String?,
         minWords: (json['minWords'] as num?)?.toInt() ?? 0,
+        speakingPrompt: json['speakingPrompt'] as String? ?? '',
+        speakingPart: (json['speakingPart'] as num?)?.toInt() ?? 2,
         questions: (json['questions'] as List<dynamic>? ?? [])
             .map((e) => IeltsQuestion.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -305,6 +334,7 @@ class IeltsScores {
     this.readingMax,
     this.readingBand,
     this.writingBand,
+    this.speakingBand,
     this.overallBand,
   });
 
@@ -315,6 +345,7 @@ class IeltsScores {
   final int? readingMax;
   final double? readingBand;
   final double? writingBand;
+  final double? speakingBand;
   final double? overallBand;
 
   factory IeltsScores.fromJson(Map<String, dynamic>? json) => IeltsScores(
@@ -325,7 +356,26 @@ class IeltsScores {
         readingMax: (json?['readingMax'] as num?)?.toInt(),
         readingBand: (json?['readingBand'] as num?)?.toDouble(),
         writingBand: (json?['writingBand'] as num?)?.toDouble(),
+        speakingBand: (json?['speakingBand'] as num?)?.toDouble(),
         overallBand: (json?['overallBand'] as num?)?.toDouble(),
+      );
+}
+
+class IeltsSpeakingRecording {
+  const IeltsSpeakingRecording({
+    this.hasRecording = false,
+    this.uploadedAt,
+    this.durationSec,
+  });
+
+  final bool hasRecording;
+  final DateTime? uploadedAt;
+  final int? durationSec;
+
+  factory IeltsSpeakingRecording.fromJson(Map<String, dynamic>? json) => IeltsSpeakingRecording(
+        hasRecording: json?['hasRecording'] == true,
+        uploadedAt: json?['uploadedAt'] != null ? DateTime.tryParse(json!['uploadedAt'].toString()) : null,
+        durationSec: (json?['durationSec'] as num?)?.toInt(),
       );
 }
 
@@ -339,6 +389,9 @@ class IeltsAttempt {
     this.answers = const {},
     this.flags = const {},
     this.writingResponses = const {},
+    this.speakingRecordings = const {},
+    this.currentSkill,
+    this.completedSkills = const [],
     this.currentSectionId,
     this.remainingSeconds,
     this.audioPlayed = false,
@@ -358,6 +411,9 @@ class IeltsAttempt {
   final Map<String, dynamic> answers;
   final Map<String, bool> flags;
   final Map<String, String> writingResponses;
+  final Map<String, IeltsSpeakingRecording> speakingRecordings;
+  final String? currentSkill;
+  final List<String> completedSkills;
   final String? currentSectionId;
   final int? remainingSeconds;
   final bool audioPlayed;
@@ -373,11 +429,15 @@ class IeltsAttempt {
   bool sectionAudioPlayed(String sectionId) =>
       audioPlayedBySection[sectionId] == true || (audioPlayed && audioPlayedBySection.isEmpty);
 
+  bool speakingRecorded(String sectionId) => speakingRecordings[sectionId]?.hasRecording == true;
+
   factory IeltsAttempt.fromJson(Map<String, dynamic> json) {
     final answersRaw = json['answers'];
     final flagsRaw = json['flags'];
     final writingRaw = json['writingResponses'];
+    final speakingRaw = json['speakingRecordings'];
     final playedRaw = json['audioPlayedBySection'];
+    final completedRaw = json['completedSkills'];
     return IeltsAttempt(
       id: json['id']?.toString() ?? '',
       studentId: json['studentId']?.toString() ?? '',
@@ -393,6 +453,20 @@ class IeltsAttempt {
       writingResponses: writingRaw is Map
           ? writingRaw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''))
           : const {},
+      speakingRecordings: speakingRaw is Map
+          ? speakingRaw.map(
+              (k, v) => MapEntry(
+                k.toString(),
+                IeltsSpeakingRecording.fromJson(
+                  v is Map ? Map<String, dynamic>.from(v) : null,
+                ),
+              ),
+            )
+          : const {},
+      currentSkill: json['currentSkill']?.toString(),
+      completedSkills: completedRaw is List
+          ? completedRaw.map((e) => e.toString()).toList()
+          : const [],
       currentSectionId: json['currentSectionId']?.toString(),
       remainingSeconds: (json['remainingSeconds'] as num?)?.toInt(),
       audioPlayed: json['audioPlayed'] == true,
@@ -485,16 +559,55 @@ class IeltsWritingReview {
       );
 }
 
+class IeltsSpeakingReview {
+  const IeltsSpeakingReview({
+    required this.id,
+    required this.attemptId,
+    required this.fluencyCoherence,
+    required this.lexicalResource,
+    required this.grammaticalRange,
+    required this.pronunciation,
+    required this.overallBand,
+    this.comments = '',
+  });
+
+  final String id;
+  final String attemptId;
+  final double fluencyCoherence;
+  final double lexicalResource;
+  final double grammaticalRange;
+  final double pronunciation;
+  final double overallBand;
+  final String comments;
+
+  factory IeltsSpeakingReview.fromJson(Map<String, dynamic> json) => IeltsSpeakingReview(
+        id: json['id']?.toString() ?? '',
+        attemptId: json['attemptId']?.toString() ?? '',
+        fluencyCoherence: (json['fluencyCoherence'] as num?)?.toDouble() ?? 0,
+        lexicalResource: (json['lexicalResource'] as num?)?.toDouble() ?? 0,
+        grammaticalRange: (json['grammaticalRange'] as num?)?.toDouble() ?? 0,
+        pronunciation: (json['pronunciation'] as num?)?.toDouble() ?? 0,
+        overallBand: (json['overallBand'] as num?)?.toDouble() ?? 0,
+        comments: json['comments'] as String? ?? '',
+      );
+}
+
 class IeltsAttemptBundle {
   const IeltsAttemptBundle({
     required this.attempt,
     required this.exam,
     this.writingReview,
+    this.speakingReview,
+    this.finishedSkills = false,
+    this.nextSkill,
   });
 
   final IeltsAttempt attempt;
   final IeltsExam exam;
   final IeltsWritingReview? writingReview;
+  final IeltsSpeakingReview? speakingReview;
+  final bool finishedSkills;
+  final String? nextSkill;
 
   factory IeltsAttemptBundle.fromJson(Map<String, dynamic> json) => IeltsAttemptBundle(
         attempt: IeltsAttempt.fromJson(json['attempt'] as Map<String, dynamic>),
@@ -502,6 +615,11 @@ class IeltsAttemptBundle {
         writingReview: json['writingReview'] is Map<String, dynamic>
             ? IeltsWritingReview.fromJson(json['writingReview'] as Map<String, dynamic>)
             : null,
+        speakingReview: json['speakingReview'] is Map<String, dynamic>
+            ? IeltsSpeakingReview.fromJson(json['speakingReview'] as Map<String, dynamic>)
+            : null,
+        finishedSkills: json['finishedSkills'] == true,
+        nextSkill: json['nextSkill']?.toString(),
       );
 }
 

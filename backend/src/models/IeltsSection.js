@@ -4,7 +4,12 @@ const softDeletePlugin = require('../plugins/softDeletePlugin');
 const ieltsSectionSchema = new mongoose.Schema(
   {
     examId: { type: mongoose.Schema.Types.ObjectId, ref: 'IeltsExam', required: true, index: true },
-    skill: { type: String, enum: ['listening', 'reading', 'writing'], required: true, index: true },
+    skill: {
+      type: String,
+      enum: ['listening', 'reading', 'writing', 'speaking'],
+      required: true,
+      index: true,
+    },
     order: { type: Number, default: 0 },
     title: { type: String, default: '', trim: true },
     instructions: { type: String, default: '' },
@@ -28,6 +33,10 @@ const ieltsSectionSchema = new mongoose.Schema(
     imageUrl: { type: String, default: null },
     writingTask: { type: String, enum: ['task1', 'task2'], default: undefined },
     minWords: { type: Number, default: 0 },
+    /** Speaking cue-card / topic text */
+    speakingPrompt: { type: String, default: '' },
+    /** Speaking part (MVP defaults to cue-card Part 2) */
+    speakingPart: { type: Number, min: 1, max: 3, default: 2 },
   },
   { timestamps: true }
 );
@@ -58,6 +67,8 @@ ieltsSectionSchema.methods.toPublicJSON = function toPublicJSON({
     imageUrl: this.imageUrl,
     writingTask: this.writingTask,
     minWords: this.minWords,
+    speakingPrompt: this.speakingPrompt || '',
+    speakingPart: this.speakingPart ?? 2,
   };
 };
 

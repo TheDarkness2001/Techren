@@ -143,10 +143,11 @@ class _HubBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tiles = <_HubTile>[
-      _HubTile('Mock Exams', Icons.quiz_outlined, '$base/exams', 'Full & section mocks'),
+      _HubTile('Mock Exams', Icons.quiz_outlined, '$base/exams', 'Full mock L→R→W→S'),
       _HubTile('Listening', Icons.headphones_outlined, '$base/listening', 'Listening-only tests'),
       _HubTile('Reading', Icons.menu_book_outlined, '$base/reading', 'Reading-only tests'),
       _HubTile('Writing', Icons.edit_note_outlined, '$base/writing', 'Writing tasks'),
+      _HubTile('Speaking', Icons.record_voice_over_outlined, '$base/speaking', 'Cue card + recording'),
       _HubTile('Results & History', Icons.history_edu_outlined, '$base/history', 'Past attempts'),
       if (isStudent)
         _HubTile('My Analytics', Icons.insights_outlined, '$base/analytics', 'Strengths & weaknesses'),
@@ -155,7 +156,8 @@ class _HubBody extends ConsumerWidget {
         _HubTile('Sources', Icons.source_outlined, '$base/sources', 'Books, audio & articles'),
         _HubTile('Question Bank', Icons.storage_outlined, '$base/bank', 'Reusable question library'),
         _HubTile('Analytics', Icons.bar_chart_outlined, '$base/analytics', 'Attempt & item insights'),
-        _HubTile('Writing Review', Icons.rate_review_outlined, '$base/writing-review', 'Score submissions'),
+        _HubTile('Writing Review', Icons.rate_review_outlined, '$base/writing-review', 'Score writing'),
+        _HubTile('Speaking Review', Icons.mic_outlined, '$base/speaking-review', 'Score recordings'),
         if (isFounder)
           _HubTile('IELTS Access', Icons.lock_open_outlined, '$base/access', 'Founder unlock/lock'),
       ],
@@ -194,7 +196,7 @@ class _HubBody extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Timed mocks for Listening, Reading, and Writing. Instant L/R bands; Writing reviewed by teachers.',
+                  'Timed mocks for Listening, Reading, Writing, and Speaking. Instant L/R bands; Writing & Speaking reviewed by teachers.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted, height: 1.4),
                 ),
               ],
@@ -317,6 +319,7 @@ class _StudentDashboard extends ConsumerWidget {
                       _DashBandChip(label: 'Listening', value: _band(latest?['listeningBand'])),
                       _DashBandChip(label: 'Reading', value: _band(latest?['readingBand'])),
                       _DashBandChip(label: 'Writing', value: _band(latest?['writingBand'])),
+                      _DashBandChip(label: 'Speaking', value: _band(latest?['speakingBand'])),
                     ],
                   ),
                   if (data.bandTrend.length >= 2) ...[
@@ -600,6 +603,7 @@ class IeltsExamListScreen extends ConsumerWidget {
       'listening' => 'Listening mocks',
       'reading' => 'Reading mocks',
       'writing' => 'Writing mocks',
+      'speaking' => 'Speaking mocks',
       _ => 'Mock exams',
     };
 

@@ -84,6 +84,8 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
     final attempt = _bundle!.attempt;
     final scores = attempt.scores;
     final review = _bundle!.writingReview;
+    final speakingReview = _bundle!.speakingReview;
+    final hasSpeaking = attempt.speakingRecordings.values.any((r) => r.hasRecording);
     final muted = context.semantic.textMuted;
 
     return Scaffold(
@@ -107,7 +109,19 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
             children: [
               _BandCard('Listening', scores.listeningBand, detail: scores.listeningRaw != null ? '${scores.listeningRaw}/${scores.listeningMax}' : null),
               _BandCard('Reading', scores.readingBand, detail: scores.readingRaw != null ? '${scores.readingRaw}/${scores.readingMax}' : null),
-              _BandCard('Writing', scores.writingBand, detail: review == null ? 'Pending teacher review' : null),
+              _BandCard(
+                'Writing',
+                scores.writingBand,
+                detail: review == null && attempt.writingResponses.values.any((t) => t.trim().isNotEmpty)
+                    ? 'Pending teacher review'
+                    : null,
+              ),
+              if (hasSpeaking)
+                _BandCard(
+                  'Speaking',
+                  scores.speakingBand,
+                  detail: speakingReview == null ? 'Pending teacher review' : null,
+                ),
               _BandCard('Overall', scores.overallBand, emphasize: true),
             ],
           ),
@@ -124,6 +138,18 @@ class _IeltsResultsScreenState extends ConsumerState<IeltsResultsScreen> {
               const SizedBox(height: 8),
               Text('Corrections', style: const TextStyle(fontWeight: FontWeight.w700)),
               Text(review.corrections),
+            ],
+          ],
+          if (speakingReview != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            Text('Speaking criteria', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'FC ${speakingReview.fluencyCoherence} · LR ${speakingReview.lexicalResource} · GRA ${speakingReview.grammaticalRange} · P ${speakingReview.pronunciation}',
+            ),
+            if (speakingReview.comments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(speakingReview.comments),
             ],
           ],
           if (attempt.questionReview.isNotEmpty) ...[

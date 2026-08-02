@@ -14,6 +14,7 @@ import '../../../../domain/entities/ielts.dart';
 import '../../../providers/ielts_provider.dart';
 import '../ielts_nav.dart';
 import '../widgets/ielts_audio_once_player.dart';
+import '../widgets/ielts_speaking_recorder.dart';
 import '../widgets/questions/ielts_question_widgets.dart';
 
 class IeltsExamPlayerScreen extends ConsumerStatefulWidget {
@@ -114,16 +115,31 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
       for (final entry in bundle.attempt.writingResponses.entries) {
         _writingControllers[entry.key] = TextEditingController(text: entry.value);
       }
-      final sections = bundle.exam.sections;
+      _bundle = bundle;
+      final skill = bundle.attempt.currentSkill ??
+          (bundle.exam.mode == 'full' ? null : bundle.exam.mode);
+      final visible = skill == null || bundle.exam.mode != 'full'
+          ? bundle.exam.sections
+          : bundle.exam.sections.where((s) => s.skill == skill).toList();
       var sIdx = 0;
       if (bundle.attempt.currentSectionId != null) {
-        final i = sections.indexWhere((s) => s.id == bundle.attempt.currentSectionId);
-        if (i >= 0) sIdx = i;
+        final i = visible.indexWhere((s) => s.id == bundle.attempt.currentSectionId);
+        if (i >= 0) {
+          sIdx = i;
+        } else {
+          final j = bundle.exam.sections.indexWhere((s) => s.id == bundle.attempt.currentSectionId);
+          if (j >= 0) {
+            final sec = bundle.exam.sections[j];
+            final k = visible.indexWhere((s) => s.id == sec.id);
+            if (k >= 0) sIdx = k;
+          }
+        }
       }
       _sectionIndex = sIdx;
-      _remainingSeconds =
-          bundle.attempt.remainingSeconds ?? bundle.exam.timers.totalSecondsForMode(bundle.exam.mode);
-      _bundle = bundle;
+      _remainingSeconds = bundle.attempt.remainingSeconds ??
+          (skill != null
+              ? bundle.exam.timers.secondsForSkill(skill)
+              : bundle.exam.timers.totalSecondsForMode(bundle.exam.mode));
       _startTimers();
       setState(() => _loading = false);
     } catch (e) {
@@ -139,16 +155,119 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     _autosave?.cancel();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _submitting) return;
-      setState(() {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds -= 1;
-        } else {
-          _tick?.cancel();
-          _submit(auto: true);
-        }
-      });
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds -= 1);
+        return;
+      }
+      _tick?.cancel();
+      _onTimerExpired();
     });
     _autosave = Timer.periodic(const Duration(seconds: 8), (_) => _save());
+  }
+
+  bool get _isFullMock => _bundle?.exam.mode == 'full';
+
+  String? get _currentSkill {
+    final a = _bundle?.attempt;
+    if (a?.currentSkill != null && a!.currentSkill!.isNotEmpty) return a.currentSkill;
+    if (_bundle?.exam.mode != 'full' && _bundle?.exam.mode != null) return _bundle!.exam.mode;
+    return _visibleSections.isNotEmpty ? _visibleSections.first.skill : null;
+  }
+
+  List<IeltsSection> get _allSections => _bundle?.exam.sections ?? const [];
+
+  List<IeltsSection> get _visibleSections {
+    final all = _allSections;
+    if (!_isFullMock) return all;
+    final skill = _currentSkill;
+    if (skill == null) return all;
+    return all.where((s) => s.skill == skill).toList();
+  }
+
+  List<String> get _skillsInExam {
+    final present = _allSections.map((s) => s.skill).toSet();
+    return kIeltsSkillOrder.where(present.contains).toList();
+  }
+
+  Future<void> _onTimerExpired() async {
+    if (_isFullMock) {
+      await _advanceSkill(auto: true);
+    } else {
+      await _submit(auto: true);
+    }
+  }
+
+  Future<void> _advanceSkill({bool auto = false}) async {
+    final bundle = _bundle;
+    if (bundle == null || _submitting) return;
+    if (!auto) {
+      final skill = _currentSkill ?? 'this skill';
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Finish ${skill[0].toUpperCase()}${skill.substring(1)}?'),
+          content: const Text(
+            'You cannot return to this skill in a Full Mock. Continue to the next skill?',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    await _save();
+    try {
+      final result = await ref.read(ieltsApiProvider).advanceSkill(bundle.attempt.id);
+      if (!mounted) return;
+      if (result.finishedSkills || result.nextSkill == null) {
+        await _submit(auto: true);
+        return;
+      }
+      setState(() {
+        _bundle = IeltsAttemptBundle(
+          attempt: result.attempt,
+          exam: bundle.exam,
+          writingReview: bundle.writingReview,
+          speakingReview: bundle.speakingReview,
+        );
+        _sectionIndex = 0;
+        _questionIndex = 0;
+        _remainingSeconds = result.attempt.remainingSeconds ??
+            bundle.exam.timers.secondsForSkill(result.nextSkill!);
+      });
+      _startTimers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Next: ${result.nextSkill}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not continue: $e')));
+      if (auto) await _submit(auto: true);
+    }
+  }
+
+  Future<void> _uploadSpeaking(String sectionId, String path, int durationSec) async {
+    final bundle = _bundle;
+    if (bundle == null) return;
+    final attempt = await ref.read(ieltsApiProvider).uploadSpeakingRecording(
+          bundle.attempt.id,
+          sectionId,
+          path,
+          durationSec: durationSec,
+        );
+    if (!mounted) return;
+    setState(() {
+      _bundle = IeltsAttemptBundle(
+        attempt: attempt,
+        exam: bundle.exam,
+        writingReview: bundle.writingReview,
+        speakingReview: bundle.speakingReview,
+      );
+    });
   }
 
   Future<void> _save({String? playedSectionId}) async {
@@ -160,7 +279,10 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
     }
     _recordTimeSpent();
     if (_activeQuestionId != null) _questionStartedAt = DateTime.now();
-    final sectionId = bundle.exam.sections.isNotEmpty ? bundle.exam.sections[_sectionIndex].id : null;
+    final visible = _visibleSections;
+    final sectionId = visible.isNotEmpty
+        ? visible[_sectionIndex.clamp(0, visible.length - 1)].id
+        : null;
     try {
       await ref.read(ieltsApiProvider).autosave(
             bundle.attempt.id,
@@ -208,8 +330,8 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
   }
 
   IeltsSection? get _section {
-    final sections = _bundle?.exam.sections;
-    if (sections == null || sections.isEmpty) return null;
+    final sections = _visibleSections;
+    if (sections.isEmpty) return null;
     return sections[_sectionIndex.clamp(0, sections.length - 1)];
   }
 
@@ -286,9 +408,13 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
 
     final exam = _bundle!.exam;
     final section = _section;
+    final visible = _visibleSections;
     final questions = section?.questions.where((q) => !q.isWriting).toList() ?? const <IeltsQuestion>[];
     final isWriting = section?.skill == 'writing';
+    final isSpeaking = section?.skill == 'speaking';
     final muted = context.semantic.textMuted;
+    final skills = _skillsInExam;
+    final currentSkill = _currentSkill;
 
     final currentQid =
         (!isWriting && questions.isNotEmpty) ? questions[_questionIndex.clamp(0, questions.length - 1)].id : null;
@@ -341,8 +467,14 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
       ),
       body: Column(
         children: [
+          if (_isFullMock && skills.isNotEmpty)
+            _SkillStepStrip(
+              skills: skills,
+              currentSkill: currentSkill,
+              completed: _bundle!.attempt.completedSkills,
+            ),
           _SectionTabs(
-            sections: exam.sections,
+            sections: visible,
             index: _sectionIndex,
             onSelect: (i) {
               setState(() {
@@ -352,7 +484,7 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
               _save();
             },
           ),
-          if (!isWriting)
+          if (!isWriting && !isSpeaking)
             _QuestionNavigator(
               questions: questions,
               current: _questionIndex,
@@ -363,39 +495,62 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
           Expanded(
             child: section == null
                 ? const Center(child: Text('No sections'))
-                : isWriting
-                    ? _WritingPane(
+                : isSpeaking
+                    ? IeltsSpeakingRecorder(
                         section: section,
-                        controller: _writingController(section.id),
-                        onChanged: (_) => setState(() {}),
+                        alreadyRecorded: _bundle!.attempt.speakingRecorded(section.id),
+                        onUpload: (path, secs) => _uploadSpeaking(section.id, path, secs),
                       )
-                    : _ObjectivePane(
-                        section: section,
-                        questions: questions,
-                        questionIndex: _questionIndex,
-                        answers: _answers,
-                        flags: _flags,
-                        audioPlayed: _audioPlayedBySection[section.id] == true,
-                        splitRatio: _splitRatio,
-                        onSplitChanged: (v) => setState(() => _splitRatio = v),
-                        fontSize: _fontSize,
-                        onFontSizeChanged: (v) => setState(() => _fontSize = v),
-                        lineSpacing: _lineSpacing,
-                        onLineSpacingChanged: (v) => setState(() => _lineSpacing = v),
-                        onAnswer: (qid, value) {
-                          setState(() => _answers[qid] = value);
-                        },
-                        onToggleFlag: (qid) {
-                          setState(() => _flags[qid] = !(_flags[qid] == true));
-                        },
-                        onAudioPlayed: () {
-                          setState(() => _audioPlayedBySection[section.id] = true);
-                          _save(playedSectionId: section.id);
-                        },
-                        onAudioAnalytics: (stats) => _onAudioAnalytics(section.id, stats),
-                      ),
+                    : isWriting
+                        ? _WritingPane(
+                            section: section,
+                            controller: _writingController(section.id),
+                            onChanged: (_) => setState(() {}),
+                          )
+                        : _ObjectivePane(
+                            section: section,
+                            questions: questions,
+                            questionIndex: _questionIndex,
+                            answers: _answers,
+                            flags: _flags,
+                            audioPlayed: _audioPlayedBySection[section.id] == true,
+                            splitRatio: _splitRatio,
+                            onSplitChanged: (v) => setState(() => _splitRatio = v),
+                            fontSize: _fontSize,
+                            onFontSizeChanged: (v) => setState(() => _fontSize = v),
+                            lineSpacing: _lineSpacing,
+                            onLineSpacingChanged: (v) => setState(() => _lineSpacing = v),
+                            onAnswer: (qid, value) {
+                              setState(() => _answers[qid] = value);
+                            },
+                            onToggleFlag: (qid) {
+                              setState(() => _flags[qid] = !(_flags[qid] == true));
+                            },
+                            onAudioPlayed: () {
+                              setState(() => _audioPlayedBySection[section.id] = true);
+                              _save(playedSectionId: section.id);
+                            },
+                            onAudioAnalytics: (stats) => _onAudioAnalytics(section.id, stats),
+                          ),
           ),
-          if (!isWriting && questions.isNotEmpty)
+          if (_isFullMock)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonal(
+                    onPressed: _submitting ? null : () => _advanceSkill(),
+                    child: Text(
+                      currentSkill == skills.last || skills.isEmpty
+                          ? 'Finish speaking & submit'
+                          : 'Finish ${currentSkill ?? 'skill'} → Continue',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!isWriting && !isSpeaking && questions.isNotEmpty)
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -411,25 +566,104 @@ class _IeltsExamPlayerScreenState extends ConsumerState<IeltsExamPlayerScreen> {
                     FilledButton(
                       onPressed: _questionIndex < questions.length - 1
                           ? () => setState(() => _questionIndex += 1)
-                          : (_sectionIndex < exam.sections.length - 1
+                          : (_sectionIndex < visible.length - 1
                               ? () => setState(() {
                                     _sectionIndex += 1;
                                     _questionIndex = 0;
                                   })
-                              : () => _submit()),
+                              : (_isFullMock ? () => _advanceSkill() : () => _submit())),
                       child: Text(
                         _questionIndex < questions.length - 1
                             ? 'Next'
-                            : (_sectionIndex < exam.sections.length - 1 ? 'Next section' : 'Submit'),
+                            : (_sectionIndex < visible.length - 1
+                                ? 'Next section'
+                                : (_isFullMock ? 'Finish skill' : 'Submit')),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+          if (!_isFullMock && (isWriting || isSpeaking))
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _submitting ? null : () => _submit(),
+                    child: const Text('Submit'),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     ),
+    );
+  }
+}
+
+class _SkillStepStrip extends StatelessWidget {
+  const _SkillStepStrip({
+    required this.skills,
+    required this.currentSkill,
+    required this.completed,
+  });
+
+  final List<String> skills;
+  final String? currentSkill;
+  final List<String> completed;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = context.semantic.textMuted;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var i = 0; i < skills.length; i++)
+            Builder(
+              builder: (context) {
+                final skill = skills[i];
+                final done = completed.contains(skill);
+                final active = skill == currentSkill;
+                final label = '${i + 1} ${skill[0].toUpperCase()}${skill.substring(1)}';
+                return Chip(
+                  avatar: Icon(
+                    done
+                        ? Icons.check_circle
+                        : active
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                    size: 18,
+                    color: done
+                        ? Colors.green
+                        : active
+                            ? AppColors.primary
+                            : muted,
+                  ),
+                  label: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                      color: active ? AppColors.primary : muted,
+                    ),
+                  ),
+                  backgroundColor: active
+                      ? AppColors.primary.withValues(alpha: 0.12)
+                      : Theme.of(context).colorScheme.surface,
+                  side: BorderSide(
+                    color: active ? AppColors.primary : context.semantic.border,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -442,6 +676,7 @@ class _SectionTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (sections.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

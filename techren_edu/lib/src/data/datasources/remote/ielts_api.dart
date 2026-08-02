@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
@@ -124,6 +125,77 @@ class IeltsApi {
   Future<IeltsAttemptBundle> submitAttempt(String attemptId) async {
     final response = await _client.dio.post('/ielts/attempts/$attemptId/submit');
     return IeltsAttemptBundle.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<({IeltsAttempt attempt, bool finishedSkills, String? nextSkill})> advanceSkill(
+    String attemptId,
+  ) async {
+    final response = await _client.dio.post('/ielts/attempts/$attemptId/advance-skill');
+    final data = Map<String, dynamic>.from(response.data['data'] as Map);
+    return (
+      attempt: IeltsAttempt.fromJson(data['attempt'] as Map<String, dynamic>),
+      finishedSkills: data['finishedSkills'] == true,
+      nextSkill: data['nextSkill']?.toString(),
+    );
+  }
+
+  Future<IeltsAttempt> uploadSpeakingRecording(
+    String attemptId,
+    String sectionId,
+    String filePath, {
+    int? durationSec,
+  }) async {
+    final form = FormData.fromMap({
+      'audio': await MultipartFile.fromFile(filePath, filename: filePath.split(RegExp(r'[/\\]')).last),
+      if (durationSec != null) 'durationSec': durationSec,
+    });
+    final response = await _client.dio.post(
+      '/ielts/attempts/$attemptId/speaking/$sectionId',
+      data: form,
+    );
+    return IeltsAttempt.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  String speakingAudioUrl(String attemptId, String sectionId) {
+    final base = Uri.parse(ApiConstants.baseUrl);
+    final origin = '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}';
+    return '$origin/api/v1/ielts/attempts/$attemptId/speaking/$sectionId/audio';
+  }
+
+  /// Downloads speaking audio via authenticated Dio into a temp file path.
+  Future<String> downloadSpeakingAudio(String attemptId, String sectionId) async {
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/speak_${attemptId}_$sectionId.webm';
+    await _client.dio.download(
+      '/ielts/attempts/$attemptId/speaking/$sectionId/audio',
+      filePath,
+    );
+    return filePath;
+  }
+
+  Future<List<Map<String, dynamic>>> speakingQueue({String? subjectId}) async {
+    final response = await _client.dio.get('/ielts/speaking-queue', queryParameters: {
+      if (subjectId != null) 'subjectId': subjectId,
+    });
+    return (response.data['data'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> submitSpeakingReview(
+    String attemptId, {
+    required double fluencyCoherence,
+    required double lexicalResource,
+    required double grammaticalRange,
+    required double pronunciation,
+    String comments = '',
+  }) async {
+    final response = await _client.dio.put('/ielts/attempts/$attemptId/speaking-review', data: {
+      'fluencyCoherence': fluencyCoherence,
+      'lexicalResource': lexicalResource,
+      'grammaticalRange': grammaticalRange,
+      'pronunciation': pronunciation,
+      'comments': comments,
+    });
+    return response.data['data'] as Map<String, dynamic>;
   }
 
   Future<PaginatedResult<IeltsAttempt>> history({String? subjectId, int page = 1}) async {

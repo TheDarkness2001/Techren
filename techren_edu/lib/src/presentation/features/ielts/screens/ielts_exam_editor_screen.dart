@@ -202,6 +202,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                   DropdownMenuItem(value: 'listening', child: Text('Listening')),
                   DropdownMenuItem(value: 'reading', child: Text('Reading')),
                   DropdownMenuItem(value: 'writing', child: Text('Writing')),
+                  DropdownMenuItem(value: 'speaking', child: Text('Speaking')),
                 ],
                 onChanged: (v) => setLocal(() => skill = v ?? 'listening'),
                 decoration: IeltsUi.field('Skill'),
@@ -240,13 +241,21 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
       final fields = <String, dynamic>{
         'skill': skill,
         'title': title.text.trim().isEmpty
-            ? (skill == 'listening' && part != null ? 'Part $part' : skill)
+            ? (skill == 'listening' && part != null
+                ? 'Part $part'
+                : skill == 'speaking'
+                    ? 'Speaking cue card'
+                    : skill)
             : title.text.trim(),
         if (skill == 'listening' && part != null) 'part': part,
         if (skill == 'writing') 'writingTask': 'task2',
         if (skill == 'writing') 'minWords': '250',
         if (skill == 'writing')
           'prompt': 'Write an essay on the topic. Give reasons and examples.',
+        if (skill == 'speaking') 'speakingPart': 2,
+        if (skill == 'speaking')
+          'speakingPrompt':
+              'Describe a place you like to visit. You should say:\n• where it is\n• how often you go there\n• what you do there\n• and explain why you like it.',
       };
       await ref.read(ieltsApiProvider).createSection(widget.examId, fields);
       await _load();
@@ -275,6 +284,7 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
     final instructions = TextEditingController(text: section.instructions);
     final passage = TextEditingController(text: section.passage);
     final prompt = TextEditingController(text: section.prompt);
+    final speakingPrompt = TextEditingController(text: section.speakingPrompt);
     final transcript = TextEditingController(text: section.transcript);
     final answerHighlights = TextEditingController(text: section.answerHighlights);
     int? part = section.part;
@@ -433,6 +443,14 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                       decoration: IeltsUi.field('Prompt'),
                     ),
                   ],
+                  if (section.skill == 'speaking') ...[
+                    IeltsUi.fieldGap,
+                    TextField(
+                      controller: speakingPrompt,
+                      maxLines: 8,
+                      decoration: IeltsUi.field('Cue card / topic (Part 2)'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -459,6 +477,8 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
               if (section.skill == 'reading') 'passageFormat': passageFormat,
               if (section.skill == 'reading') 'answerHighlights': answerHighlights.text,
               if (section.skill == 'writing') 'prompt': prompt.text,
+              if (section.skill == 'speaking') 'speakingPrompt': speakingPrompt.text,
+              if (section.skill == 'speaking') 'speakingPart': 2,
             },
             audioPath: audioPath,
           );
@@ -1031,7 +1051,10 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
           ),
           const SizedBox(height: AppSpacing.sectionGap),
           if (exam.sections.isEmpty)
-            const EmptyState(title: 'No sections', message: 'Add Listening, Reading, or Writing sections.'),
+            const EmptyState(
+              title: 'No sections',
+              message: 'Add Listening, Reading, Writing, or Speaking sections.',
+            ),
           for (final section in exam.sections) ...[
             Container(
               margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -1053,7 +1076,9 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                               ? Icons.headphones
                               : section.skill == 'reading'
                                   ? Icons.menu_book
-                                  : Icons.edit_note,
+                                  : section.skill == 'speaking'
+                                      ? Icons.record_voice_over_outlined
+                                      : Icons.edit_note,
                           color: AppColors.primary,
                         ),
                       ),
@@ -1089,7 +1114,16 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
                     ),
                   ],
-                  if (section.questions.isNotEmpty) ...[
+                  if (section.skill == 'speaking' && section.speakingPrompt.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      section.speakingPrompt.length > 200
+                          ? '${section.speakingPrompt.substring(0, 200)}…'
+                          : section.speakingPrompt,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
+                    ),
+                  ],
+                  if (section.skill != 'speaking' && section.questions.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.md),
                     for (final q in section.questions)
                       Padding(
@@ -1133,24 +1167,33 @@ class _IeltsExamEditorScreenState extends ConsumerState<IeltsExamEditorScreen> {
                         ),
                       ),
                   ],
-                  const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.md,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => _addQuestion(section),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add question'),
-                      ),
-                      if (section.skill != 'writing')
+                  if (section.skill != 'speaking') ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.md,
+                      runSpacing: AppSpacing.xs,
+                      children: [
                         TextButton.icon(
-                          onPressed: () => _addFromBank(section),
-                          icon: const Icon(Icons.storage_outlined),
-                          label: const Text('Add from bank'),
+                          onPressed: () => _addQuestion(section),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add question'),
                         ),
-                    ],
-                  ),
+                        if (section.skill != 'writing')
+                          TextButton.icon(
+                            onPressed: () => _addFromBank(section),
+                            icon: const Icon(Icons.storage_outlined),
+                            label: const Text('Add from bank'),
+                          ),
+                      ],
+                    ),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: Text(
+                        'Students record one speaking response for this cue card. Teachers mark it in Speaking Review.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -150,6 +150,8 @@ const createSection = async (examId, body, file) => {
     imageUrl: body.imageUrl || null,
     writingTask: body.writingTask || null,
     minWords: body.minWords != null ? Number(body.minWords) : body.skill === 'writing' ? (body.writingTask === 'task2' ? 250 : 150) : 0,
+    speakingPrompt: body.speakingPrompt || body.prompt || '',
+    speakingPart: body.speakingPart != null ? Number(body.speakingPart) : 2,
     audioFile: file ? path.basename(file.path) : body.audioFile || null,
   });
   return section.toPublicJSON({ includeAudioPath: true, includeTranscript: true });
@@ -173,6 +175,8 @@ const updateSection = async (sectionId, body, file) => {
     'imageUrl',
     'writingTask',
     'minWords',
+    'speakingPrompt',
+    'speakingPart',
   ];
   for (const f of fields) {
     if (body[f] !== undefined) {
@@ -182,6 +186,10 @@ const updateSection = async (sectionId, body, file) => {
         section.sourceId = body.sourceId || null;
       } else if (f === 'passageFormat') {
         section.passageFormat = body.passageFormat === 'html' ? 'html' : 'plain';
+      } else if (f === 'speakingPart') {
+        section.speakingPart = body.speakingPart == null || body.speakingPart === ''
+          ? 2
+          : Number(body.speakingPart);
       } else {
         section[f] = body[f];
       }
@@ -308,6 +316,8 @@ const duplicateExam = async (examId, createdBy, { titleSuffix = ' (Copy)' } = {}
       imageUrl: s.imageUrl,
       writingTask: s.writingTask,
       minWords: s.minWords,
+      speakingPrompt: s.speakingPrompt,
+      speakingPart: s.speakingPart,
     });
     const questions = await IeltsQuestion.find({ sectionId: s._id }).sort({ order: 1 });
     for (const q of questions) {
@@ -360,6 +370,8 @@ const duplicateSection = async (sectionId) => {
     imageUrl: section.imageUrl,
     writingTask: section.writingTask,
     minWords: section.minWords,
+    speakingPrompt: section.speakingPrompt,
+    speakingPart: section.speakingPart,
   });
   const questions = await IeltsQuestion.find({ sectionId }).sort({ order: 1 });
   for (const q of questions) {
@@ -460,6 +472,8 @@ const importExamJson = async (payload, createdBy, { subjectId, strictReading = t
       imageUrl: s.imageUrl || null,
       writingTask: s.writingTask || null,
       minWords: s.minWords || 0,
+      speakingPrompt: s.speakingPrompt || '',
+      speakingPart: s.speakingPart != null ? Number(s.speakingPart) : 2,
     });
     for (const [qi, q] of (s.questions || []).entries()) {
       await IeltsQuestion.create({

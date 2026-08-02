@@ -236,6 +236,73 @@ exports.reviewWriting = asyncHandler(async (req, res) => {
   }
 });
 
+exports.advanceSkill = asyncHandler(async (req, res) => {
+  try {
+    const data = await ieltsAttemptService.advanceSkill(req.params.id, req.user._id);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.uploadSpeaking = asyncHandler(async (req, res) => {
+  try {
+    const data = await ieltsAttemptService.uploadSpeakingRecording(
+      req.params.id,
+      req.user._id,
+      req.params.sectionId,
+      req.file,
+      { durationSec: req.body?.durationSec }
+    );
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.streamSpeakingAudio = asyncHandler(async (req, res) => {
+  try {
+    const asStaff = req.userType === 'teacher';
+    const { filePath } = await ieltsAttemptService.resolveSpeakingRecordingPath(
+      req.params.id,
+      req.params.sectionId,
+      req.user._id,
+      { asStaff }
+    );
+    const ext = path.extname(filePath).toLowerCase();
+    const type =
+      ext === '.mp3'
+        ? 'audio/mpeg'
+        : ext === '.wav'
+          ? 'audio/wav'
+          : ext === '.m4a'
+            ? 'audio/mp4'
+            : 'audio/webm';
+    res.setHeader('Content-Type', type);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.speakingQueue = asyncHandler(async (req, res) => {
+  try {
+    const result = await ieltsAttemptService.listSpeakingQueue(req.query);
+    sendSuccess(res, result.items, 200, result.meta);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.reviewSpeaking = asyncHandler(async (req, res) => {
+  try {
+    const data = await ieltsAttemptService.upsertSpeakingReview(req.params.attemptId, req.user._id, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 // —— Sources ——
 exports.listSources = asyncHandler(async (req, res) => {
   try {

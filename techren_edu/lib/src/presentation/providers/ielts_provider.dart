@@ -24,6 +24,11 @@ final ieltsWritingQueueProvider =
   return ref.watch(ieltsApiProvider).writingQueue(subjectId: subjectId);
 });
 
+final ieltsSpeakingQueueProvider =
+    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String?>((ref, subjectId) async {
+  return ref.watch(ieltsApiProvider).speakingQueue(subjectId: subjectId);
+});
+
 final ieltsSourcesProvider =
     FutureProvider.autoDispose.family<List<IeltsSource>, String?>((ref, subjectId) async {
   return ref.watch(ieltsApiProvider).listSources(subjectId: subjectId);

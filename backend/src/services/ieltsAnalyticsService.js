@@ -83,6 +83,7 @@ const studentAnalytics = async (studentId, { days = 180 } = {}) => {
     listeningBand: a.scores?.listeningBand ?? null,
     readingBand: a.scores?.readingBand ?? null,
     writingBand: a.scores?.writingBand ?? null,
+    speakingBand: a.scores?.speakingBand ?? null,
     overallBand: a.scores?.overallBand ?? null,
   }));
 

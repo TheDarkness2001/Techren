@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/core/l10n/app_localizations.dart';
 import 'src/core/routing/app_router.dart';
 import 'src/core/theme/app_theme.dart';
+import 'src/core/widgets/app_scroll_behavior.dart';
 import 'src/core/widgets/session_lifecycle_guard.dart';
 import 'src/core/widgets/student_in_app_toast.dart';
 import 'src/presentation/providers/app_preferences_provider.dart';
@@ -21,6 +22,7 @@ class TechRenApp extends ConsumerWidget {
       child: MaterialApp.router(
         title: 'TechRen EDU',
         debugShowCheckedModeBanner: false,
+        scrollBehavior: const AppScrollBehavior(),
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeMode,

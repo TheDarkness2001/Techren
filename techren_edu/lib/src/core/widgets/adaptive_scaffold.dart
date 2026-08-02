@@ -106,8 +106,14 @@ class AdaptiveScaffold extends ConsumerWidget {
                       const StaffTopBar(),
                       if (title.isNotEmpty) _PageHeader(title: title, actions: actions),
                       Expanded(
+                        // No right padding — scrollbar docks to the panel edge.
                         child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            0,
+                            AppSpacing.lg,
+                          ),
                           child: animatedBody,
                         ),
                       ),
@@ -154,7 +160,12 @@ class AdaptiveScaffold extends ConsumerWidget {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                    ),
                     child: animatedBody,
                   ),
                 ),

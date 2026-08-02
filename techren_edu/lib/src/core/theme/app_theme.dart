@@ -543,9 +543,9 @@ class AppTheme {
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(tokens.textMuted.withValues(alpha: 0.45)),
         radius: const Radius.circular(AppRadius.pill),
-        thickness: WidgetStateProperty.all(6),
-        crossAxisMargin: 2,
-        mainAxisMargin: 2,
+        thickness: WidgetStateProperty.all(8),
+        crossAxisMargin: 0,
+        mainAxisMargin: 4,
         interactive: true,
       ),
       datePickerTheme: DatePickerThemeData(

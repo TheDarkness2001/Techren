@@ -166,6 +166,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       AppPageTransitions.route(
+        path: '/student/learn/:subjectId/ielts/speaking',
+        builder: (_, state) => IeltsExamListScreen(
+          subjectId: state.pathParameters['subjectId']!,
+          mode: 'speaking',
+          routePrefix: '/student',
+        ),
+      ),
+      AppPageTransitions.route(
         path: '/student/learn/:subjectId/ielts/history',
         builder: (_, state) => IeltsHistoryScreen(
           subjectId: state.pathParameters['subjectId']!,

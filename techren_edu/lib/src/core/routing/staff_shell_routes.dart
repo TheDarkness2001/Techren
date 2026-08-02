@@ -218,6 +218,17 @@ List<GoRoute> buildSharedStaffOpsRoutes({
       ),
     ),
     AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/speaking'),
+      builder: (_, state) => IeltsExamListScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        mode: 'speaking',
+        isStudent: false,
+        routePrefix: prefix,
+        navItems: navItems,
+        selectedRoute: r('/learning'),
+      ),
+    ),
+    AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/history'),
       builder: (_, state) => IeltsHistoryScreen(
         subjectId: state.pathParameters['subjectId']!,
@@ -262,6 +273,13 @@ List<GoRoute> buildSharedStaffOpsRoutes({
     AppPageTransitions.route(
       path: r('/learning/:subjectId/ielts/writing-review'),
       builder: (_, state) => IeltsWritingReviewScreen(
+        subjectId: state.pathParameters['subjectId']!,
+        routePrefix: prefix,
+      ),
+    ),
+    AppPageTransitions.route(
+      path: r('/learning/:subjectId/ielts/speaking-review'),
+      builder: (_, state) => IeltsSpeakingReviewScreen(
         subjectId: state.pathParameters['subjectId']!,
         routePrefix: prefix,
       ),

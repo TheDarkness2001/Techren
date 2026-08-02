@@ -4,6 +4,7 @@ const { protect } = require('../middleware/auth');
 const { requireFounder, requireStaff } = require('../middleware/roleGuards');
 const { requireIeltsAccess } = require('../middleware/ieltsAccess');
 const { upload } = require('../middleware/ieltsAudioUpload');
+const { uploadSpeaking } = require('../middleware/ieltsSpeakingUpload');
 const validate = require('../middleware/validate');
 const { objectId } = require('../validators/commonValidators');
 const { body } = require('express-validator');
@@ -135,8 +136,26 @@ router.get('/attempts/history', requireIeltsAccess, controller.history);
 router.get('/attempts/:id', requireIeltsAccess, objectId('id'), validate, controller.getAttempt);
 router.patch('/attempts/:id/autosave', requireIeltsAccess, objectId('id'), validate, controller.autosave);
 router.post('/attempts/:id/submit', requireIeltsAccess, objectId('id'), validate, controller.submitAttempt);
+router.post('/attempts/:id/advance-skill', requireIeltsAccess, objectId('id'), validate, controller.advanceSkill);
+router.post(
+  '/attempts/:id/speaking/:sectionId',
+  requireIeltsAccess,
+  objectId('id'),
+  objectId('sectionId'),
+  uploadSpeaking.single('audio'),
+  validate,
+  controller.uploadSpeaking
+);
+router.get(
+  '/attempts/:id/speaking/:sectionId/audio',
+  requireIeltsAccess,
+  objectId('id'),
+  objectId('sectionId'),
+  validate,
+  controller.streamSpeakingAudio
+);
 
-// Teacher writing review
+// Teacher writing / speaking review
 router.get('/writing-queue', requireStaff, controller.writingQueue);
 router.put(
   '/attempts/:attemptId/writing-review',
@@ -148,6 +167,18 @@ router.put(
   body('grammaticalRange').isFloat({ min: 0, max: 9 }),
   validate,
   controller.reviewWriting
+);
+router.get('/speaking-queue', requireStaff, controller.speakingQueue);
+router.put(
+  '/attempts/:attemptId/speaking-review',
+  requireStaff,
+  objectId('attemptId'),
+  body('fluencyCoherence').isFloat({ min: 0, max: 9 }),
+  body('lexicalResource').isFloat({ min: 0, max: 9 }),
+  body('grammaticalRange').isFloat({ min: 0, max: 9 }),
+  body('pronunciation').isFloat({ min: 0, max: 9 }),
+  validate,
+  controller.reviewSpeaking
 );
 
 module.exports = router;

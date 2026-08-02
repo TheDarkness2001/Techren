@@ -6,6 +6,7 @@ const timerSchema = new mongoose.Schema(
     listeningMinutes: { type: Number, default: 40 },
     readingMinutes: { type: Number, default: 60 },
     writingMinutes: { type: Number, default: 60 },
+    speakingMinutes: { type: Number, default: 14 },
   },
   { _id: false }
 );
@@ -17,7 +18,7 @@ const ieltsExamSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true },
     mode: {
       type: String,
-      enum: ['full', 'listening', 'reading', 'writing'],
+      enum: ['full', 'listening', 'reading', 'writing', 'speaking'],
       default: 'full',
       index: true,
     },
