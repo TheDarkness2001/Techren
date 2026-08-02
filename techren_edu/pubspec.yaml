@@ -75,7 +75,7 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/branding/icon-512.png"
-  min_sdk_android: 21
+  min_sdk_android: 23
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/branding/logo.png"
   windows:
