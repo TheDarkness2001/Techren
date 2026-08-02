@@ -20,7 +20,15 @@ router.post(
   subjectController.create
 );
 router.get('/:id', checkPermission('canViewScheduler'), objectId('id'), validate, subjectController.getOne);
-router.put('/:id', checkPermission('canManageScheduler'), objectId('id'), validate, subjectController.update);
+router.put(
+  '/:id',
+  checkPermission('canManageScheduler'),
+  objectId('id'),
+  body('name').optional().trim().notEmpty(),
+  body('pricePerClass').optional().isNumeric(),
+  validate,
+  subjectController.update
+);
 router.delete('/:id', checkPermission('canManageScheduler'), objectId('id'), validate, subjectController.remove);
 
 module.exports = router;

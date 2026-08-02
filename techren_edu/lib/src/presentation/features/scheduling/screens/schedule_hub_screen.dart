@@ -180,6 +180,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
     final subjectController = TextEditingController();
     final groupController = TextEditingController();
+    final priceController = TextEditingController();
     String? teacherId = teachers.first.id;
     final startController = TextEditingController(text: '10:00');
     final endController = TextEditingController(text: '11:30');
@@ -195,6 +196,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
           content: AppFormColumn(
               children: [
                 TextField(controller: subjectController, decoration: const InputDecoration(labelText: 'Subject name')),
+                TextField(
+                  controller: priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Course price (monthly) *',
+                    hintText: 'Used for dues & expected revenue',
+                  ),
+                ),
                 TextField(controller: groupController, decoration: const InputDecoration(labelText: 'Group name')),
                 DropdownButtonFormField<String>(
                   value: teacherId,
@@ -253,6 +262,13 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               onPressed: () async {
                 if (subjectController.text.isEmpty || groupController.text.isEmpty || teacherId == null) return;
                 if (selectedDays.isEmpty) return;
+                final price = num.tryParse(priceController.text.trim());
+                if (price == null || price <= 0) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Enter a course price greater than 0')),
+                  );
+                  return;
+                }
                 try {
                   await ref.read(schedulingApiProvider).createUnified(
                         subjectName: subjectController.text.trim(),
@@ -262,6 +278,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         startTime: startController.text.trim(),
                         endTime: endController.text.trim(),
                         studentIds: selectedStudentIds.toList(),
+                        pricePerClass: price,
                       );
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
@@ -311,6 +328,9 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     }
 
     final groupController = TextEditingController(text: view.group.groupName);
+    final priceController = TextEditingController(
+      text: view.group.pricePerClass > 0 ? '${view.group.pricePerClass}' : '',
+    );
     final startController = TextEditingController(text: view.schedule?.startTime ?? '10:00');
     final endController = TextEditingController(text: view.schedule?.endTime ?? '11:30');
     final dayAliases = <String, String>{
@@ -344,6 +364,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
           content: AppFormColumn(
               children: [
                 TextField(controller: groupController, decoration: const InputDecoration(labelText: 'Group name')),
+                TextField(
+                  controller: priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Course price (monthly)',
+                    hintText: 'Used for dues & expected revenue',
+                  ),
+                ),
                 DropdownButtonFormField<String>(
                   value: teacherId,
                   decoration: const InputDecoration(labelText: 'Teacher'),
@@ -400,6 +428,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               label: 'Save',
               onPressed: () async {
                 if (groupController.text.trim().isEmpty || teacherId == null || selectedDays.isEmpty) return;
+                final priceText = priceController.text.trim();
+                final price = priceText.isEmpty ? null : num.tryParse(priceText);
+                if (priceText.isNotEmpty && (price == null || price < 0)) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Enter a valid course price')));
+                  return;
+                }
                 try {
                   await ref.read(schedulingApiProvider).updateGroup(
                         groupId: view.group.id,
@@ -407,6 +441,13 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         studentIds: selectedStudentIds.toList(),
                         teacherIds: [teacherId!],
                       );
+                  final subjectId = view.group.subjectId;
+                  if (subjectId != null && subjectId.isNotEmpty && price != null) {
+                    await ref.read(schedulingApiProvider).updateSubject(
+                          subjectId: subjectId,
+                          pricePerClass: price,
+                        );
+                  }
                   final scheduleId = view.schedule?.id;
                   if (scheduleId != null && scheduleId.isNotEmpty) {
                     await ref.read(schedulingApiProvider).updateSchedule(

@@ -51,7 +51,7 @@ const listExamGroups = async (req) => {
 
   const [items, total] = await Promise.all([
     ExamGroup.find(filter)
-      .populate('subject', 'name code')
+      .populate('subject', 'name code pricePerClass')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),
@@ -74,7 +74,7 @@ const getExamGroup = async (id, filter) => {
 
 const createExamGroup = async (data) => {
   const group = await ExamGroup.create(data);
-  await group.populate('subject', 'name code');
+  await group.populate('subject', 'name code pricePerClass');
   return formatGroup(group);
 };
 
@@ -92,7 +92,7 @@ const updateExamGroup = async (id, filter, data) => {
     { $set: allowed },
     { new: true, runValidators: true }
   )
-    .populate('subject', 'name code')
+    .populate('subject', 'name code pricePerClass')
     .populate('students', 'name email studentId status profileImage');
 
   if (!group) {
@@ -164,7 +164,7 @@ const createUnified = async (data) => {
 
   return {
     subject: { id: subject._id, name: subject.name, code: subject.code, pricePerClass: subject.pricePerClass },
-    group: formatGroup(await group.populate('subject', 'name code')),
+    group: formatGroup(await group.populate('subject', 'name code pricePerClass')),
     schedule: formattedSchedule,
   };
 };
@@ -194,7 +194,7 @@ const getUnifiedView = async (req, query = {}) => {
 
   const [groups, total] = await Promise.all([
     ExamGroup.find(filter)
-      .populate('subject', 'name code')
+      .populate('subject', 'name code pricePerClass')
       .populate('students', 'name studentId profileImage status')
       .sort({ groupName: 1 })
       .skip(skip)

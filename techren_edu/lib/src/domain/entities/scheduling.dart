@@ -57,6 +57,7 @@ class ExamGroup extends Equatable {
     required this.groupName,
     this.subjectId,
     this.subjectName,
+    this.pricePerClass = 0,
     this.studentCount = 0,
     this.students = const [],
     this.linkedScheduleId,
@@ -66,6 +67,7 @@ class ExamGroup extends Equatable {
   final String groupName;
   final String? subjectId;
   final String? subjectName;
+  final num pricePerClass;
   final int studentCount;
   final List<ExamGroupMember> students;
   final String? linkedScheduleId;
@@ -82,6 +84,9 @@ class ExamGroup extends Equatable {
       groupName: json['groupName'] as String? ?? '',
       subjectId: subject is Map ? subject['id']?.toString() ?? subject['_id']?.toString() : subject?.toString(),
       subjectName: subject is Map ? subject['name'] as String? : json['subjectName'] as String?,
+      pricePerClass: subject is Map
+          ? (subject['pricePerClass'] as num? ?? 0)
+          : (json['pricePerClass'] as num? ?? 0),
       studentCount: (json['studentCount'] as num?)?.toInt() ?? students.length,
       students: students,
       linkedScheduleId: json['linkedScheduleId']?.toString(),

@@ -70,6 +70,7 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
   late final TextEditingController _nameCtrl;
   late final TextEditingController _codeCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _priceCtrl;
   late String _color;
   late String _icon;
   String _profile = 'language';
@@ -85,6 +86,9 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
     _nameCtrl = TextEditingController(text: e?.name ?? '');
     _codeCtrl = TextEditingController(text: e?.code ?? '');
     _descCtrl = TextEditingController(text: e?.description ?? '');
+    _priceCtrl = TextEditingController(
+      text: (e?.pricePerClass ?? 0) > 0 ? '${e!.pricePerClass}' : '',
+    );
     _color = e?.color ?? _colorPresets.first;
     _icon = e?.icon ?? 'menu_book';
     _branchId = ref.read(staffBranchFilterProvider.notifier).activeBranchId;
@@ -95,12 +99,21 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
     _nameCtrl.dispose();
     _codeCtrl.dispose();
     _descCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
+    final priceText = _priceCtrl.text.trim();
+    final price = priceText.isEmpty ? 0 : num.tryParse(priceText);
+    if (price == null || price < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid course price')),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -114,6 +127,7 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
           description: _descCtrl.text.trim(),
           color: _color,
           icon: _icon,
+          pricePerClass: price,
         );
       } else {
         var branchId = _branchId;
@@ -133,6 +147,7 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
           icon: _icon,
           branchId: branchId,
           profile: _profile,
+          pricePerClass: price,
         );
       }
       if (mounted) Navigator.pop(context, true);
@@ -171,6 +186,14 @@ class _LearningSubjectEditorDialogState extends ConsumerState<_LearningSubjectEd
                   controller: _descCtrl,
                   decoration: const InputDecoration(labelText: 'Description'),
                   maxLines: 2,
+                ),
+                TextField(
+                  controller: _priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Course price (monthly)',
+                    hintText: 'Used for dues & expected revenue',
+                  ),
                 ),
                 if (!_isEdit) ...[
                   DropdownButtonFormField<String>(

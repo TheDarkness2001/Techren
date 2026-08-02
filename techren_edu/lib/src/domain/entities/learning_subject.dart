@@ -43,6 +43,7 @@ class LearningSubjectCard extends Equatable {
     this.lastActivity,
     this.groupCount = 0,
     this.studentCount = 0,
+    this.pricePerClass = 0,
     this.modules = const [],
   });
 
@@ -57,6 +58,7 @@ class LearningSubjectCard extends Equatable {
   final DateTime? lastActivity;
   final int groupCount;
   final int studentCount;
+  final num pricePerClass;
   final List<LearningModuleDef> modules;
 
   factory LearningSubjectCard.fromJson(Map<String, dynamic> json) => LearningSubjectCard(
@@ -71,6 +73,7 @@ class LearningSubjectCard extends Equatable {
         lastActivity: DateTime.tryParse(json['lastActivity']?.toString() ?? ''),
         groupCount: json['groupCount'] as int? ?? 0,
         studentCount: json['studentCount'] as int? ?? 0,
+        pricePerClass: json['pricePerClass'] as num? ?? 0,
         modules: (json['modules'] as List<dynamic>? ?? [])
             .map((e) => LearningModuleDef.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -93,6 +96,7 @@ class LearningSubjectDashboard extends LearningSubjectCard {
     super.lastActivity,
     super.groupCount,
     super.studentCount,
+    super.pricePerClass,
     super.modules,
     this.modulesByCategory = const {},
     this.allModules = const [],
@@ -126,6 +130,7 @@ class LearningSubjectDashboard extends LearningSubjectCard {
       lastActivity: card.lastActivity,
       groupCount: card.groupCount,
       studentCount: card.studentCount,
+      pricePerClass: card.pricePerClass,
       modules: card.modules,
       modulesByCategory: byCategory,
       allModules: allModules.isNotEmpty ? allModules : card.modules,

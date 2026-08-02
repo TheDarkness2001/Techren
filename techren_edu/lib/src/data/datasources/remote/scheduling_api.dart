@@ -118,6 +118,18 @@ class SchedulingApi {
     return ExamGroup.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<Subject> updateSubject({
+    required String subjectId,
+    String? name,
+    num? pricePerClass,
+  }) async {
+    final response = await _client.dio.put('/subjects/$subjectId', data: {
+      if (name != null) 'name': name,
+      if (pricePerClass != null) 'pricePerClass': pricePerClass,
+    });
+    return Subject.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<ClassSchedule> updateSchedule({
     required String scheduleId,
     String? teacherId,

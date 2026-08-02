@@ -22,6 +22,7 @@ router.post(
   body('color').optional().trim(),
   body('branchId').optional().isMongoId(),
   body('modules').optional().isArray(),
+  body('pricePerClass').optional().isNumeric(),
   validate,
   subjectController.create
 );
@@ -35,6 +36,7 @@ router.put(
   body('icon').optional().trim(),
   body('color').optional().trim(),
   body('modules').optional().isArray(),
+  body('pricePerClass').optional().isNumeric(),
   validate,
   subjectController.update
 );

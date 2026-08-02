@@ -34,6 +34,7 @@ class LearningApi {
     String? color,
     String? branchId,
     String? profile,
+    num? pricePerClass,
     List<Map<String, dynamic>>? modules,
   }) async {
     final response = await _client.dio.post('/learning/subjects', data: {
@@ -43,6 +44,7 @@ class LearningApi {
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
       if (branchId != null) 'branchId': branchId,
+      if (pricePerClass != null) 'pricePerClass': pricePerClass,
       if (modules != null) 'modules': modules,
       if (profile != null && modules == null) 'modules': _modulesForProfile(profile),
     });
@@ -56,6 +58,7 @@ class LearningApi {
     String? description,
     String? icon,
     String? color,
+    num? pricePerClass,
     List<Map<String, dynamic>>? modules,
   }) async {
     final response = await _client.dio.put('/learning/subjects/$id', data: {
@@ -64,6 +67,7 @@ class LearningApi {
       if (description != null) 'description': description,
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
+      if (pricePerClass != null) 'pricePerClass': pricePerClass,
       if (modules != null) 'modules': modules,
     });
     return LearningSubjectCard.fromJson(response.data['data'] as Map<String, dynamic>);
