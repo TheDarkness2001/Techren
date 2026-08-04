@@ -3,9 +3,8 @@
 <plist version="1.0">
 <dict>
 	<!-- No App Sandbox: in-app Update replaces TechRen EDU.app without reinstall. -->
+	<!-- No keychain-access-groups: allows ad-hoc school builds without a Developer certificate. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<key>keychain-access-groups</key>
-	<array/>
 </dict>
 </plist>

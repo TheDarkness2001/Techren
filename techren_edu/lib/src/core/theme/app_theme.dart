@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -176,7 +177,7 @@ class AppTheme {
       ),
 
       // ── Surfaces ───────────────────────────────────────────────────────
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: tokens.card,
         surfaceTintColor: Colors.transparent,
@@ -375,7 +376,7 @@ class AppTheme {
       ),
 
       // ── Overlays ───────────────────────────────────────────────────────
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         elevation: 0,
         backgroundColor: tokens.card,
         surfaceTintColor: Colors.transparent,
@@ -501,7 +502,7 @@ class AppTheme {
         circularTrackColor: tokens.surfaceContainer,
         linearMinHeight: 6,
       ),
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: tokens.primary,
         unselectedLabelColor: tokens.textMuted,
         labelStyle: textTheme.labelLarge,
