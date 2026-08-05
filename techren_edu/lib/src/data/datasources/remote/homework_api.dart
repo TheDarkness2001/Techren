@@ -133,6 +133,25 @@ class HomeworkApi {
     return CmsLevel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  /// Unlock / lock every level under [languageId] for [groupId].
+  /// When [includeExam] is true, also unlocks every lesson exam under those levels.
+  Future<Map<String, dynamic>> bulkUnlockForGroup({
+    required String languageId,
+    required String groupId,
+    required bool unlock,
+    String moduleType = 'words',
+    bool includeExam = false,
+  }) async {
+    final response = await _client.dio.post('/homework/unlock-all', data: {
+      'languageId': languageId,
+      'groupId': groupId,
+      'unlock': unlock,
+      'moduleType': moduleType,
+      'includeExam': includeExam,
+    });
+    return response.data['data'] as Map<String, dynamic>? ?? {};
+  }
+
   Future<CmsLesson> toggleExamLock({
     required String lessonId,
     required String groupId,

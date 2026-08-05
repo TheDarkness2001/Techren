@@ -54,6 +54,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
   String? _permissionsLanguageName;
   String? _permissionsExpandedGroupId;
   final Set<String> _permissionsBusyIds = {};
+  bool _permissionsBulkBusy = false;
   DateTime? _progressDate;
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
@@ -150,6 +151,42 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(lesson.id));
+    }
+  }
+
+  Future<void> _bulkUnlock(bool unlock, String groupId) async {
+    if (_permissionsLanguageId == null) return;
+    setState(() => _permissionsBulkBusy = true);
+    try {
+      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
+            languageId: _permissionsLanguageId!,
+            groupId: groupId,
+            unlock: unlock,
+            moduleType: 'sentences',
+            includeExam: true,
+          );
+      ref.invalidate(cmsSentencesLevelsProvider(_permissionsLanguageId!));
+      final levels = ref.read(cmsSentencesLevelsProvider(_permissionsLanguageId!)).valueOrNull ?? [];
+      for (final level in levels) {
+        ref.invalidate(cmsSentencesLessonsProvider(level.id));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              unlock
+                  ? 'Unlocked all sentence levels & exams for this group'
+                  : 'Locked all sentence levels & exams for this group',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBulkBusy = false);
     }
   }
 
@@ -356,7 +393,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Unlock or lock sentence lessons for each group below.',
+              'Unlock or lock sentence lessons for each group. Teachers only see their own groups; manager and founder see all.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -390,11 +427,13 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                           group: item,
                           levels: levels,
                           busyIds: _permissionsBusyIds,
+                          bulkBusy: _permissionsBulkBusy,
                           onBack: () => setState(() => _permissionsExpandedGroupId = null),
                           onTogglePractice: (level, unlock) =>
                               _togglePractice(level, unlock, item.group.id),
                           onToggleExam: (lesson, unlock) =>
                               _toggleExam(lesson, unlock, item.group.id),
+                          onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
                           showBackButton: false,
                         ),
                       ],
@@ -494,6 +533,8 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
     required this.onBack,
     required this.onTogglePractice,
     required this.onToggleExam,
+    this.onBulkUnlock,
+    this.bulkBusy = false,
     this.showBackButton = true,
   });
 
@@ -503,6 +544,8 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
   final VoidCallback onBack;
   final Future<void> Function(CmsLevel level, bool unlock) onTogglePractice;
   final Future<void> Function(CmsLesson lesson, bool unlock) onToggleExam;
+  final Future<void> Function(bool unlock)? onBulkUnlock;
+  final bool bulkBusy;
   final bool showBackButton;
 
   @override
@@ -540,8 +583,10 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
       levels: levels,
       lessonsByLevel: lessonsByLevel,
       busyIds: busyIds,
+      bulkBusy: bulkBusy,
       onTogglePractice: onTogglePractice,
       onToggleExam: onToggleExam,
+      onBulkUnlock: onBulkUnlock,
       onBack: onBack,
       showBackButton: showBackButton,
     );

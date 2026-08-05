@@ -96,6 +96,7 @@ class TypingLiveStatsBar extends StatelessWidget {
     required this.mistakes,
     required this.timeLeftLabel,
     required this.progress,
+    this.compact = false,
   });
 
   final double wpm;
@@ -105,15 +106,64 @@ class TypingLiveStatsBar extends StatelessWidget {
   final int mistakes;
   final String timeLeftLabel;
   final double progress;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final muted = context.semantic.textMuted;
+
+    if (compact) {
+      TextSpan stat(String value, String label) => TextSpan(
+            children: [
+              TextSpan(
+                text: '$value ',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 22,
+                  color: scheme.primary,
+                ),
+              ),
+              TextSpan(
+                text: label,
+                style: TextStyle(fontSize: 13, color: muted, fontWeight: FontWeight.w600),
+              ),
+            ],
+          );
+
+      return Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 4,
+              backgroundColor: context.semantic.surfaceContainer,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text.rich(
+            TextSpan(
+              children: [
+                stat(wpm.toStringAsFixed(0), 'wpm'),
+                const TextSpan(text: '   '),
+                stat('${accuracy.toStringAsFixed(0)}%', 'acc'),
+                const TextSpan(text: '   '),
+                stat(timeLeftLabel, 'time'),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+
     Widget chip(String label, String value) => Expanded(
           child: Column(
             children: [
               Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-              Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted)),
+              Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: muted)),
             ],
           ),
         );

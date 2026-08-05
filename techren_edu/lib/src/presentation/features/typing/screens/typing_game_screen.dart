@@ -247,16 +247,16 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
           );
         },
         onLeaderboard: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // close result sheet
+          Navigator.of(context).pop(); // leave game screen
           widget.onOpenLeaderboard?.call();
         },
         onContinue: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // close result sheet
+          Navigator.of(context).pop(); // leave game screen
         },
       );
-      if (mounted) Navigator.of(context).pop();
+      // Sheet handlers already dismiss the game when needed — don't pop the hub.
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -269,7 +269,6 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
 
     return Scaffold(
@@ -292,77 +291,147 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
                   icon: Icons.error_outline,
                   action: FilledButton(onPressed: _bootstrap, child: const Text('Retry')),
                 )
-              : Padding(
-                  padding: AppSpacing.pagePadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TypingLiveStatsBar(
-                        wpm: _wpm.isFinite ? _wpm : 0,
-                        accuracy: _accuracy,
-                        correctChars: _correctChars,
-                        incorrectChars: _incorrectChars,
-                        mistakes: _mistakes,
-                        timeLeftLabel: _timeLeft < 0 ? '∞' : '${_timeLeft}s',
-                        progress: _progress,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _focus.requestFocus(),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            decoration: BoxDecoration(
-                              color: scheme.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: semantic.border),
-                            ),
-                            child: SingleChildScrollView(
-                              child: Text.rich(
-                                TextSpan(children: [
-                                  for (var i = 0; i < _target.length; i++)
-                                    TextSpan(
-                                      text: _target[i],
-                                      style: TextStyle(
-                                        fontFamily: 'Consolas',
-                                        fontSize: 22,
-                                        height: 1.5,
-                                        color: i >= _caret
-                                            ? scheme.onSurface.withValues(alpha: 0.55)
-                                            : (_inputCtrl.text.length > i && _inputCtrl.text[i] == _target[i]
-                                                ? semantic.success
-                                                : semantic.danger),
-                                        backgroundColor: i == _caret
-                                            ? scheme.primary.withValues(alpha: 0.25)
-                                            : null,
-                                      ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 720;
+                    final fontSize = wide ? 36.0 : 28.0;
+                    final maxPromptWidth = wide ? 920.0 : constraints.maxWidth;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            AppSpacing.sm,
+                            AppSpacing.md,
+                            0,
+                          ),
+                          child: TypingLiveStatsBar(
+                            wpm: _wpm.isFinite ? _wpm : 0,
+                            accuracy: _accuracy,
+                            correctChars: _correctChars,
+                            incorrectChars: _incorrectChars,
+                            mistakes: _mistakes,
+                            timeLeftLabel: _timeLeft < 0 ? '∞' : '${_timeLeft}s',
+                            progress: _progress,
+                            compact: true,
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _focus.requestFocus(),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: maxPromptWidth),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.lg,
+                                    vertical: AppSpacing.md,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: _TypingPrompt(
+                                      target: _target,
+                                      typed: _inputCtrl.text,
+                                      caret: _caret,
+                                      fontSize: fontSize,
                                     ),
-                                ]),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      Offstage(
-                        offstage: true,
-                        child: TextField(
-                          focusNode: _focus,
-                          controller: _inputCtrl,
-                          onChanged: _onText,
-                          autofocus: true,
-                          enableSuggestions: false,
-                          autocorrect: false,
-                          keyboardType: TextInputType.visiblePassword,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.deny(RegExp(r'[\u200B-\u200D\uFEFF]')),
-                          ],
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: Text(
+                            _elapsedSec == 0 && _caret == 0
+                                ? 'Tap here and start typing'
+                                : 'Keep typing — finish when ready',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: semantic.textMuted,
+                                ),
+                          ),
                         ),
-                      ),
-                      if (_submitting) const LinearProgressIndicator(),
-                    ],
-                  ),
+                        Offstage(
+                          offstage: true,
+                          child: TextField(
+                            focusNode: _focus,
+                            controller: _inputCtrl,
+                            onChanged: _onText,
+                            autofocus: true,
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            keyboardType: TextInputType.visiblePassword,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.deny(RegExp(r'[\u200B-\u200D\uFEFF]')),
+                            ],
+                          ),
+                        ),
+                        if (_submitting) const LinearProgressIndicator(),
+                      ],
+                    );
+                  },
                 ),
+    );
+  }
+}
+
+/// Monkeytype-style large monospaced prompt with a clear caret.
+class _TypingPrompt extends StatelessWidget {
+  const _TypingPrompt({
+    required this.target,
+    required this.typed,
+    required this.caret,
+    required this.fontSize,
+  });
+
+  final String target;
+  final String typed;
+  final int caret;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semantic;
+    final upcoming = scheme.onSurface.withValues(alpha: 0.38);
+    final typedOk = scheme.onSurface;
+    final baseStyle = TextStyle(
+      fontFamily: 'Consolas',
+      fontFamilyFallback: const ['Courier New', 'monospace'],
+      fontSize: fontSize,
+      height: 1.6,
+      letterSpacing: 0.6,
+      fontWeight: FontWeight.w500,
+    );
+
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          for (var i = 0; i < target.length; i++)
+            TextSpan(
+              text: target[i] == ' ' && i == caret ? '·' : target[i],
+              style: TextStyle(
+                color: i > caret
+                    ? upcoming
+                    : i == caret
+                        ? scheme.primary
+                        : (typed.length > i && typed[i] == target[i] ? typedOk : semantic.danger),
+                backgroundColor: i == caret ? scheme.primary.withValues(alpha: 0.18) : null,
+                decoration: i < caret && typed.length > i && typed[i] != target[i]
+                    ? TextDecoration.underline
+                    : TextDecoration.none,
+                decorationColor: semantic.danger,
+                decorationThickness: 2.5,
+              ),
+            ),
+        ],
+      ),
+      textAlign: TextAlign.start,
     );
   }
 }

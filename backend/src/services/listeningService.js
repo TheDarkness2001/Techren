@@ -46,6 +46,30 @@ const getOrCreateListeningLesson = async (levelId) => {
   return lesson;
 };
 
+const assertStudentCanAccessLevel = async (studentId, levelId) => {
+  if (!studentId || !levelId) return;
+  const groupIds = await getStudentGroupIds(studentId);
+  const level = await Level.findById(levelId);
+  if (!level || level.moduleType !== 'listening') {
+    throw Object.assign(new Error('Listening level not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  if (!isPracticeUnlockedForStudent(level, groupIds)) {
+    throw Object.assign(new Error('BBC news is locked for your group. Ask your teacher to unlock it.'), {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    });
+  }
+};
+
+const assertStudentCanAccessExercise = async (studentId, exercise) => {
+  if (!studentId || !exercise?.lessonId) return;
+  const lesson = await Lesson.findById(exercise.lessonId).select('levelId type');
+  if (!lesson || lesson.type !== 'listening') {
+    throw Object.assign(new Error('Listening exercise not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  await assertStudentCanAccessLevel(studentId, lesson.levelId);
+};
+
 const buildFilter = async ({ lessonId, levelId }) => {
   if (lessonId) return { lessonId };
   if (levelId) {
@@ -61,7 +85,10 @@ const listExercises = async (query, { includeScript = false } = {}) => {
   return exercises.map((e) => formatExercise(e, { includeScript }));
 };
 
-const getRandomExercise = async (query) => {
+const getRandomExercise = async (query, studentId = null) => {
+  if (studentId && query.levelId) {
+    await assertStudentCanAccessLevel(studentId, query.levelId);
+  }
   const filter = await buildFilter(query);
   const count = await ListeningExercise.countDocuments(filter);
   if (count === 0) {
@@ -144,6 +171,7 @@ const checkAnswer = async (studentId, { listeningId, answer }) => {
 
   const exercise = await ListeningExercise.findById(listeningId);
   if (!exercise) throw Object.assign(new Error('Listening exercise not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  await assertStudentCanAccessExercise(studentId, exercise);
 
   const analysis = analyzeListeningAnswer(exercise.script, answer != null ? String(answer) : '');
   if (analysis.error === 'INVALID TRANSCRIPT') {
@@ -267,7 +295,7 @@ const getStudentLevelTree = async (studentId) => {
 };
 
 const getAudioStreamMeta = async (id) => {
-  const exercise = await ListeningExercise.findById(id).select('audioFile');
+  const exercise = await ListeningExercise.findById(id).select('audioFile lessonId');
   if (!exercise?.audioFile) {
     throw Object.assign(new Error('Audio not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
@@ -309,5 +337,6 @@ module.exports = {
   resolveAudioPath,
   createAudioAccessToken,
   verifyAudioAccessToken,
+  assertStudentCanAccessExercise,
   isRemoteAudioUrl,
 };

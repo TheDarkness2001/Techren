@@ -69,3 +69,16 @@ exports.togglePracticeUnlock = asyncHandler(async (req, res) => {
     sendSuccess(res, item);
   } catch (e) { handle(res, e); }
 });
+
+exports.bulkUnlockForGroup = asyncHandler(async (req, res) => {
+  try {
+    const item = await learningContentService.bulkUnlockForGroup({
+      languageId: req.body.languageId,
+      moduleType: req.body.moduleType || 'words',
+      groupId: req.body.groupId,
+      unlock: !!req.body.unlock,
+      includeExam: !!req.body.includeExam,
+    });
+    sendSuccess(res, item);
+  } catch (e) { handle(res, e); }
+});

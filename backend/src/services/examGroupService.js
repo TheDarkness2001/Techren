@@ -183,9 +183,37 @@ const createUnified = async (data) => {
   };
 };
 
+const resolveTeacherGroupIds = async (req) => {
+  const teacherId = req.user._id;
+  const branch = getBranchFilter(req);
+  const [byTeachers, bySchedule] = await Promise.all([
+    ExamGroup.find({ teachers: teacherId, ...branch }).select('_id'),
+    ClassSchedule.find({
+      teacher: teacherId,
+      ...branch,
+      subjectGroup: { $ne: null },
+    }).select('subjectGroup'),
+  ]);
+  const ids = new Set();
+  for (const group of byTeachers) ids.add(String(group._id));
+  for (const schedule of bySchedule) {
+    if (schedule.subjectGroup) ids.add(String(schedule.subjectGroup));
+  }
+  return [...ids];
+};
+
 const getUnifiedView = async (req, query = {}) => {
   const filter = { ...getBranchFilter(req) };
   const { page, limit, skip } = parsePagination(query);
+
+  // Teachers only see groups they teach (manager / founder / admin see all in branch).
+  if (
+    req.userType === 'teacher' &&
+    req.user?.role === 'teacher'
+  ) {
+    const teacherGroupIds = await resolveTeacherGroupIds(req);
+    filter._id = { $in: teacherGroupIds };
+  }
 
   if (query.search) {
     const term = String(query.search).trim();

@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
@@ -10,11 +11,17 @@ import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/go_back_icon_button.dart';
 import '../../../../domain/entities/learning_cms.dart';
+import '../../../../domain/entities/paginated_result.dart';
+import '../../../../domain/entities/scheduling.dart';
 import '../../../../domain/entities/words.dart';
 import '../../../providers/learning_cms_provider.dart';
 import '../../../providers/listening_provider.dart';
+import '../../../providers/scheduling_provider.dart';
 import '../../../providers/words_provider.dart';
+import '../../sentences/widgets/sentences_hub_widgets.dart';
 import '../widgets/cms_hub_widgets.dart';
+
+enum _BbcCmsTab { content, permissions }
 
 /// BBC news listening CMS only. Words / Sentences are managed from their own hubs.
 class LearningCmsScreen extends ConsumerStatefulWidget {
@@ -34,8 +41,12 @@ class LearningCmsScreen extends ConsumerStatefulWidget {
 class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
   static const _moduleType = 'listening';
 
+  _BbcCmsTab _tab = _BbcCmsTab.content;
   String? _languageId;
   String? _levelId;
+  String? _permissionsExpandedGroupId;
+  final Set<String> _permissionsBusyIds = {};
+  bool _permissionsBulkBusy = false;
 
   Future<void> _refreshTree() async {
     ref.invalidate(cmsListeningLanguagesProvider);
@@ -51,6 +62,63 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
       if (language.name.trim().toLowerCase() == 'english') return language.id;
     }
     return languages.isEmpty ? null : languages.first.id;
+  }
+
+  List<UnifiedGroupView> _groupsForEnglish(List<UnifiedGroupView> items) {
+    final matched = items
+        .where((i) => (i.group.subjectName ?? '').trim().toLowerCase().contains('english'))
+        .toList();
+    return matched.isNotEmpty ? matched : items;
+  }
+
+  Future<void> _togglePractice(CmsLevel level, bool unlock, String groupId) async {
+    setState(() => _permissionsBusyIds.add(level.id));
+    try {
+      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+            levelId: level.id,
+            groupId: groupId,
+            unlock: unlock,
+          );
+      if (_languageId != null) ref.invalidate(cmsListeningLevelsProvider(_languageId!));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBusyIds.remove(level.id));
+    }
+  }
+
+  Future<void> _bulkUnlock(bool unlock, String groupId) async {
+    if (_languageId == null) return;
+    setState(() => _permissionsBulkBusy = true);
+    try {
+      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
+            languageId: _languageId!,
+            groupId: groupId,
+            unlock: unlock,
+            moduleType: 'listening',
+            includeExam: false,
+          );
+      ref.invalidate(cmsListeningLevelsProvider(_languageId!));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              unlock
+                  ? 'Unlocked all BBC news levels for this group'
+                  : 'Locked all BBC news levels for this group',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBulkBusy = false);
+    }
   }
 
   Future<void> _showLevelDialog({CmsLevel? level}) async {
@@ -249,6 +317,7 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
   @override
   Widget build(BuildContext context) {
     final languagesAsync = ref.watch(cmsListeningLanguagesProvider);
+    final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final hasSelection = _levelId != null;
@@ -282,61 +351,224 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
           }
           _languageId = languageId;
 
-          final levelsAsync = ref.watch(cmsListeningLevelsProvider(languageId));
-          final listeningAsync =
-              _levelId == null ? null : ref.watch(cmsListeningExercisesProvider(_levelId!));
-
-          final tree = _ListeningLevelTree(
-            levelId: _levelId,
-            levelsAsync: levelsAsync,
-            onLevelChanged: (id) => setState(() => _levelId = id),
-            onAddLevel: () => _showLevelDialog(),
-            onEditLevel: (l) => _showLevelDialog(level: l),
-            onDeleteLevel: _deleteLevel,
-          );
-
-          final editor = !hasSelection
-              ? const Center(child: Text('Select BBC news to manage listening exercises'))
-              : listeningAsync!.when(
-                  loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-                  error: (e, _) => Text(e.toString()),
-                  data: (exercises) => _ListeningExerciseEditor(
-                    exercises: exercises,
-                    onAdd: () => _showListeningDialog(),
-                    onEdit: (e) => _showListeningDialog(exercise: e),
-                    onDelete: _deleteListeningExercise,
-                  ),
-                );
-
-          if (wide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: 280, child: tree),
-                const VerticalDivider(width: 1),
-                Expanded(child: editor),
-              ],
-            );
-          }
-
-          if (!hasSelection) {
-            return tree;
-          }
-
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _levelId = null),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Back to levels'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                child: _BbcTabBar(
+                  selected: _tab,
+                  onSelected: (tab) => setState(() {
+                    _tab = tab;
+                    if (tab != _BbcCmsTab.permissions) {
+                      _permissionsExpandedGroupId = null;
+                    }
+                  }),
                 ),
               ),
-              Expanded(child: editor),
+              const SizedBox(height: AppSpacing.md),
+              Expanded(
+                child: _tab == _BbcCmsTab.permissions
+                    ? _buildPermissionsBody(groupsAsync)
+                    : _buildContentBody(
+                        languageId: languageId,
+                        wide: wide,
+                        hasSelection: hasSelection,
+                      ),
+              ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildPermissionsBody(AsyncValue<PaginatedResult<UnifiedGroupView>> groupsAsync) {
+    return groupsAsync.when(
+      loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
+      error: (e, _) => Center(child: Text(e.toString())),
+      data: (result) {
+        final items = result.items;
+        final relatedGroups = _groupsForEnglish(items);
+        final levelsAsync = ref.watch(cmsListeningLevelsProvider(_languageId!));
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(unifiedGroupsProvider((page: 1, search: '')));
+            if (_languageId != null) ref.invalidate(cmsListeningLevelsProvider(_languageId!));
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: [
+              Text(
+                'Unlock BBC news by group',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Teachers only see their groups. Manager and founder can unlock any group. Students only get levels unlocked for their group.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (relatedGroups.isEmpty)
+                const EmptyState(
+                  title: 'No groups',
+                  message: 'Create English subject groups in scheduling first.',
+                  icon: Icons.groups_outlined,
+                )
+              else
+                levelsAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text(e.toString()),
+                  data: (levels) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final item in relatedGroups) ...[
+                        SentencesGroupCard(
+                          item: item,
+                          onManageLessons: () => setState(() {
+                            _permissionsExpandedGroupId =
+                                _permissionsExpandedGroupId == item.group.id ? null : item.group.id;
+                          }),
+                          actionLabel: _permissionsExpandedGroupId == item.group.id
+                              ? 'Hide level locks'
+                              : 'Unlock / Lock levels',
+                        ),
+                        if (_permissionsExpandedGroupId == item.group.id) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          SentencesLessonAccessPanel(
+                            groupName: item.group.groupName,
+                            groupId: item.group.id,
+                            levels: levels,
+                            lessonsByLevel: const {},
+                            busyIds: _permissionsBusyIds,
+                            bulkBusy: _permissionsBulkBusy,
+                            showExamToggles: false,
+                            practiceOnlyHint:
+                                'Unlock levels for this group. Unlock all turns on every BBC news level at once.',
+                            onTogglePractice: (level, unlock) =>
+                                _togglePractice(level, unlock, item.group.id),
+                            onToggleExam: (_, __) async {},
+                            onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
+                            onBack: () => setState(() => _permissionsExpandedGroupId = null),
+                            showBackButton: false,
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildContentBody({
+    required String languageId,
+    required bool wide,
+    required bool hasSelection,
+  }) {
+    final levelsAsync = ref.watch(cmsListeningLevelsProvider(languageId));
+    final listeningAsync =
+        _levelId == null ? null : ref.watch(cmsListeningExercisesProvider(_levelId!));
+
+    final tree = _ListeningLevelTree(
+      levelId: _levelId,
+      levelsAsync: levelsAsync,
+      onLevelChanged: (id) => setState(() => _levelId = id),
+      onAddLevel: () => _showLevelDialog(),
+      onEditLevel: (l) => _showLevelDialog(level: l),
+      onDeleteLevel: _deleteLevel,
+    );
+
+    final editor = !hasSelection
+        ? const Center(child: Text('Select a level to manage listening exercises'))
+        : listeningAsync!.when(
+            loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
+            error: (e, _) => Text(e.toString()),
+            data: (exercises) => _ListeningExerciseEditor(
+              exercises: exercises,
+              onAdd: () => _showListeningDialog(),
+              onEdit: (e) => _showListeningDialog(exercise: e),
+              onDelete: _deleteListeningExercise,
+            ),
+          );
+
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: 280, child: tree),
+          const VerticalDivider(width: 1),
+          Expanded(child: editor),
+        ],
+      );
+    }
+
+    if (!hasSelection) {
+      return tree;
+    }
+
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _levelId = null),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Back to levels'),
+          ),
+        ),
+        Expanded(child: editor),
+      ],
+    );
+  }
+}
+
+class _BbcTabBar extends StatelessWidget {
+  const _BbcTabBar({required this.selected, required this.onSelected});
+
+  final _BbcCmsTab selected;
+  final ValueChanged<_BbcCmsTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: context.semantic.border),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.xxs),
+      child: Row(
+        children: [
+          for (final tab in _BbcCmsTab.values)
+            Expanded(
+              child: Material(
+                color: selected == tab ? scheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                child: InkWell(
+                  onTap: () => onSelected(tab),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    child: Text(
+                      tab == _BbcCmsTab.content ? 'Content' : 'Permissions',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: selected == tab ? scheme.onPrimary : scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

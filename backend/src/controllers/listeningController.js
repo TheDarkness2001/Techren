@@ -14,7 +14,8 @@ exports.list = asyncHandler(async (req, res) => {
 
 exports.random = asyncHandler(async (req, res) => {
   try {
-    const item = await listeningService.getRandomExercise(req.query);
+    const studentId = req.userType === 'student' ? req.user._id : null;
+    const item = await listeningService.getRandomExercise(req.query, studentId);
     sendSuccess(res, item);
   } catch (e) { handle(res, e); }
 });
@@ -72,7 +73,10 @@ exports.studentLevels = asyncHandler(async (req, res) => {
 
 exports.signedUrl = asyncHandler(async (req, res) => {
   try {
-    await listeningService.getAudioStreamMeta(req.params.id);
+    const exercise = await listeningService.getAudioStreamMeta(req.params.id);
+    if (req.userType === 'student') {
+      await listeningService.assertStudentCanAccessExercise(req.user._id, exercise);
+    }
     const token = listeningService.createAudioAccessToken(req.user._id, req.params.id);
     sendSuccess(res, {
       url: `/api/v1/listening/exercises/${req.params.id}/audio?token=${token}`,

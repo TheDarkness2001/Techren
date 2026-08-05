@@ -69,8 +69,10 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
           durationSec: durationSec,
           isDaily: isDaily,
           onOpenLeaderboard: () {
-            Navigator.of(context).pop();
-            _tabs.animateTo(2);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _tabs.animateTo(2);
+            });
           },
         ),
       ),

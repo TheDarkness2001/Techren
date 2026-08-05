@@ -60,6 +60,17 @@ router.post('/levels', manageHomework, body('name').trim().notEmpty(), body('lan
 router.put('/levels/:id', manageHomework, objectId('id'), validate, learningController.updateLevel);
 router.delete('/levels/:id', manageHomework, objectId('id'), validate, learningController.removeLevel);
 router.post('/levels/:id/practice-unlock', manageHomework, objectId('id'), body('groupId').isMongoId(), body('unlock').isBoolean(), validate, learningController.togglePracticeUnlock);
+router.post(
+  '/unlock-all',
+  manageHomework,
+  body('languageId').isMongoId(),
+  body('groupId').isMongoId(),
+  body('unlock').isBoolean(),
+  body('moduleType').optional().isIn(['words', 'sentences', 'listening', 'video']),
+  body('includeExam').optional().isBoolean(),
+  validate,
+  learningController.bulkUnlockForGroup
+);
 
 router.get('/lessons', lessonController.list);
 router.post('/lessons', manageHomework, body('name').trim().notEmpty(), body('levelId').isMongoId(), validate, lessonController.create);

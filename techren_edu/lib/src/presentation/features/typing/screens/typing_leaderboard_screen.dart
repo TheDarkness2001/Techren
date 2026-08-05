@@ -15,57 +15,78 @@ class TypingLeaderboardPanel extends ConsumerStatefulWidget {
   ConsumerState<TypingLeaderboardPanel> createState() => _TypingLeaderboardPanelState();
 }
 
-class _TypingLeaderboardPanelState extends ConsumerState<TypingLeaderboardPanel> {
+class _TypingLeaderboardPanelState extends ConsumerState<TypingLeaderboardPanel>
+    with AutomaticKeepAliveClientMixin {
   String _period = 'all';
 
   @override
-  Widget build(BuildContext context) {
-    final async = ref.watch(
-      typingLeaderboardProvider((subjectId: widget.subjectId, period: _period)),
-    );
+  bool get wantKeepAlive => true;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-          child: Row(
-            children: [
-              ChoiceChip(
-                label: const Text('All time'),
-                selected: _period == 'all',
-                onSelected: (_) => setState(() => _period = 'all'),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Weekly'),
-                selected: _period == 'weekly',
-                onSelected: (_) => setState(() => _period = 'weekly'),
-              ),
-            ],
-          ),
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final args = (subjectId: widget.subjectId, period: _period);
+    final async = ref.watch(typingLeaderboardProvider(args));
+
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: async.when(
+        loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
+        error: (e, _) => ErrorState(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(typingLeaderboardProvider(args)),
         ),
-        Expanded(
-          child: async.when(
-            loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-            error: (e, _) => Center(child: Text(e.toString())),
-            data: (items) {
-              if (items.isEmpty) {
-                return const EmptyState(
+        data: (items) => CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All time'),
+                      selected: _period == 'all',
+                      onSelected: (_) {
+                        if (_period == 'all') return;
+                        setState(() => _period = 'all');
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('Weekly'),
+                      selected: _period == 'weekly',
+                      onSelected: (_) {
+                        if (_period == 'weekly') return;
+                        setState(() => _period = 'weekly');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (items.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
                   title: 'No scores yet',
                   message: 'Complete a typing test to appear on the leaderboard.',
                   icon: Icons.leaderboard_outlined,
-                );
-              }
-              return ListView.separated(
+                ),
+              )
+            else
+              SliverPadding(
                 padding: AppSpacing.listGutter,
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (_, i) => _Row(entry: items[i]),
-              );
-            },
-          ),
+                sliver: SliverList.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) => _Row(entry: items[i]),
+                ),
+              ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

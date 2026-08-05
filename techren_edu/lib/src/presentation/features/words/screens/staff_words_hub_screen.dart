@@ -8,12 +8,16 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/staff_permissions.dart';
 import '../../../../domain/entities/learning_cms.dart';
+import '../../../../domain/entities/paginated_result.dart';
+import '../../../../domain/entities/scheduling.dart';
 import '../../../../domain/entities/words.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/learning_cms_provider.dart';
+import '../../../providers/scheduling_provider.dart';
 import '../../../providers/staff_navigation_provider.dart';
 import '../../../providers/words_provider.dart';
 import '../../learning/widgets/module_content_manager.dart';
+import '../../sentences/widgets/sentences_hub_widgets.dart';
 import '../widgets/words_hub_widgets.dart';
 import 'word_practice_screen.dart';
 
@@ -35,6 +39,11 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   WordsHubTab _tab = WordsHubTab.practice;
   String? _languageId;
   String? _levelId;
+  String? _permissionsLanguageId;
+  String? _permissionsLanguageName;
+  String? _permissionsExpandedGroupId;
+  final Set<String> _permissionsBusyIds = {};
+  bool _permissionsBulkBusy = false;
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
 
@@ -51,7 +60,21 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     });
   }
 
+  void _resetPermissions() {
+    setState(() {
+      _permissionsLanguageId = null;
+      _permissionsLanguageName = null;
+      _permissionsExpandedGroupId = null;
+      _permissionsBusyIds.clear();
+      _permissionsBulkBusy = false;
+    });
+  }
+
   void _goBack() {
+    if (_tab == WordsHubTab.permissions && _permissionsLanguageId != null) {
+      _resetPermissions();
+      return;
+    }
     if (_levelId != null) {
       setState(() => _levelId = null);
       return;
@@ -61,6 +84,18 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       return;
     }
     context.go('$_prefix/learning');
+  }
+
+  List<UnifiedGroupView> _groupsForSubject(
+    List<UnifiedGroupView> items,
+    String? subjectName,
+  ) {
+    if (subjectName == null || subjectName.trim().isEmpty) return items;
+    final key = subjectName.trim().toLowerCase();
+    final matched = items
+        .where((i) => (i.group.subjectName ?? '').trim().toLowerCase() == key)
+        .toList();
+    return matched.isNotEmpty ? matched : items;
   }
 
   Future<void> _addLanguage() async {
@@ -111,11 +146,86 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     return value.isEmpty ? null : value;
   }
 
+  Future<void> _togglePractice(CmsLevel level, bool unlock, String groupId) async {
+    setState(() => _permissionsBusyIds.add(level.id));
+    try {
+      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+            levelId: level.id,
+            groupId: groupId,
+            unlock: unlock,
+          );
+      if (_permissionsLanguageId != null) {
+        ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBusyIds.remove(level.id));
+    }
+  }
+
+  Future<void> _toggleExam(CmsLesson lesson, bool unlock, String groupId) async {
+    setState(() => _permissionsBusyIds.add(lesson.id));
+    try {
+      await ref.read(homeworkApiProvider).toggleExamLock(
+            lessonId: lesson.id,
+            groupId: groupId,
+            unlock: unlock,
+          );
+      ref.invalidate(cmsLessonsProvider(lesson.levelId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBusyIds.remove(lesson.id));
+    }
+  }
+
+  Future<void> _bulkUnlock(bool unlock, String groupId) async {
+    if (_permissionsLanguageId == null) return;
+    setState(() => _permissionsBulkBusy = true);
+    try {
+      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
+            languageId: _permissionsLanguageId!,
+            groupId: groupId,
+            unlock: unlock,
+            moduleType: 'words',
+            includeExam: true,
+          );
+      ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
+      final levels = ref.read(cmsLevelsProvider(_permissionsLanguageId!)).valueOrNull ?? [];
+      for (final level in levels) {
+        ref.invalidate(cmsLessonsProvider(level.id));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              unlock
+                  ? 'Unlocked all word levels & exams for this group'
+                  : 'Locked all word levels & exams for this group',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _permissionsBulkBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final languagesAsync = ref.watch(cmsLanguagesProvider);
     final levelsAsync = _languageId == null ? null : ref.watch(cmsLevelsProvider(_languageId!));
     final lessonsAsync = _levelId == null ? null : ref.watch(cmsLessonsProvider(_levelId!));
+    final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final canManage = _canManageHomework;
 
@@ -126,7 +236,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
-        if (canManage)
+        if (canManage && _tab != WordsHubTab.permissions)
           IconButton(
             tooltip: 'Add language',
             onPressed: _addLanguage,
@@ -141,8 +251,12 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(cmsLanguagesProvider);
+          ref.invalidate(unifiedGroupsProvider((page: 1, search: '')));
           if (_languageId != null) ref.invalidate(cmsLevelsProvider(_languageId!));
           if (_levelId != null) ref.invalidate(cmsLessonsProvider(_levelId!));
+          if (_permissionsLanguageId != null) {
+            ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
+          }
         },
         child: ListView(
           padding: EdgeInsets.zero,
@@ -153,10 +267,11 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               selected: _tab,
               onSelected: (tab) => setState(() {
                 _tab = tab;
-                if (tab == WordsHubTab.studentProgress) {
+                if (tab == WordsHubTab.studentProgress || tab == WordsHubTab.permissions) {
                   _languageId = null;
                   _levelId = null;
                 }
+                if (tab != WordsHubTab.permissions) _resetPermissions();
               }),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -168,6 +283,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                 languages: languages,
                 levelsAsync: levelsAsync,
                 lessonsAsync: lessonsAsync,
+                groupsAsync: groupsAsync,
                 canManage: canManage,
               ),
             ),
@@ -182,6 +298,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     required List<LearningLanguage> languages,
     required AsyncValue<List<CmsLevel>>? levelsAsync,
     required AsyncValue<List<CmsLesson>>? lessonsAsync,
+    required AsyncValue<PaginatedResult<UnifiedGroupView>> groupsAsync,
     required bool canManage,
   }) {
     switch (_tab) {
@@ -195,6 +312,12 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
         );
       case WordsHubTab.lessons:
         return const ModuleContentManager(module: ContentManagerModule.words);
+      case WordsHubTab.permissions:
+        return groupsAsync.when(
+          loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
+          error: (e, _) => Text(e.toString()),
+          data: (result) => _buildPermissionsTab(result.items, languages),
+        );
       case WordsHubTab.exam:
         return _buildLanguageFlow(
           languages: languages,
@@ -214,6 +337,95 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
           onAddLanguage: canManage ? _addLanguage : null,
         );
     }
+  }
+
+  Widget _buildPermissionsTab(List<UnifiedGroupView> items, List<LearningLanguage> languages) {
+    if (_permissionsLanguageId == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Choose a language / subject',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          WordsLanguageSection(
+            languages: languages,
+            selectedLanguageId: null,
+            onLanguageSelected: (language) => setState(() {
+              _permissionsLanguageId = language.id;
+              _permissionsLanguageName = language.name;
+              _permissionsExpandedGroupId = null;
+            }),
+          ),
+        ],
+      );
+    }
+
+    final relatedGroups = _groupsForSubject(items, _permissionsLanguageName);
+    final levelsAsync = ref.watch(cmsLevelsProvider(_permissionsLanguageId!));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SentencesBackButton(label: 'Back to Languages', onPressed: _resetPermissions),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Groups for ${_permissionsLanguageName ?? 'subject'}',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Teachers unlock only their groups. Manager and founder can unlock any group.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (relatedGroups.isEmpty)
+          const EmptyState(
+            title: 'No groups for this subject',
+            message: 'Create groups under this subject in scheduling first.',
+            icon: Icons.groups_outlined,
+          )
+        else
+          levelsAsync.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text(e.toString()),
+            data: (levels) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final item in relatedGroups) ...[
+                  SentencesGroupCard(
+                    item: item,
+                    onManageLessons: () => setState(() {
+                      _permissionsExpandedGroupId =
+                          _permissionsExpandedGroupId == item.group.id ? null : item.group.id;
+                    }),
+                    actionLabel: _permissionsExpandedGroupId == item.group.id
+                        ? 'Hide lesson locks'
+                        : 'Unlock / Lock Lessons',
+                  ),
+                  if (_permissionsExpandedGroupId == item.group.id) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _WordsPermissionsLevelsLoader(
+                      group: item,
+                      levels: levels,
+                      busyIds: _permissionsBusyIds,
+                      bulkBusy: _permissionsBulkBusy,
+                      onBack: () => setState(() => _permissionsExpandedGroupId = null),
+                      onTogglePractice: (level, unlock) =>
+                          _togglePractice(level, unlock, item.group.id),
+                      onToggleExam: (lesson, unlock) =>
+                          _toggleExam(lesson, unlock, item.group.id),
+                      onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildLanguageFlow({
@@ -270,6 +482,64 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _WordsPermissionsLevelsLoader extends ConsumerWidget {
+  const _WordsPermissionsLevelsLoader({
+    required this.group,
+    required this.levels,
+    required this.busyIds,
+    required this.onBack,
+    required this.onTogglePractice,
+    required this.onToggleExam,
+    required this.onBulkUnlock,
+    this.bulkBusy = false,
+  });
+
+  final UnifiedGroupView group;
+  final List<CmsLevel> levels;
+  final Set<String> busyIds;
+  final VoidCallback onBack;
+  final Future<void> Function(CmsLevel level, bool unlock) onTogglePractice;
+  final Future<void> Function(CmsLesson lesson, bool unlock) onToggleExam;
+  final Future<void> Function(bool unlock) onBulkUnlock;
+  final bool bulkBusy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lessonsByLevel = <String, List<CmsLesson>>{};
+    var stillLoading = false;
+
+    for (final level in levels) {
+      final async = ref.watch(cmsLessonsProvider(level.id));
+      async.when(
+        data: (lessons) => lessonsByLevel[level.id] = lessons,
+        loading: () => stillLoading = true,
+        error: (_, __) {},
+      );
+    }
+
+    if (stillLoading && lessonsByLevel.length < levels.length) {
+      return const Padding(
+        padding: EdgeInsets.only(top: AppSpacing.md),
+        child: LinearProgressIndicator(),
+      );
+    }
+
+    return SentencesLessonAccessPanel(
+      groupName: group.group.groupName,
+      groupId: group.group.id,
+      levels: levels,
+      lessonsByLevel: lessonsByLevel,
+      busyIds: busyIds,
+      bulkBusy: bulkBusy,
+      onTogglePractice: onTogglePractice,
+      onToggleExam: onToggleExam,
+      onBulkUnlock: onBulkUnlock,
+      onBack: onBack,
+      showBackButton: false,
     );
   }
 }

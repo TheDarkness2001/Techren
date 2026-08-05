@@ -8,7 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../domain/entities/learning_cms.dart';
 import '../../../../domain/entities/words.dart';
 
-enum WordsHubTab { practice, exam, lessons, studentProgress }
+enum WordsHubTab { practice, exam, lessons, permissions, studentProgress }
 
 /// Horizontal tab bar — segmented control (filled active chip, no underline).
 class WordsHubTabBar extends StatelessWidget {
@@ -25,6 +25,7 @@ class WordsHubTabBar extends StatelessWidget {
     WordsHubTab.practice: 'Practice',
     WordsHubTab.exam: 'Exam',
     WordsHubTab.lessons: 'Lessons',
+    WordsHubTab.permissions: 'Permissions',
     WordsHubTab.studentProgress: 'Student Progress',
   };
 
