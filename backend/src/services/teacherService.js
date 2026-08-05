@@ -61,9 +61,10 @@ const createTeacher = async (req, data) => {
     password: data.password,
     phone: data.phone,
     role: data.role || 'teacher',
-    subject: data.subject || [],
+    subject: Array.isArray(data.subject) ? data.subject : data.subject ? [data.subject] : [],
+    department: data.department || '',
     branchId,
-    status: 'active',
+    status: data.status || 'active',
   });
 
   return teacher.toPublicJSON();
@@ -102,7 +103,10 @@ const updateTeacher = async (req, id, data) => {
   if (data.name !== undefined) teacher.name = data.name;
   if (data.phone !== undefined) teacher.phone = data.phone;
   if (data.role !== undefined && teacher.role !== 'founder') teacher.role = data.role;
-  if (data.subject !== undefined) teacher.subject = data.subject;
+  if (data.subject !== undefined) {
+    teacher.subject = Array.isArray(data.subject) ? data.subject : data.subject ? [data.subject] : [];
+  }
+  if (data.department !== undefined) teacher.department = data.department || '';
   if (data.status !== undefined) teacher.status = data.status;
   if (data.password) teacher.password = data.password;
   if (data.profileImage !== undefined) teacher.profileImage = data.profileImage;

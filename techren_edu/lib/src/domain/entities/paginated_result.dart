@@ -25,12 +25,20 @@ class PageMeta {
   final String? status;
   final String? branchId;
 
-  PageMeta copyWith({int? page, int? limit, String? search, String? status, String? branchId}) {
+  PageMeta copyWith({
+    int? page,
+    int? limit,
+    String? search,
+    String? status,
+    String? branchId,
+    bool clearStatus = false,
+    bool clearSearch = false,
+  }) {
     return PageMeta(
       page: page ?? this.page,
       limit: limit ?? this.limit,
-      search: search ?? this.search,
-      status: status ?? this.status,
+      search: clearSearch ? null : (search ?? this.search),
+      status: clearStatus ? null : (status ?? this.status),
       branchId: branchId ?? this.branchId,
     );
   }

@@ -10,6 +10,7 @@ const teacherSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     phone: { type: String, trim: true },
     subject: [{ type: String }],
+    department: { type: String, trim: true, default: '' },
     role: {
       type: String,
       enum: ['founder', 'admin', 'teacher', 'sales', 'receptionist', 'manager'],
@@ -63,6 +64,7 @@ teacherSchema.methods.toPublicJSON = function toPublicJSON() {
     email: this.email,
     phone: this.phone,
     subject: this.subject,
+    department: this.department || '',
     role: this.role,
     permissions,
     branchId: this.branchId,

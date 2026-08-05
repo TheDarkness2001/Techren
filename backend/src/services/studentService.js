@@ -61,15 +61,36 @@ const createStudent = async (req, data) => {
     }
   }
 
+  const subjectFees = Array.isArray(data.subjectFees)
+    ? data.subjectFees
+        .filter((f) => f && String(f.subject || '').trim())
+        .map((f) => ({ subject: String(f.subject).trim(), amount: Number(f.amount) || 0 }))
+    : [];
+  const feesTotal = subjectFees.reduce((sum, f) => sum + f.amount, 0);
+  const coursePrice =
+    data.coursePrice != null && data.coursePrice !== ''
+      ? Number(data.coursePrice)
+      : feesTotal;
+
+  const allowedStatus = ['active', 'inactive', 'graduated'];
+  const status = allowedStatus.includes(data.status) ? data.status : 'active';
+
   const student = await Student.create({
     name: data.name,
     email: data.email,
     password: data.password,
+    phone: data.phone || '',
     parentName: data.parentName,
     parentPhone: data.parentPhone,
-    coursePrice: data.coursePrice != null ? Number(data.coursePrice) : 0,
+    coursePrice: Number.isFinite(coursePrice) ? coursePrice : 0,
+    subjectFees,
+    dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+    gender: data.gender || '',
+    bloodGroup: data.bloodGroup || '',
+    address: data.address || '',
+    medicalConditions: data.medicalConditions || '',
     branchId,
-    status: 'active',
+    status,
   });
 
   return student.toPublicJSON();
@@ -93,9 +114,24 @@ const updateStudent = async (req, id, data) => {
   }
 
   if (data.name !== undefined) student.name = data.name;
+  if (data.phone !== undefined) student.phone = data.phone;
   if (data.parentName !== undefined) student.parentName = data.parentName;
   if (data.parentPhone !== undefined) student.parentPhone = data.parentPhone;
   if (data.coursePrice !== undefined) student.coursePrice = Number(data.coursePrice) || 0;
+  if (data.subjectFees !== undefined) {
+    student.subjectFees = Array.isArray(data.subjectFees)
+      ? data.subjectFees
+          .filter((f) => f && String(f.subject || '').trim())
+          .map((f) => ({ subject: String(f.subject).trim(), amount: Number(f.amount) || 0 }))
+      : [];
+  }
+  if (data.dateOfBirth !== undefined) {
+    student.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+  }
+  if (data.gender !== undefined) student.gender = data.gender || '';
+  if (data.bloodGroup !== undefined) student.bloodGroup = data.bloodGroup || '';
+  if (data.address !== undefined) student.address = data.address || '';
+  if (data.medicalConditions !== undefined) student.medicalConditions = data.medicalConditions || '';
   if (data.status !== undefined) student.status = data.status;
   if (data.password) student.password = data.password;
   if (data.profileImage !== undefined) student.profileImage = data.profileImage;

@@ -26,6 +26,8 @@ import '../../presentation/shells/parent_shell.dart';
 import '../../presentation/features/wallet/screens/wallet_screen.dart';
 import '../../presentation/features/upload/screens/content_import_screen.dart';
 import '../../presentation/features/learning_cms/screens/learning_cms_screen.dart';
+import '../../presentation/features/people/screens/add_student_screen.dart';
+import '../../presentation/features/people/screens/add_teacher_screen.dart';
 import '../../presentation/features/progress/screens/teacher_progress_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
@@ -285,6 +287,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       AppPageTransitions.route(path: '/admin/dashboard', builder: (_, __) => const AdminDashboardScreen()),
       AppPageTransitions.route(path: '/admin/people', builder: (_, __) => const AdminPeopleScreen()),
+      AppPageTransitions.route(
+        path: '/admin/people/add-student',
+        builder: (_, __) => const AddStudentScreen(prefix: '/admin'),
+      ),
+      AppPageTransitions.route(
+        path: '/admin/people/add-teacher',
+        builder: (_, __) => const AddTeacherScreen(prefix: '/admin'),
+      ),
       AppPageTransitions.route(path: '/admin/schedule', redirect: (_, __) => '/admin/schedule/timetable'),
       AppPageTransitions.route(
         path: '/admin/schedule/groups',
@@ -303,6 +313,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       AppPageTransitions.route(path: '/founder/dashboard', builder: (_, __) => const FounderDashboardScreen()),
       AppPageTransitions.route(path: '/founder/branches', builder: (_, __) => const FounderBranchesScreen()),
       AppPageTransitions.route(path: '/founder/people', builder: (_, __) => const FounderPeopleScreen()),
+      AppPageTransitions.route(
+        path: '/founder/people/add-student',
+        builder: (_, __) => const AddStudentScreen(prefix: '/founder'),
+      ),
+      AppPageTransitions.route(
+        path: '/founder/people/add-teacher',
+        builder: (_, __) => const AddTeacherScreen(prefix: '/founder'),
+      ),
       AppPageTransitions.route(path: '/founder/schedule', redirect: (_, __) => '/founder/schedule/timetable'),
       AppPageTransitions.route(
         path: '/founder/schedule/groups',

@@ -57,191 +57,287 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(existing == null ? 'Create post' : 'Edit post'),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
-                  TextField(controller: body, decoration: const InputDecoration(labelText: 'Body'), maxLines: 4),
-                  TextField(controller: category, decoration: const InputDecoration(labelText: 'Category')),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: type,
-                    decoration: const InputDecoration(labelText: 'Type'),
-                    items: const [
-                      DropdownMenuItem(value: 'announcement', child: Text('Announcement')),
-                      DropdownMenuItem(value: 'news', child: Text('News')),
-                      DropdownMenuItem(value: 'event', child: Text('Event')),
-                      DropdownMenuItem(value: 'motivation', child: Text('Motivation')),
-                      DropdownMenuItem(value: 'quote', child: Text('Quote')),
-                      DropdownMenuItem(value: 'poll_embed', child: Text('Poll')),
-                      DropdownMenuItem(value: 'reminder', child: Text('Reminder')),
-                      DropdownMenuItem(value: 'scholarship', child: Text('Scholarship')),
-                    ],
-                    onChanged: (v) => setLocal(() {
-                      type = v ?? type;
-                      if (type == 'poll_embed') includePoll = true;
-                    }),
-                  ),
-                  DropdownButtonFormField<String>(
-                    value: audienceMode,
-                    decoration: const InputDecoration(labelText: 'Audience'),
-                    items: const [
-                      DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
-                      DropdownMenuItem(value: 'roles', child: Text('Roles (students)')),
-                      DropdownMenuItem(value: 'branches', child: Text('Branches')),
-                      DropdownMenuItem(value: 'groups', child: Text('Groups')),
-                      DropdownMenuItem(value: 'subjects', child: Text('Subjects')),
-                    ],
-                    onChanged: (v) => setLocal(() => audienceMode = v ?? audienceMode),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Pinned'),
-                    value: pinned,
-                    onChanged: (v) => setLocal(() => pinned = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Comments'),
-                    value: commentsEnabled,
-                    onChanged: (v) => setLocal(() => commentsEnabled = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Reactions'),
-                    value: reactionsEnabled,
-                    onChanged: (v) => setLocal(() => reactionsEnabled = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Quote of the Day'),
-                    value: showQuote,
-                    onChanged: (v) => setLocal(() {
-                      showQuote = v;
-                      quoteDate ??= DateTime.now();
-                    }),
-                  ),
-                  if (showQuote)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Quote date: ${quoteDate != null ? quoteDate!.toLocal().toString().split(' ').first : 'Today'}',
+        builder: (ctx, setLocal) {
+          const fieldGap = SizedBox(height: AppSpacing.md);
+          return AlertDialog(
+            title: Text(existing == null ? 'Create post' : 'Edit post'),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            content: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: title,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
                       ),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: quoteDate ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) setLocal(() => quoteDate = picked);
-                      },
                     ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Schedule publish'),
-                    value: schedulePublish,
-                    onChanged: (v) => setLocal(() {
-                      schedulePublish = v;
-                      publishAt ??= DateTime.now().add(const Duration(hours: 1));
-                    }),
-                  ),
-                  if (schedulePublish)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Publish at: ${publishAt?.toLocal() ?? 'pick'}'),
-                      trailing: const Icon(Icons.schedule),
-                      onTap: () async {
-                        final d = await showDatePicker(
-                          context: ctx,
-                          initialDate: publishAt ?? DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (d == null) return;
-                        final t = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay.fromDateTime(publishAt ?? DateTime.now()),
-                        );
-                        if (t == null) return;
-                        setLocal(() {
-                          publishAt = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-                        });
-                      },
+                    fieldGap,
+                    TextField(
+                      controller: body,
+                      decoration: const InputDecoration(
+                        labelText: 'Body',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 4,
                     ),
-                  if (type == 'event') ...[
-                    TextField(controller: eventLocation, decoration: const InputDecoration(labelText: 'Event location')),
-                    TextField(controller: eventJoin, decoration: const InputDecoration(labelText: 'Join URL')),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Starts: ${eventStarts?.toLocal() ?? 'pick date/time'}'),
-                      trailing: const Icon(Icons.event),
-                      onTap: () async {
-                        final d = await showDatePicker(
-                          context: ctx,
-                          initialDate: eventStarts ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (d == null) return;
-                        final t = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay.fromDateTime(eventStarts ?? DateTime.now()),
-                        );
-                        if (t == null) return;
-                        setLocal(() {
-                          eventStarts = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-                        });
-                      },
+                    fieldGap,
+                    TextField(
+                      controller: category,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ],
-                  TextField(controller: linkUrl, decoration: const InputDecoration(labelText: 'Link URL (optional)')),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Include poll'),
-                    value: includePoll,
-                    onChanged: (v) => setLocal(() => includePoll = v),
-                  ),
-                  if (includePoll) ...[
-                    TextField(controller: pollQuestion, decoration: const InputDecoration(labelText: 'Poll question')),
+                    fieldGap,
                     DropdownButtonFormField<String>(
-                      value: pollType,
-                      decoration: const InputDecoration(labelText: 'Poll type'),
-                      items: const [
-                        DropdownMenuItem(value: 'single', child: Text('Single choice')),
-                        DropdownMenuItem(value: 'multiple', child: Text('Multiple')),
-                        DropdownMenuItem(value: 'yes_no', child: Text('Yes / No')),
-                        DropdownMenuItem(value: 'true_false', child: Text('True / False')),
-                        DropdownMenuItem(value: 'rating', child: Text('Rating 1–5')),
-                        DropdownMenuItem(value: 'emoji', child: Text('Emoji mood')),
-                      ],
-                      onChanged: (v) => setLocal(() => pollType = v ?? pollType),
-                    ),
-                    if (pollType == 'single' || pollType == 'multiple') ...[
-                      TextField(controller: optA, decoration: const InputDecoration(labelText: 'Option A')),
-                      TextField(controller: optB, decoration: const InputDecoration(labelText: 'Option B')),
-                    ],
-                    if (pollType == 'rating' || pollType == 'emoji')
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text('Options are generated automatically for this poll type.'),
+                      value: type,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Type',
+                        border: OutlineInputBorder(),
                       ),
+                      items: const [
+                        DropdownMenuItem(value: 'announcement', child: Text('Announcement')),
+                        DropdownMenuItem(value: 'news', child: Text('News')),
+                        DropdownMenuItem(value: 'event', child: Text('Event')),
+                        DropdownMenuItem(value: 'motivation', child: Text('Motivation')),
+                        DropdownMenuItem(value: 'quote', child: Text('Quote')),
+                        DropdownMenuItem(value: 'poll_embed', child: Text('Poll')),
+                        DropdownMenuItem(value: 'reminder', child: Text('Reminder')),
+                        DropdownMenuItem(value: 'scholarship', child: Text('Scholarship')),
+                      ],
+                      onChanged: (v) => setLocal(() {
+                        type = v ?? type;
+                        if (type == 'poll_embed') includePoll = true;
+                      }),
+                    ),
+                    fieldGap,
+                    DropdownButtonFormField<String>(
+                      value: audienceMode,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Audience',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                        DropdownMenuItem(value: 'roles', child: Text('Roles (students)')),
+                        DropdownMenuItem(value: 'branches', child: Text('Branches')),
+                        DropdownMenuItem(value: 'groups', child: Text('Groups')),
+                        DropdownMenuItem(value: 'subjects', child: Text('Subjects')),
+                      ],
+                      onChanged: (v) => setLocal(() => audienceMode = v ?? audienceMode),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Pinned'),
+                      value: pinned,
+                      onChanged: (v) => setLocal(() => pinned = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Comments'),
+                      value: commentsEnabled,
+                      onChanged: (v) => setLocal(() => commentsEnabled = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Reactions'),
+                      value: reactionsEnabled,
+                      onChanged: (v) => setLocal(() => reactionsEnabled = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Quote of the Day'),
+                      value: showQuote,
+                      onChanged: (v) => setLocal(() {
+                        showQuote = v;
+                        quoteDate ??= DateTime.now();
+                      }),
+                    ),
+                    if (showQuote) ...[
+                      fieldGap,
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Quote date: ${quoteDate != null ? quoteDate!.toLocal().toString().split(' ').first : 'Today'}',
+                        ),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: quoteDate ?? DateTime.now(),
+                            firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (picked != null) setLocal(() => quoteDate = picked);
+                        },
+                      ),
+                    ],
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Schedule publish'),
+                      value: schedulePublish,
+                      onChanged: (v) => setLocal(() {
+                        schedulePublish = v;
+                        publishAt ??= DateTime.now().add(const Duration(hours: 1));
+                      }),
+                    ),
+                    if (schedulePublish) ...[
+                      fieldGap,
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Publish at: ${publishAt?.toLocal() ?? 'pick'}'),
+                        trailing: const Icon(Icons.schedule),
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: publishAt ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (d == null) return;
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay.fromDateTime(publishAt ?? DateTime.now()),
+                          );
+                          if (t == null) return;
+                          setLocal(() {
+                            publishAt = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+                          });
+                        },
+                      ),
+                    ],
+                    if (type == 'event') ...[
+                      fieldGap,
+                      TextField(
+                        controller: eventLocation,
+                        decoration: const InputDecoration(
+                          labelText: 'Event location',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      fieldGap,
+                      TextField(
+                        controller: eventJoin,
+                        decoration: const InputDecoration(
+                          labelText: 'Join URL',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      fieldGap,
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Starts: ${eventStarts?.toLocal() ?? 'pick date/time'}'),
+                        trailing: const Icon(Icons.event),
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: eventStarts ?? DateTime.now(),
+                            firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (d == null) return;
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay.fromDateTime(eventStarts ?? DateTime.now()),
+                          );
+                          if (t == null) return;
+                          setLocal(() {
+                            eventStarts = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+                          });
+                        },
+                      ),
+                    ],
+                    fieldGap,
+                    TextField(
+                      controller: linkUrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Link URL (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      title: const Text('Include poll'),
+                      value: includePoll,
+                      onChanged: (v) => setLocal(() => includePoll = v),
+                    ),
+                    if (includePoll) ...[
+                      fieldGap,
+                      TextField(
+                        controller: pollQuestion,
+                        decoration: const InputDecoration(
+                          labelText: 'Poll question',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      fieldGap,
+                      DropdownButtonFormField<String>(
+                        value: pollType,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Poll type',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'single', child: Text('Single choice')),
+                          DropdownMenuItem(value: 'multiple', child: Text('Multiple')),
+                          DropdownMenuItem(value: 'yes_no', child: Text('Yes / No')),
+                          DropdownMenuItem(value: 'true_false', child: Text('True / False')),
+                          DropdownMenuItem(value: 'rating', child: Text('Rating 1–5')),
+                          DropdownMenuItem(value: 'emoji', child: Text('Emoji mood')),
+                        ],
+                        onChanged: (v) => setLocal(() => pollType = v ?? pollType),
+                      ),
+                      if (pollType == 'single' || pollType == 'multiple') ...[
+                        fieldGap,
+                        TextField(
+                          controller: optA,
+                          decoration: const InputDecoration(
+                            labelText: 'Option A',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        fieldGap,
+                        TextField(
+                          controller: optB,
+                          decoration: const InputDecoration(
+                            labelText: 'Option B',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                      if (pollType == 'rating' || pollType == 'emoji')
+                        const Padding(
+                          padding: EdgeInsets.only(top: AppSpacing.sm),
+                          child: Text('Options are generated automatically for this poll type.'),
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+            ],
+          );
+        },
       ),
     );
 
