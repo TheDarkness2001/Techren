@@ -23,8 +23,12 @@ const attachSocket = (httpServer) => {
       io.to(`conv:${conversationId}`).emit(event, payload);
     }
     if (event === 'message' && Array.isArray(participants)) {
+      const senderId = payload?.senderId ? String(payload.senderId) : null;
+      const senderType = payload?.senderType || null;
       for (const p of participants) {
         if (!p?.userId || p.leftAt) continue;
+        if (senderId && String(p.userId) === senderId && p.userType === senderType) continue;
+        if (p.muted) continue;
         io.to(`user:${p.userType}:${p.userId}`).emit('notification', {
           type: 'chat_message',
           conversationId: String(conversationId),
@@ -122,7 +126,7 @@ const attachSocket = (httpServer) => {
         conversationId: String(conversationId),
         userId: String(socket.userId),
         userType: socket.userType,
-        name: socket.user.name,
+        name: String(socket.user.name || '').trim().split(/\s+/)[0] || socket.user.name,
       });
     });
 

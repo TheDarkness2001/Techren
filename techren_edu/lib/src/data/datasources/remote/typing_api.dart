@@ -76,17 +76,23 @@ class TypingApi {
     return TypingResultCard.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
-  Future<List<TypingLeaderboardEntry>> getLeaderboard({
+  Future<TypingLeaderboardPage> getLeaderboard({
     required String subjectId,
     String period = 'all',
+    int durationSec = 60,
+    double minAccuracy = 0,
   }) async {
     final response = await _client.dio.get(
       '/typing/leaderboard',
-      queryParameters: {'subjectId': subjectId, 'period': period},
+      queryParameters: {
+        'subjectId': subjectId,
+        'period': period,
+        'durationSec': durationSec,
+        'minAccuracy': minAccuracy,
+      },
     );
     final data = response.data['data'] as Map<String, dynamic>;
-    final items = data['items'] as List<dynamic>? ?? [];
-    return items.map((e) => TypingLeaderboardEntry.fromJson(e as Map<String, dynamic>)).toList();
+    return TypingLeaderboardPage.fromJson(data);
   }
 
   Future<Map<String, dynamic>> getDaily(String subjectId) async {

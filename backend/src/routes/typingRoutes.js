@@ -42,6 +42,8 @@ router.get(
   '/leaderboard',
   query('subjectId').isMongoId(),
   query('period').optional().isIn(['all', 'weekly']),
+  query('durationSec').optional().toInt().isIn([15, 30, 60]),
+  query('minAccuracy').optional().isFloat({ min: 0, max: 100 }).toFloat(),
   validate,
   controller.leaderboard
 );

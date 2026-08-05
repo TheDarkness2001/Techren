@@ -205,6 +205,8 @@ class TypingLeaderboardEntry {
     required this.level,
     required this.wpm,
     required this.accuracy,
+    this.correctWords = 0,
+    this.wordsTyped = 0,
     this.avatar,
     this.tests = 0,
   });
@@ -215,6 +217,8 @@ class TypingLeaderboardEntry {
   final int level;
   final double wpm;
   final double accuracy;
+  final int correctWords;
+  final int wordsTyped;
   final String? avatar;
   final int tests;
 
@@ -225,7 +229,45 @@ class TypingLeaderboardEntry {
         level: (json['level'] as num?)?.toInt() ?? 1,
         wpm: (json['wpm'] as num?)?.toDouble() ?? 0,
         accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
+        correctWords: (json['correctWords'] as num?)?.toInt() ?? 0,
+        wordsTyped: (json['wordsTyped'] as num?)?.toInt() ?? 0,
         avatar: json['avatar'] as String?,
         tests: (json['tests'] as num?)?.toInt() ?? 0,
       );
+}
+
+class TypingLeaderboardPage {
+  const TypingLeaderboardPage({
+    required this.items,
+    this.me,
+    this.meInTop = false,
+    this.durationSec = 60,
+    this.minAccuracy = 0,
+    this.period = 'all',
+    this.total = 0,
+  });
+
+  final List<TypingLeaderboardEntry> items;
+  final TypingLeaderboardEntry? me;
+  final bool meInTop;
+  final int durationSec;
+  final double minAccuracy;
+  final String period;
+  final int total;
+
+  factory TypingLeaderboardPage.fromJson(Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>? ?? [])
+        .map((e) => TypingLeaderboardEntry.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final meJson = json['me'];
+    return TypingLeaderboardPage(
+      items: items,
+      me: meJson is Map<String, dynamic> ? TypingLeaderboardEntry.fromJson(meJson) : null,
+      meInTop: json['meInTop'] == true,
+      durationSec: (json['durationSec'] as num?)?.toInt() ?? 60,
+      minAccuracy: (json['minAccuracy'] as num?)?.toDouble() ?? 0,
+      period: json['period'] as String? ?? 'all',
+      total: (json['total'] as num?)?.toInt() ?? items.length,
+    );
+  }
 }
