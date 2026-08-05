@@ -46,6 +46,52 @@ const formatAttachment = (a) => ({
   durationSec: a.durationSec || 0,
 });
 
+const firstNameOf = (name) => {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  return n.split(/\s+/)[0];
+};
+
+const loadUserProfiles = async (pairs = []) => {
+  const teacherIds = [
+    ...new Set(pairs.filter((p) => p.userType === 'teacher' && p.userId).map((p) => String(p.userId))),
+  ];
+  const studentIds = [
+    ...new Set(pairs.filter((p) => p.userType === 'student' && p.userId).map((p) => String(p.userId))),
+  ];
+  const [teachers, students] = await Promise.all([
+    teacherIds.length
+      ? Teacher.find({ _id: { $in: teacherIds } }).select('name profileImage').lean()
+      : [],
+    studentIds.length
+      ? Student.find({ _id: { $in: studentIds } }).select('name profileImage').lean()
+      : [],
+  ]);
+  const map = new Map();
+  for (const t of teachers) {
+    map.set(`teacher:${t._id}`, {
+      name: t.name || '',
+      firstName: firstNameOf(t.name),
+      profileImage: t.profileImage || null,
+    });
+  }
+  for (const s of students) {
+    map.set(`student:${s._id}`, {
+      name: s.name || '',
+      firstName: firstNameOf(s.name),
+      profileImage: s.profileImage || null,
+    });
+  }
+  return map;
+};
+
+const applySenderProfile = (formatted, profile) => ({
+  ...formatted,
+  senderName: profile?.name || formatted.senderName || '',
+  senderFirstName: profile?.firstName || formatted.senderFirstName || firstNameOf(profile?.name || ''),
+  senderProfileImage: profile?.profileImage || formatted.senderProfileImage || null,
+});
+
 const formatMessage = (doc, viewer = null) => {
   const starred =
     viewer &&
@@ -61,6 +107,9 @@ const formatMessage = (doc, viewer = null) => {
     conversationId: String(doc.conversationId),
     senderId: String(doc.senderId),
     senderType: doc.senderType,
+    senderName: '',
+    senderFirstName: '',
+    senderProfileImage: null,
     body: doc.deletedAt ? '' : doc.body || '',
     attachments: doc.deletedAt ? [] : (doc.attachments || []).map(formatAttachment),
     replyToId: doc.replyToId ? String(doc.replyToId) : null,
@@ -89,6 +138,27 @@ const formatMessage = (doc, viewer = null) => {
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
+};
+
+const enrichMessage = async (doc, viewer = null) => {
+  const formatted = formatMessage(doc, viewer);
+  const profiles = await loadUserProfiles([
+    { userId: formatted.senderId, userType: formatted.senderType },
+  ]);
+  return applySenderProfile(
+    formatted,
+    profiles.get(`${formatted.senderType}:${formatted.senderId}`)
+  );
+};
+
+const enrichMessages = async (docs, viewer = null) => {
+  const formatted = docs.map((d) => formatMessage(d, viewer));
+  const profiles = await loadUserProfiles(
+    formatted.map((f) => ({ userId: f.senderId, userType: f.senderType }))
+  );
+  return formatted.map((f) =>
+    applySenderProfile(f, profiles.get(`${f.senderType}:${f.senderId}`))
+  );
 };
 
 const unreadCountFor = (conversation, userId, userType) => {
@@ -128,6 +198,8 @@ const formatConversation = (doc, { userId, userType, unreadCount = 0 } = {}) => 
       })),
     unreadCount,
     pinnedMessageId: doc.pinnedMessageId ? String(doc.pinnedMessageId) : null,
+    peerUserId: null,
+    peerUserType: null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -147,18 +219,40 @@ const assertCanBroadcast = async (req) => {
   if (!ok) throw forbidden('Missing permission: canBroadcast');
 };
 
-const resolveDisplayTitle = async (conversation, viewer) => {
-  if (conversation.type !== 'private') return conversation.title || 'Chat';
+const resolvePrivatePeer = async (conversation, viewer) => {
+  if (conversation.type !== 'private') {
+    return {
+      title: conversation.title || 'Chat',
+      avatarUrl: conversation.avatarUrl || null,
+      peerUserId: null,
+      peerUserType: null,
+    };
+  }
   const other = (conversation.participants || []).find(
     (p) => !(String(p.userId) === String(viewer.userId) && p.userType === viewer.userType)
   );
-  if (!other) return conversation.title || 'Chat';
-  if (other.userType === 'teacher') {
-    const t = await Teacher.findById(other.userId).select('name');
-    return t?.name || 'Staff';
+  if (!other) {
+    return {
+      title: conversation.title || 'Chat',
+      avatarUrl: conversation.avatarUrl || null,
+      peerUserId: null,
+      peerUserType: null,
+    };
   }
-  const s = await Student.findById(other.userId).select('name');
-  return s?.name || 'Student';
+  const Model = other.userType === 'teacher' ? Teacher : Student;
+  const u = await Model.findById(other.userId).select('name profileImage').lean();
+  const fullName = u?.name || (other.userType === 'teacher' ? 'Staff' : 'Student');
+  return {
+    title: firstNameOf(fullName) || fullName,
+    avatarUrl: u?.profileImage || null,
+    peerUserId: String(other.userId),
+    peerUserType: other.userType,
+  };
+};
+
+const resolveDisplayTitle = async (conversation, viewer) => {
+  const peer = await resolvePrivatePeer(conversation, viewer);
+  return peer.title;
 };
 
 const listConversations = async (req) => {
@@ -192,7 +286,11 @@ const listConversations = async (req) => {
       ],
     });
     const formatted = formatConversation(doc, { userId, userType, unreadCount });
-    formatted.title = await resolveDisplayTitle(doc, { userId, userType });
+    const peer = await resolvePrivatePeer(doc, { userId, userType });
+    formatted.title = peer.title;
+    if (peer.avatarUrl) formatted.avatarUrl = peer.avatarUrl;
+    formatted.peerUserId = peer.peerUserId;
+    formatted.peerUserType = peer.peerUserType;
     result.push(formatted);
   }
   return result;
@@ -214,7 +312,11 @@ const getConversation = async (req, id) => {
     deletedAt: null,
   });
   const formatted = formatConversation(doc, { userId, userType, unreadCount });
-  formatted.title = await resolveDisplayTitle(doc, { userId, userType });
+  const peer = await resolvePrivatePeer(doc, { userId, userType });
+  formatted.title = peer.title;
+  if (peer.avatarUrl) formatted.avatarUrl = peer.avatarUrl;
+  formatted.peerUserId = peer.peerUserId;
+  formatted.peerUserType = peer.peerUserType;
   return formatted;
 };
 
@@ -245,11 +347,18 @@ const listMessages = async (req, conversationId) => {
   }
 
   const items = await Message.find(filter).sort({ createdAt: -1 }).limit(limit);
-  return items.reverse().map((m) => formatMessage(m, { userId, userType }));
+  return enrichMessages(items.reverse(), { userId, userType });
 };
 
 const notifyParticipants = async (conversation, message, sender) => {
   const preview = (message.body || '').slice(0, 120) || 'New attachment';
+  const profiles = await loadUserProfiles([{ userId: sender.userId, userType: sender.userType }]);
+  const senderProfile = profiles.get(`${sender.userType}:${sender.userId}`);
+  const title =
+    senderProfile?.firstName ||
+    firstNameOf(senderProfile?.name) ||
+    conversation.title ||
+    'New message';
   for (const p of conversation.participants || []) {
     if (p.leftAt) continue;
     if (String(p.userId) === String(sender.userId) && p.userType === sender.userType) continue;
@@ -259,12 +368,16 @@ const notifyParticipants = async (conversation, message, sender) => {
         userId: p.userId,
         userType: p.userType,
         studentId: p.userType === 'student' ? p.userId : undefined,
-        title: conversation.title || 'New message',
+        title,
         body: preview,
         eventType: 'chat_message',
         data: {
           conversationId: String(conversation._id),
           messageId: String(message._id),
+          senderId: String(sender.userId),
+          senderType: sender.userType,
+          senderFirstName: senderProfile?.firstName || '',
+          senderProfileImage: senderProfile?.profileImage || null,
         },
       });
     } catch (_) {
@@ -310,7 +423,7 @@ const sendMessage = async (
 
   if (clientId) {
     const existing = await Message.findOne({ conversationId, clientId });
-    if (existing) return formatMessage(existing, { userId, userType });
+    if (existing) return enrichMessage(existing, { userId, userType });
   }
 
   const text = String(body || '').trim();
@@ -346,7 +459,7 @@ const sendMessage = async (
   });
 
   if (isScheduled) {
-    return formatMessage(message, { userId, userType });
+    return enrichMessage(message, { userId, userType });
   }
 
   const preview =
@@ -361,7 +474,7 @@ const sendMessage = async (
   if (p) p.lastReadAt = new Date();
   await conv.save();
 
-  const formatted = formatMessage(message, { userId, userType });
+  const formatted = await enrichMessage(message, { userId, userType });
   emitToConversation(conversationId, 'message', formatted, conv.participants);
   if (type === 'call') {
     emitToConversation(conversationId, 'call-signal', formatted, conv.participants);
@@ -623,7 +736,7 @@ const updateMessage = async (req, messageId, { body, deleted }) => {
     message.editedAt = new Date();
   }
   await message.save();
-  const formatted = formatMessage(message, { userId, userType });
+  const formatted = await enrichMessage(message, { userId, userType });
   emitToConversation(message.conversationId, 'message', formatted, conv.participants);
   return formatted;
 };
@@ -664,7 +777,7 @@ const reactToMessage = async (req, messageId, emoji) => {
     message.reactions.push({ emoji: e, userId, userType });
   }
   await message.save();
-  const formatted = formatMessage(message, { userId, userType });
+  const formatted = await enrichMessage(message, { userId, userType });
   emitToConversation(message.conversationId, 'message', formatted, conv.participants);
   return formatted;
 };
@@ -682,7 +795,7 @@ const starMessage = async (req, messageId, starred = true) => {
   );
   if (starred) message.starredBy.push({ userId, userType });
   await message.save();
-  return formatMessage(message, { userId, userType });
+  return enrichMessage(message, { userId, userType });
 };
 
 const pinMessage = async (req, conversationId, messageId) => {
@@ -741,7 +854,7 @@ const searchMessages = async (req) => {
     filter['attachments.0'] = { $exists: true };
   }
   const items = await Message.find(filter).sort({ createdAt: -1 }).limit(limit);
-  return items.map((m) => formatMessage(m, { userId, userType }));
+  return enrichMessages(items, { userId, userType });
 };
 
 const listSubjectOptions = async (req) => {
@@ -992,7 +1105,7 @@ const flushScheduledMessages = async () => {
     conv.lastMessageAt = new Date();
     conv.lastMessagePreview = preview.slice(0, 200);
     await conv.save();
-    const formatted = formatMessage(message);
+    const formatted = await enrichMessage(message);
     emitToConversation(message.conversationId, 'message', formatted, conv.participants);
     await notifyParticipants(conv, message, {
       userId: message.senderId,
@@ -1011,7 +1124,7 @@ const moderationInbox = async (req) => {
   if (q) filter.body = { $regex: q, $options: 'i' };
   if (req.query.conversationId) filter.conversationId = req.query.conversationId;
   const items = await Message.find(filter).sort({ createdAt: -1 }).limit(limit);
-  return items.map((m) => formatMessage(m));
+  return enrichMessages(items);
 };
 
 const moderateMessage = async (req, messageId, { deleted, note } = {}) => {
@@ -1028,9 +1141,10 @@ const moderateMessage = async (req, messageId, { deleted, note } = {}) => {
   await message.save();
   const conv = await Conversation.findById(message.conversationId);
   if (conv) {
-    emitToConversation(message.conversationId, 'message', formatMessage(message), conv.participants);
+    const formatted = await enrichMessage(message);
+    emitToConversation(message.conversationId, 'message', formatted, conv.participants);
   }
-  return formatMessage(message);
+  return enrichMessage(message);
 };
 
 const createChatPoll = async (req, conversationId, body = {}) => {

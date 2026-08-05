@@ -14,6 +14,13 @@ final typingDashboardProvider =
 });
 
 final typingLeaderboardProvider = FutureProvider.autoDispose
-    .family<List<TypingLeaderboardEntry>, ({String subjectId, String period})>((ref, args) async {
-  return ref.watch(typingApiProvider).getLeaderboard(subjectId: args.subjectId, period: args.period);
+    .family<
+        TypingLeaderboardPage,
+        ({String subjectId, String period, int durationSec, double minAccuracy})>((ref, args) async {
+  return ref.watch(typingApiProvider).getLeaderboard(
+        subjectId: args.subjectId,
+        period: args.period,
+        durationSec: args.durationSec,
+        minAccuracy: args.minAccuracy,
+      );
 });

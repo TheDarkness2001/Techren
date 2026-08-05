@@ -70,8 +70,15 @@ async function main() {
     `Dashboard OK — best ${dash.bestWpm}, tests ${dash.testsCompleted}, rank ${dash.currentRank}`
   );
 
-  const board = await typingService.leaderboard(fakeReq, { subjectId: String(it._id), period: 'all' });
-  console.log(`Leaderboard OK — ${board.items.length} entries`);
+  const board = await typingService.leaderboard(fakeReq, {
+    subjectId: String(it._id),
+    period: 'all',
+    durationSec: 60,
+    minAccuracy: 0,
+  });
+  console.log(
+    `Leaderboard OK — top ${board.items.length}/${board.total}, duration ${board.durationSec}s, me rank ${board.me?.rank ?? 'n/a'}`
+  );
 
   const daily = await typingService.daily(fakeReq, { subjectId: String(it._id) });
   console.log(`Daily OK — date ${daily.date}, completed ${daily.completed}`);

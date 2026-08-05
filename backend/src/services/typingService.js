@@ -453,80 +453,96 @@ const dashboard = async (req, query = {}) => {
   };
 };
 
+const LEADERBOARD_DURATIONS = new Set([15, 30, 60]);
+const LEADERBOARD_TOP = 10;
+
+const mapLeaderboardRows = async (rows) => {
+  if (!rows.length) return [];
+  const studentIds = rows.map((r) => r._id);
+  const students = await Student.find({ _id: { $in: studentIds } })
+    .select('name profileImage')
+    .lean();
+  const byId = new Map(students.map((s) => [String(s._id), s]));
+  const profiles = await Promise.all(studentIds.map((id) => getOrCreateProfile(id)));
+  const profileById = new Map(profiles.map((p) => [String(p.studentId), p]));
+
+  return rows.map((r, i) => {
+    const s = byId.get(String(r._id));
+    const p = profileById.get(String(r._id));
+    return {
+      rank: i + 1,
+      studentId: String(r._id),
+      name: s?.name || 'Student',
+      avatar: s?.profileImage || null,
+      level: getLevelInfo(p?.totalXp || 0).level,
+      correctWords: r.correctWords || 0,
+      wordsTyped: r.wordsTyped || 0,
+      wpm: Math.round(r.wpm || 0),
+      accuracy: Math.round((r.accuracy || 0) * 10) / 10,
+      tests: r.tests || 0,
+    };
+  });
+};
+
 const leaderboard = async (req, query = {}) => {
   const subjectId = query.subjectId;
   await assertTypingSubject(subjectId);
   const period = query.period === 'weekly' ? 'weekly' : 'all';
-  const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+  const durationSec = LEADERBOARD_DURATIONS.has(Number(query.durationSec))
+    ? Number(query.durationSec)
+    : 60;
+  const minAccuracy = clamp(Number(query.minAccuracy) || 0, 0, 100);
+  const topN = LEADERBOARD_TOP;
 
+  const match = {
+    subjectId: new mongoose.Types.ObjectId(subjectId),
+    durationSec,
+    unlimited: { $ne: true },
+    accuracy: { $gte: minAccuracy },
+  };
   if (period === 'weekly') {
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const rows = await TypingResult.aggregate([
-      { $match: { subjectId: new mongoose.Types.ObjectId(subjectId), createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id: '$studentId',
-          bestWpm: { $max: '$wpm' },
-          avgAccuracy: { $avg: '$accuracy' },
-          tests: { $sum: 1 },
-        },
-      },
-      { $sort: { bestWpm: -1 } },
-      { $limit: limit },
-    ]);
-    const students = await Student.find({ _id: { $in: rows.map((r) => r._id) } })
-      .select('name profileImage')
-      .lean();
-    const byId = new Map(students.map((s) => [String(s._id), s]));
-    const profiles = await Promise.all(rows.map((r) => getOrCreateProfile(r._id)));
-    const profileById = new Map(profiles.map((p) => [String(p.studentId), p]));
-
-    return {
-      period,
-      items: rows.map((r, i) => {
-        const s = byId.get(String(r._id));
-        const p = profileById.get(String(r._id));
-        return {
-          rank: i + 1,
-          studentId: String(r._id),
-          name: s?.name || 'Student',
-          avatar: s?.profileImage || null,
-          level: getLevelInfo(p?.totalXp || 0).level,
-          wpm: Math.round(r.bestWpm),
-          accuracy: Math.round((r.avgAccuracy || 0) * 10) / 10,
-          tests: r.tests,
-        };
-      }),
-    };
+    match.createdAt = { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
   }
 
-  const rows = await TypingStudentStats.find({ subjectId, bestWpm: { $gt: 0 } })
-    .sort({ bestWpm: -1 })
-    .limit(limit)
-    .lean();
-  const students = await Student.find({ _id: { $in: rows.map((r) => r.studentId) } })
-    .select('name profileImage')
-    .lean();
-  const byId = new Map(students.map((s) => [String(s._id), s]));
-  const profiles = await Promise.all(rows.map((r) => getOrCreateProfile(r.studentId)));
-  const profileById = new Map(profiles.map((p) => [String(p.studentId), p]));
+  // Best run per student for this timer: prefer most correct words, then WPM.
+  const ranked = await TypingResult.aggregate([
+    { $match: match },
+    { $sort: { correctWords: -1, wpm: -1, accuracy: -1 } },
+    {
+      $group: {
+        _id: '$studentId',
+        correctWords: { $first: '$correctWords' },
+        wordsTyped: { $first: '$wordsTyped' },
+        wpm: { $first: '$wpm' },
+        accuracy: { $first: '$accuracy' },
+        tests: { $sum: 1 },
+      },
+    },
+    { $sort: { correctWords: -1, wpm: -1, accuracy: -1 } },
+  ]);
+
+  const items = await mapLeaderboardRows(ranked.slice(0, topN));
+
+  let me = null;
+  const viewerId = req.userType === 'student' ? String(req.user._id) : null;
+  if (viewerId) {
+    const myIndex = ranked.findIndex((r) => String(r._id) === viewerId);
+    if (myIndex >= 0) {
+      const [mapped] = await mapLeaderboardRows([ranked[myIndex]]);
+      me = { ...mapped, rank: myIndex + 1 };
+    }
+  }
+
+  const meInTop = Boolean(me && me.rank <= topN);
 
   return {
     period,
-    items: rows.map((r, i) => {
-      const s = byId.get(String(r.studentId));
-      const p = profileById.get(String(r.studentId));
-      return {
-        rank: i + 1,
-        studentId: String(r.studentId),
-        name: s?.name || 'Student',
-        avatar: s?.profileImage || null,
-        level: getLevelInfo(p?.totalXp || 0).level,
-        wpm: r.bestWpm,
-        accuracy: r.averageAccuracy,
-        tests: r.testsCompleted,
-      };
-    }),
+    durationSec,
+    minAccuracy,
+    total: ranked.length,
+    items,
+    me,
+    meInTop,
   };
 };
 

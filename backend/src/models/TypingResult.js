@@ -38,5 +38,6 @@ typingResultSchema.index({ subjectId: 1, wpm: -1 });
 typingResultSchema.index({ studentId: 1, subjectId: 1, createdAt: -1 });
 typingResultSchema.index({ subjectId: 1, createdAt: -1 });
 typingResultSchema.index({ subjectId: 1, isDaily: 1, createdAt: -1 });
+typingResultSchema.index({ subjectId: 1, durationSec: 1, correctWords: -1 });
 
 module.exports = mongoose.model('TypingResult', typingResultSchema);

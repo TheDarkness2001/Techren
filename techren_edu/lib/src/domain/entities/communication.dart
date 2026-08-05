@@ -76,6 +76,8 @@ class Conversation {
     this.participants = const [],
     this.unreadCount = 0,
     this.pinnedMessageId,
+    this.peerUserId,
+    this.peerUserType,
   });
 
   final String id;
@@ -95,6 +97,8 @@ class Conversation {
   final List<ChatParticipant> participants;
   final int unreadCount;
   final String? pinnedMessageId;
+  final String? peerUserId;
+  final String? peerUserType;
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
         id: json['id']?.toString() ?? '',
@@ -119,6 +123,8 @@ class Conversation {
             .toList(),
         unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
         pinnedMessageId: json['pinnedMessageId']?.toString(),
+        peerUserId: json['peerUserId']?.toString(),
+        peerUserType: json['peerUserType']?.toString(),
       );
 
   Conversation copyWith({int? unreadCount, String? lastMessagePreview, DateTime? lastMessageAt}) =>
@@ -140,6 +146,8 @@ class Conversation {
         participants: participants,
         unreadCount: unreadCount ?? this.unreadCount,
         pinnedMessageId: pinnedMessageId,
+        peerUserId: peerUserId,
+        peerUserType: peerUserType,
       );
 }
 
@@ -149,6 +157,9 @@ class ChatMessage {
     required this.conversationId,
     required this.senderId,
     required this.senderType,
+    this.senderName = '',
+    this.senderFirstName = '',
+    this.senderProfileImage,
     this.body = '',
     this.attachments = const [],
     this.replyToId,
@@ -172,6 +183,9 @@ class ChatMessage {
   final String conversationId;
   final String senderId;
   final String senderType;
+  final String senderName;
+  final String senderFirstName;
+  final String? senderProfileImage;
   final String body;
   final List<ChatAttachment> attachments;
   final String? replyToId;
@@ -193,6 +207,13 @@ class ChatMessage {
   bool get isDeleted => status == 'deleted' || deletedAt != null;
   bool get isScheduled => status == 'scheduled';
 
+  String get displayFirstName {
+    if (senderFirstName.trim().isNotEmpty) return senderFirstName.trim();
+    final name = senderName.trim();
+    if (name.isEmpty) return senderType == 'teacher' ? 'Teacher' : 'Student';
+    return name.split(RegExp(r'\s+')).first;
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final rawReactions = json['reactions'];
     final map = <String, int>{};
@@ -205,6 +226,9 @@ class ChatMessage {
       conversationId: json['conversationId']?.toString() ?? '',
       senderId: json['senderId']?.toString() ?? '',
       senderType: json['senderType']?.toString() ?? 'teacher',
+      senderName: json['senderName']?.toString() ?? '',
+      senderFirstName: json['senderFirstName']?.toString() ?? '',
+      senderProfileImage: json['senderProfileImage']?.toString(),
       body: json['body']?.toString() ?? '',
       attachments: (json['attachments'] as List<dynamic>? ?? [])
           .whereType<Map>()
@@ -232,6 +256,29 @@ class ChatMessage {
   }
 }
 
+class UserPresenceInfo {
+  const UserPresenceInfo({
+    required this.userId,
+    required this.userType,
+    this.status = 'offline',
+    this.lastSeenAt,
+  });
+
+  final String userId;
+  final String userType;
+  final String status;
+  final DateTime? lastSeenAt;
+
+  bool get isOnline => status == 'online';
+
+  factory UserPresenceInfo.fromJson(Map<String, dynamic> json) => UserPresenceInfo(
+        userId: json['userId']?.toString() ?? '',
+        userType: json['userType']?.toString() ?? 'teacher',
+        status: json['status']?.toString() ?? 'offline',
+        lastSeenAt: json['lastSeenAt'] != null ? DateTime.tryParse(json['lastSeenAt'].toString()) : null,
+      );
+}
+
 class DirectoryUser {
   const DirectoryUser({
     required this.id,
@@ -250,6 +297,12 @@ class DirectoryUser {
   final String? phone;
   final String? role;
   final String? profileImage;
+
+  String get firstName {
+    final n = name.trim();
+    if (n.isEmpty) return userType == 'teacher' ? 'Teacher' : 'Student';
+    return n.split(RegExp(r'\s+')).first;
+  }
 
   factory DirectoryUser.fromJson(Map<String, dynamic> json) => DirectoryUser(
         id: json['id']?.toString() ?? '',

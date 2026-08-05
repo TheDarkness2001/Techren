@@ -58,11 +58,60 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
   bool _recording = false;
   int _recordElapsed = 0;
   Timer? _recordTick;
+  UserPresenceInfo? _peerPresence;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initSocket());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initSocket();
+      _consumePendingConversation();
+    });
+  }
+
+  @override
+  void dispose() {
+    // Clear active chat so toast can show again after leaving Messages.
+    try {
+      ref.read(activeChatConversationIdProvider.notifier).state = null;
+    } catch (_) {}
+    if (_socketBound) {
+      _socket?.off('message', _onSocketMessage);
+      _socket?.off('typing', _onTyping);
+      _socket?.off('stop-typing', _onStopTyping);
+      _socket?.off('user-online', _onPresenceEvent);
+      _socket?.off('user-offline', _onPresenceEvent);
+    }
+    if (_selected != null) {
+      _socket?.leaveRoom(_selected!.id);
+    }
+    _messageCtrl.dispose();
+    _searchCtrl.dispose();
+    _typingDebounce?.cancel();
+    _recordTick?.cancel();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _consumePendingConversation() async {
+    final pending = ref.read(pendingOpenConversationIdProvider);
+    if (pending == null || pending.isEmpty) return;
+    ref.read(pendingOpenConversationIdProvider.notifier).state = null;
+    try {
+      final list = await ref.read(communicationsApiProvider).listConversations();
+      Conversation? match;
+      for (final c in list) {
+        if (c.id == pending) {
+          match = c;
+          break;
+        }
+      }
+      match ??= await ref.read(communicationsApiProvider).getConversation(pending);
+      if (!mounted) return;
+      await _openConversation(match);
+    } catch (_) {
+      // Ignore — user can open manually.
+    }
   }
 
   Future<void> _initSocket() async {
@@ -73,7 +122,93 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     socket.on('message', _onSocketMessage);
     socket.on('typing', _onTyping);
     socket.on('stop-typing', _onStopTyping);
+    socket.on('user-online', _onPresenceEvent);
+    socket.on('user-offline', _onPresenceEvent);
     _socketBound = true;
+  }
+
+  void _onPresenceEvent(dynamic data) {
+    if (data is! Map) return;
+    final info = UserPresenceInfo.fromJson(Map<String, dynamic>.from(data));
+    final peerId = _selected?.peerUserId;
+    final peerType = _selected?.peerUserType;
+    if (peerId == null || peerType == null) return;
+    if (info.userId != peerId || info.userType != peerType) return;
+    if (!mounted) return;
+    setState(() => _peerPresence = info);
+  }
+
+  Future<void> _loadPeerPresence(Conversation c) async {
+    final peerId = c.peerUserId;
+    final peerType = c.peerUserType;
+    if (c.type != 'private' || peerId == null || peerType == null) {
+      setState(() => _peerPresence = null);
+      return;
+    }
+    try {
+      final presence = await ref.read(communicationsApiProvider).getPresence(
+            userId: peerId,
+            userType: peerType,
+          );
+      if (!mounted || _selected?.id != c.id) return;
+      setState(() => _peerPresence = presence);
+    } catch (_) {
+      if (mounted && _selected?.id == c.id) {
+        setState(() => _peerPresence = null);
+      }
+    }
+  }
+
+  String _presenceSubtitle(Conversation conv) {
+    if (_typingLabel != null) return _typingLabel!;
+    if (conv.type == 'private' && _peerPresence != null) {
+      if (_peerPresence!.isOnline) return 'online';
+      final seen = _peerPresence!.lastSeenAt;
+      if (seen == null) return 'offline';
+      return 'last seen ${_formatLastSeen(seen)}';
+    }
+    return '${conv.type} · ${conv.participantCount} members';
+  }
+
+  String _formatLastSeen(DateTime at) {
+    final local = at.toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(local);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24 && now.day == local.day) {
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
+      return 'today at $h:$m';
+    }
+    if (diff.inDays < 2) {
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
+      return 'yesterday at $h:$m';
+    }
+    return '${local.day}/${local.month}/${local.year}';
+  }
+
+  Widget _avatar({
+    String? imageUrl,
+    String? label,
+    IconData? fallbackIcon,
+    double radius = 20,
+  }) {
+    final url = resolveMediaUrl(imageUrl);
+    final letter = (label ?? '').trim();
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+      child: url.isNotEmpty
+          ? null
+          : (fallbackIcon != null
+              ? Icon(fallbackIcon, size: radius)
+              : Text(
+                  letter.isNotEmpty ? letter[0].toUpperCase() : '?',
+                  style: TextStyle(fontSize: radius * 0.85, fontWeight: FontWeight.w700),
+                )),
+    );
   }
 
   void _onSocketMessage(dynamic data) {
@@ -114,8 +249,12 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
       _selected = c;
       _liveMessages = [];
       _typingLabel = null;
+      _peerPresence = null;
+      _threadSearch = '';
     });
+    ref.read(activeChatConversationIdProvider.notifier).state = c.id;
     socket.joinRoom(c.id);
+    unawaited(_loadPeerPresence(c));
     final messages = await ref.read(communicationsApiProvider).listMessages(c.id);
     if (!mounted) return;
     setState(() => _liveMessages = messages);
@@ -454,38 +593,77 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
 
   Future<void> _startNewChat() async {
     try {
-      final users = await ref.read(communicationsApiProvider).directory(search: _searchCtrl.text.trim());
+      final searchCtrl = TextEditingController(text: _searchCtrl.text.trim());
+      List<DirectoryUser> users = await ref.read(communicationsApiProvider).directory(
+            search: searchCtrl.text.trim(),
+          );
       if (!mounted) return;
       final picked = await showModalBottomSheet<DirectoryUser>(
         context: context,
         isScrollControlled: true,
-        builder: (ctx) => SizedBox(
-          height: MediaQuery.sizeOf(ctx).height * 0.7,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('Start chat', style: Theme.of(ctx).textTheme.titleMedium),
-              ),
-              Expanded(
-                child: users.isEmpty
-                    ? const Center(child: Text('No contacts found'))
-                    : ListView.builder(
-                        itemCount: users.length,
-                        itemBuilder: (_, i) {
-                          final u = users[i];
-                          return ListTile(
-                            title: Text(u.name),
-                            subtitle: Text('${u.userType}${u.role != null ? ' · ${u.role}' : ''}'),
-                            onTap: () => Navigator.pop(ctx, u),
-                          );
-                        },
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Future<void> runSearch(String q) async {
+              final next = await ref.read(communicationsApiProvider).directory(search: q.trim());
+              if (ctx.mounted) setSheet(() => users = next);
+            }
+
+            return SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * 0.75,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text('Start chat', style: Theme.of(ctx).textTheme.titleMedium),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: searchCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Search teacher or student…',
+                        prefixIcon: Icon(Icons.search),
+                        isDense: true,
                       ),
+                      onChanged: (q) {
+                        // Debounce lightly via microtask batching on each keystroke is fine for directory.
+                        runSearch(q);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: users.isEmpty
+                        ? const Center(child: Text('No contacts found'))
+                        : ListView.builder(
+                            itemCount: users.length,
+                            itemBuilder: (_, i) {
+                              final u = users[i];
+                              return ListTile(
+                                leading: _avatar(
+                                  imageUrl: u.profileImage,
+                                  label: u.firstName,
+                                ),
+                                title: Text(u.firstName),
+                                subtitle: Text(
+                                  [
+                                    u.userType,
+                                    if (u.role != null && u.role!.isNotEmpty) u.role,
+                                    if (u.name.trim().contains(' ')) u.name,
+                                  ].join(' · '),
+                                ),
+                                onTap: () => Navigator.pop(ctx, u),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       );
+      searchCtrl.dispose();
       if (picked == null) return;
       final conv = await ref.read(communicationsApiProvider).createPrivate(
             targetUserId: picked.id,
@@ -597,22 +775,6 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
   }
 
   @override
-  void dispose() {
-    if (_selected != null) _socket?.leaveRoom(_selected!.id);
-    if (_socketBound) {
-      _socket?.off('message');
-      _socket?.off('typing');
-      _socket?.off('stop-typing');
-    }
-    _messageCtrl.dispose();
-    _searchCtrl.dispose();
-    _typingDebounce?.cancel();
-    _recordTick?.cancel();
-    _recorder.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final async = ref.watch(conversationsProvider);
     final me = ref.watch(authProvider).user;
@@ -698,8 +860,10 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                           final selected = _selected?.id == c.id;
                           return ListTile(
                             selected: selected,
-                            leading: CircleAvatar(
-                              child: Icon(_iconForType(c.type), size: 20),
+                            leading: _avatar(
+                              imageUrl: c.avatarUrl,
+                              label: c.title,
+                              fallbackIcon: c.type == 'private' ? null : _iconForType(c.type),
                             ),
                             title: Text(c.title.isEmpty ? c.type : c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text(c.lastMessagePreview, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -729,8 +893,13 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
       return Column(
         children: [
           ListTile(
+            leading: _avatar(
+              imageUrl: conv.avatarUrl,
+              label: conv.title,
+              fallbackIcon: conv.type == 'private' ? null : _iconForType(conv.type),
+            ),
             title: Text(conv.title.isEmpty ? conv.type : conv.title),
-            subtitle: Text('${conv.type} · ${conv.participantCount} members'),
+            subtitle: Text(_presenceSubtitle(conv)),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -776,95 +945,123 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
               itemBuilder: (context, i) {
                 final m = visibleMessages[i];
                 final mine = me != null && m.senderId == me.id;
+                final showSenderMeta = !mine;
                 return Align(
                   alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                   child: GestureDetector(
                     onLongPress: () => _messageAction(m),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
-                      decoration: BoxDecoration(
-                        color: mine
-                            ? AppColors.primary.withValues(alpha: 0.25)
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: AppRadius.card,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (m.replyToId != null)
-                            Text('↩ reply', style: Theme.of(context).textTheme.labelSmall),
-                          if (m.forwardFromId != null)
-                            Text('↪ forwarded', style: Theme.of(context).textTheme.labelSmall),
-                          if (m.isDeleted)
-                            Text(
-                              'Message deleted',
-                              style: TextStyle(fontStyle: FontStyle.italic, color: context.semantic.textMuted),
-                            )
-                          else ...[
-                            if (m.isScheduled)
-                              Text(
-                                'Scheduled · ${m.scheduledAt?.toLocal()}',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                            if (m.messageType == 'call')
-                              Text(m.body.isEmpty ? '📞 Call' : m.body),
-                            if (m.body.isNotEmpty && m.messageType != 'call') Text(m.body),
-                            if (m.mentions.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Wrap(
-                                  spacing: 4,
-                                  children: [
-                                    for (final mention in m.mentions)
-                                      Chip(
-                                        avatar: const Icon(Icons.alternate_email, size: 14),
-                                        label: Text(mention.name.isEmpty ? mention.userType : mention.name),
-                                        visualDensity: VisualDensity.compact,
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            for (final a in m.attachments)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: a.kind == 'image'
-                                    ? Image.network(
-                                        resolveMediaUrl(a.url),
-                                        height: 140,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Text(a.name.isEmpty ? 'Image' : a.name),
-                                      )
-                                    : a.kind == 'audio'
-                                        ? VoiceNotePlayer(url: a.url, durationSec: a.durationSec)
-                                        : Text('📎 ${a.name.isEmpty ? a.url : a.name}'),
-                              ),
-                          ],
-                          if (m.reactions.isNotEmpty)
-                            Wrap(
-                              spacing: 4,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (showSenderMeta) ...[
+                          _avatar(
+                            imageUrl: m.senderProfileImage,
+                            label: m.displayFirstName,
+                            radius: 14,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
+                            decoration: BoxDecoration(
+                              color: mine
+                                  ? AppColors.primary.withValues(alpha: 0.25)
+                                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: AppRadius.card,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                for (final e in m.reactions.entries)
-                                  Chip(
-                                    label: Text('${e.key} ${e.value}'),
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
+                                if (showSenderMeta)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      m.displayFirstName,
+                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                    ),
                                   ),
+                                if (m.replyToId != null)
+                                  Text('↩ reply', style: Theme.of(context).textTheme.labelSmall),
+                                if (m.forwardFromId != null)
+                                  Text('↪ forwarded', style: Theme.of(context).textTheme.labelSmall),
+                                if (m.isDeleted)
+                                  Text(
+                                    'Message deleted',
+                                    style: TextStyle(fontStyle: FontStyle.italic, color: context.semantic.textMuted),
+                                  )
+                                else ...[
+                                  if (m.isScheduled)
+                                    Text(
+                                      'Scheduled · ${m.scheduledAt?.toLocal()}',
+                                      style: Theme.of(context).textTheme.labelSmall,
+                                    ),
+                                  if (m.messageType == 'call')
+                                    Text(m.body.isEmpty ? '📞 Call' : m.body),
+                                  if (m.body.isNotEmpty && m.messageType != 'call') Text(m.body),
+                                  if (m.mentions.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Wrap(
+                                        spacing: 4,
+                                        children: [
+                                          for (final mention in m.mentions)
+                                            Chip(
+                                              avatar: const Icon(Icons.alternate_email, size: 14),
+                                              label: Text(mention.name.isEmpty ? mention.userType : mention.name),
+                                              visualDensity: VisualDensity.compact,
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  for (final a in m.attachments)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: a.kind == 'image'
+                                          ? Image.network(
+                                              resolveMediaUrl(a.url),
+                                              height: 140,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Text(a.name.isEmpty ? 'Image' : a.name),
+                                            )
+                                          : a.kind == 'audio'
+                                              ? VoiceNotePlayer(url: a.url, durationSec: a.durationSec)
+                                              : Text('📎 ${a.name.isEmpty ? a.url : a.name}'),
+                                    ),
+                                ],
+                                if (m.reactions.isNotEmpty)
+                                  Wrap(
+                                    spacing: 4,
+                                    children: [
+                                      for (final e in m.reactions.entries)
+                                        Chip(
+                                          label: Text('${e.key} ${e.value}'),
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                    ],
+                                  ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  [
+                                    m.status,
+                                    if (m.editedAt != null) 'edited',
+                                    if (m.starred) '★',
+                                  ].join(' · '),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+                                ),
                               ],
                             ),
-                          const SizedBox(height: 4),
-                          Text(
-                            [
-                              m.status,
-                              if (m.editedAt != null) 'edited',
-                              if (m.starred) '★',
-                            ].join(' · '),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );

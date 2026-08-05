@@ -150,7 +150,8 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  // Open maximized so the app fills the monitor on launch.
+  return ShowWindow(window_handle_, SW_SHOWMAXIMIZED);
 }
 
 // static

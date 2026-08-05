@@ -248,4 +248,8 @@ class CommunicationsApi {
     return ChatMessage.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<UserPresenceInfo> getPresence({required String userId, required String userType}) async {
+    final response = await _client.dio.get('/communications/presence/$userType/$userId');
+    return UserPresenceInfo.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
 }
