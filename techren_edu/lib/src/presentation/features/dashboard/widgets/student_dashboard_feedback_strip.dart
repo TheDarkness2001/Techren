@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../domain/entities/attendance.dart';
+import '../../../providers/attendance_provider.dart';
+import 'dashboard_header.dart';
+
+/// Compact horizontal feedback cards for the student dashboard (near top).
+class StudentDashboardFeedbackStrip extends ConsumerWidget {
+  const StudentDashboardFeedbackStrip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(
+      feedbackListProvider((studentId: null, page: 1, search: '')),
+    );
+
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (page) {
+        final items = page.items.take(8).toList();
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DashboardSection(
+              title: 'Latest feedback',
+              trailing: TextButton(
+                onPressed: () => context.go('/student/feedback'),
+                child: const Text('View all'),
+              ),
+              child: SizedBox(
+                height: 108,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+                  itemBuilder: (context, i) => _FeedbackMiniCard(entry: items[i]),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FeedbackMiniCard extends StatelessWidget {
+  const _FeedbackMiniCard({required this.entry});
+
+  final FeedbackEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic = context.semantic;
+    final theme = Theme.of(context);
+    final teacher = entry.teacherName?.trim();
+
+    return Material(
+      color: semantic.surfaceContainer,
+      borderRadius: AppRadius.card,
+      child: InkWell(
+        borderRadius: AppRadius.card,
+        onTap: () => context.go('/student/feedback'),
+        child: Container(
+          width: 168,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.card,
+            border: Border.all(color: semantic.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.className.isEmpty ? 'Class' : entry.className,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                [
+                  entry.date,
+                  if (teacher != null && teacher.isNotEmpty) teacher,
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(color: semantic.textMuted),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  _ScoreChip(label: 'H', value: entry.homework),
+                  const SizedBox(width: 4),
+                  _ScoreChip(label: 'B', value: entry.behavior),
+                  const SizedBox(width: 4),
+                  _ScoreChip(label: 'P', value: entry.participation),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScoreChip extends StatelessWidget {
+  const _ScoreChip({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic = context.semantic;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: semantic.border),
+      ),
+      child: Text(
+        '$label$value',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+      ),
+    );
+  }
+}

@@ -14,6 +14,7 @@ import '../../../../domain/entities/dashboard_data.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/app_update_provider.dart';
+import '../../../providers/attendance_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/news_provider.dart';
 import '../../news/widgets/dashboard_news_feed.dart';
@@ -21,6 +22,7 @@ import 'dashboard_header.dart';
 import 'dashboard_portfolio_panel.dart';
 import 'dashboard_widgets.dart';
 import 'role_dashboard_shortcuts.dart';
+import 'student_dashboard_feedback_strip.dart';
 import 'student_home_panels.dart';
 import '../../../../core/widgets/person_avatar.dart';
 
@@ -46,6 +48,9 @@ class RoleDashboardBody extends ConsumerWidget {
           ref.invalidate(dashboardProvider);
           ref.invalidate(appUpdateProvider);
           ref.invalidate(newsFeedProvider);
+          if (data.role == 'student') {
+            ref.invalidate(feedbackListProvider((studentId: null, page: 1, search: '')));
+          }
         },
         child: ListView(
           padding: AppSpacing.pagePaddingWide,
@@ -53,6 +58,7 @@ class RoleDashboardBody extends ConsumerWidget {
             const UpdateBanner(),
             const SizedBox(height: AppSpacing.lg),
             const DashboardNewsFeed(),
+            if (data.role == 'student') const StudentDashboardFeedbackStrip(),
             DashboardStatRow(children: _statsForRole(data)),
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),

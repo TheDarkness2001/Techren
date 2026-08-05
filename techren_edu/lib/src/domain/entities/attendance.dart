@@ -182,6 +182,7 @@ class FeedbackEntry extends Equatable {
     required this.studentName,
     required this.className,
     required this.date,
+    this.teacherName,
     this.homework = 0,
     this.behavior = 0,
     this.participation = 0,
@@ -194,6 +195,7 @@ class FeedbackEntry extends Equatable {
   final String studentName;
   final String className;
   final String date;
+  final String? teacherName;
   final int homework;
   final int behavior;
   final int participation;
@@ -206,6 +208,7 @@ class FeedbackEntry extends Equatable {
         studentName: json['studentName'] as String? ?? '',
         className: json['className'] as String? ?? '',
         date: json['date'] as String? ?? '',
+        teacherName: json['teacherName'] as String?,
         homework: json['homework'] as int? ?? 0,
         behavior: json['behavior'] as int? ?? 0,
         participation: json['participation'] as int? ?? 0,
