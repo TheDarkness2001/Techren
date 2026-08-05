@@ -23,60 +23,48 @@ import '../widgets/people_form_widgets.dart';
 import '../widgets/person_detail_sheet.dart';
 import '../widgets/person_edit_dialog.dart';
 
+enum PeopleListMode { students, teachers }
+
 class PeopleScreen extends ConsumerStatefulWidget {
   const PeopleScreen({
     super.key,
     required this.navItems,
     required this.selectedRoute,
-    this.showTeachers = true,
-    this.initialTab = 0,
+    this.mode = PeopleListMode.students,
   });
 
   final List<NavItem> navItems;
   final String selectedRoute;
-  final bool showTeachers;
-  final int initialTab;
+  final PeopleListMode mode;
 
   @override
   ConsumerState<PeopleScreen> createState() => _PeopleScreenState();
 }
 
-class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   final _searchController = TextEditingController();
   PageMeta _meta = const PageMeta();
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(
-      length: widget.showTeachers ? 2 : 1,
-      vsync: this,
-      initialIndex: widget.initialTab.clamp(0, widget.showTeachers ? 1 : 0),
-    );
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() {});
-    });
-  }
+  bool get _isTeachers => widget.mode == PeopleListMode.teachers;
 
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   void _refresh() {
     final query = _meta.copyWith(page: 1);
-    ref.invalidate(studentsProvider(query));
-    if (widget.showTeachers) ref.invalidate(teachersProvider(query));
+    if (_isTeachers) {
+      ref.invalidate(teachersProvider(query));
+    } else {
+      ref.invalidate(studentsProvider(query));
+    }
   }
 
   void _openAdd() {
-    final isTeacherTab = widget.showTeachers && _tabController.index == 1;
-    context.go(isTeacherTab ? '$_prefix/people/add-teacher' : '$_prefix/people/add-student');
+    context.go(_isTeachers ? '$_prefix/people/add-teacher' : '$_prefix/people/add-student');
   }
 
   Color _statusColor(String status, AppSemanticColors semantic) {
@@ -104,24 +92,22 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
       });
     }
     final canManage = _canManageStudents(ref);
-    final isStudentsTab = !widget.showTeachers || _tabController.index == 0;
     final listQuery = meta.copyWith(page: 1);
     final queryCacheKey =
-        '${listQuery.limit}|${listQuery.search ?? ''}|${listQuery.status ?? ''}|${listQuery.branchId ?? ''}';
+        '${widget.mode}|${listQuery.limit}|${listQuery.search ?? ''}|${listQuery.status ?? ''}|${listQuery.branchId ?? ''}';
 
     final statsQuery = listQuery.copyWith(clearStatus: true);
-    final allAsync = isStudentsTab
-        ? ref.watch(studentsProvider(statsQuery))
-        : ref.watch(teachersProvider(statsQuery));
-    final activeAsync = isStudentsTab
-        ? ref.watch(studentsProvider(statsQuery.copyWith(status: 'active')))
-        : ref.watch(teachersProvider(statsQuery.copyWith(status: 'active')));
-    final inactiveAsync = isStudentsTab
-        ? ref.watch(studentsProvider(statsQuery.copyWith(status: 'inactive')))
-        : ref.watch(teachersProvider(statsQuery.copyWith(status: 'inactive')));
-    final graduatedAsync = isStudentsTab
-        ? ref.watch(studentsProvider(statsQuery.copyWith(status: 'graduated')))
-        : null;
+    final allAsync = _isTeachers
+        ? ref.watch(teachersProvider(statsQuery))
+        : ref.watch(studentsProvider(statsQuery));
+    final activeAsync = _isTeachers
+        ? ref.watch(teachersProvider(statsQuery.copyWith(status: 'active')))
+        : ref.watch(studentsProvider(statsQuery.copyWith(status: 'active')));
+    final inactiveAsync = _isTeachers
+        ? ref.watch(teachersProvider(statsQuery.copyWith(status: 'inactive')))
+        : ref.watch(studentsProvider(statsQuery.copyWith(status: 'inactive')));
+    final graduatedAsync =
+        _isTeachers ? null : ref.watch(studentsProvider(statsQuery.copyWith(status: 'graduated')));
 
     final total = allAsync.valueOrNull?.total ?? 0;
     final active = activeAsync.valueOrNull?.total ?? 0;
@@ -129,7 +115,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
     final graduated = graduatedAsync?.valueOrNull?.total ?? 0;
 
     return AdaptiveScaffold(
-      title: isStudentsTab ? 'Students' : 'Teachers',
+      title: _isTeachers ? 'Teachers' : 'Students',
       selectedIndex: selectedIndex < 0 ? 1 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
@@ -137,7 +123,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
       body: Column(
         children: [
           Padding(
-            padding: AppSpacing.pagePadding.copyWith(bottom: 0),
+            padding: const EdgeInsets.fromLTRB(0, 0, AppSpacing.md, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -145,7 +131,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                   children: [
                     Expanded(
                       child: Text(
-                        isStudentsTab ? 'Students' : 'Teachers',
+                        _isTeachers ? 'Teachers' : 'Students',
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -153,7 +139,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                       FilledButton.icon(
                         onPressed: _openAdd,
                         icon: const Icon(Icons.add),
-                        label: Text(isStudentsTab ? 'Add Student' : 'Add Teacher'),
+                        label: Text(_isTeachers ? 'Add Teacher' : 'Add Student'),
                       ),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton.tonalIcon(
@@ -163,23 +149,6 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                     ),
                   ],
                 ),
-                if (widget.showTeachers) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: AppRadius.card,
-                      border: Border.all(color: context.semantic.border),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      tabs: const [
-                        Tab(icon: Icon(Icons.school_outlined), text: 'Students'),
-                        Tab(icon: Icon(Icons.badge_outlined), text: 'Teachers'),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: AppSpacing.md),
                 PeopleFilterCard(
                   title: 'Search & Filter',
@@ -188,9 +157,9 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                       controller: _searchController,
                       decoration: InputDecoration(
                         labelText: 'Search',
-                        hintText: isStudentsTab
-                            ? 'Search students...'
-                            : 'Search teachers by name or email...',
+                        hintText: _isTeachers
+                            ? 'Search teachers by name or email...'
+                            : 'Search students...',
                         prefixIcon: const Icon(Icons.search),
                       ),
                       onSubmitted: (v) => setState(() => _meta = _meta.copyWith(search: v, page: 1)),
@@ -202,9 +171,9 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                         const DropdownMenuItem(value: null, child: Text('All Status')),
                         const DropdownMenuItem(value: 'active', child: Text('Active')),
                         const DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                        if (isStudentsTab)
+                        if (!_isTeachers)
                           const DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
-                        if (!isStudentsTab)
+                        if (_isTeachers)
                           const DropdownMenuItem(value: 'on-leave', child: Text('On leave')),
                       ],
                       onChanged: (v) => setState(() {
@@ -221,7 +190,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                     ('Total', '$total', AppColors.primary),
                     ('Active', '$active', context.semantic.success),
                     ('Inactive', '$inactive', context.semantic.warning),
-                    if (isStudentsTab)
+                    if (!_isTeachers)
                       ('Graduated', '$graduated', AppColors.secondary)
                     else
                       (
@@ -236,8 +205,8 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
             ),
           ),
           Expanded(
-            child: isStudentsTab
-                ? _StudentList(
+            child: _isTeachers
+                ? _TeacherList(
                     query: listQuery,
                     queryCacheKey: queryCacheKey,
                     onRefresh: _refresh,
@@ -245,7 +214,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> with SingleTickerPr
                     prefix: _prefix,
                     statusColor: _statusColor,
                   )
-                : _TeacherList(
+                : _StudentList(
                     query: listQuery,
                     queryCacheKey: queryCacheKey,
                     onRefresh: _refresh,
@@ -294,11 +263,10 @@ class _StudentList extends ConsumerWidget {
       onInvalidate: (ref, q) => ref.invalidate(studentsProvider(q)),
       itemLabel: 'students',
       initialLoadingKind: LoadingSkeletonKind.table,
-      empty: ListView(
-        children: const [
-          SizedBox(height: AppSpacing.emptyStateTop),
-          EmptyState(title: 'No students', message: 'Add your first student to get started.'),
-        ],
+      empty: const EmptyState(
+        title: 'No students',
+        message: 'Add your first student to get started.',
+        icon: Icons.school_outlined,
       ),
       builder: (context, controller, items, state) {
         return LayoutBuilder(
@@ -307,7 +275,7 @@ class _StudentList extends ConsumerWidget {
             if (!useTable) {
               return ListView.builder(
                 controller: controller,
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(right: AppSpacing.md),
                 itemCount: items.length,
                 itemBuilder: (context, index) => _PersonActions(
                   person: items[index],
@@ -319,6 +287,7 @@ class _StudentList extends ConsumerWidget {
             }
             return ListView(
               controller: controller,
+              padding: const EdgeInsets.only(right: AppSpacing.md),
               children: [
                 _PeopleDataTable(
                   people: items,
@@ -363,11 +332,10 @@ class _TeacherList extends ConsumerWidget {
       onInvalidate: (ref, q) => ref.invalidate(teachersProvider(q)),
       itemLabel: 'staff',
       initialLoadingKind: LoadingSkeletonKind.table,
-      empty: ListView(
-        children: const [
-          SizedBox(height: AppSpacing.emptyStateTop),
-          EmptyState(title: 'No staff', message: 'Add staff to manage your branch.'),
-        ],
+      empty: const EmptyState(
+        title: 'No staff',
+        message: 'Add staff to manage your branch.',
+        icon: Icons.badge_outlined,
       ),
       builder: (context, controller, items, state) {
         return LayoutBuilder(
@@ -376,6 +344,7 @@ class _TeacherList extends ConsumerWidget {
             if (!useTable) {
               return ListView.builder(
                 controller: controller,
+                padding: const EdgeInsets.only(right: AppSpacing.md),
                 itemCount: items.length,
                 itemBuilder: (context, index) => _PersonActions(
                   person: items[index],
@@ -387,6 +356,7 @@ class _TeacherList extends ConsumerWidget {
             }
             return ListView(
               controller: controller,
+              padding: const EdgeInsets.only(right: AppSpacing.md),
               children: [
                 _PeopleDataTable(
                   people: items,

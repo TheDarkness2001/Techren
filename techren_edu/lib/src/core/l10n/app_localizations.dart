@@ -94,6 +94,8 @@ class AppLocalizations {
   String get navCompetitionHub => _t(en: 'Competition Hub', ru: 'Центр соревнований', uz: 'Musobaqa markazi');
   String get navPeople => _t(en: 'People', ru: 'Люди', uz: 'Odamlar');
   String get navStudentsTeachers => _t(en: 'Students & Staff', ru: 'Ученики и сотрудники', uz: 'O\'quvchilar va xodimlar');
+  String get navTeachers => _t(en: 'Teachers', ru: 'Учителя', uz: 'O\'qituvchilar');
+  String get navStudents => _t(en: 'Students', ru: 'Ученики', uz: 'O\'quvchilar');
   String get navFinance => _t(en: 'Finance', ru: 'Финансы', uz: 'Moliya');
   String get navPaymentsExams => _t(en: 'Payments', ru: 'Платежи', uz: 'To\'lovlar');
   String get navRevenueReports => _t(en: 'Revenue Reports', ru: 'Отчёты по выручке', uz: 'Daromad hisobotlari');

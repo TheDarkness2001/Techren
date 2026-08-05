@@ -109,7 +109,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Teacher ${created.displayId ?? created.name} created')),
       );
-      context.go('${widget.prefix}/people');
+      context.go('${widget.prefix}/people/teachers');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -132,7 +132,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
         title: const Text('Add Teacher'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('${widget.prefix}/people'),
+          onPressed: () => context.go('${widget.prefix}/people/teachers'),
         ),
       ),
       body: ListView(
@@ -283,7 +283,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: _saving ? null : () => context.go('${widget.prefix}/people'),
+                      onPressed: _saving ? null : () => context.go('${widget.prefix}/people/teachers'),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: AppSpacing.sm),

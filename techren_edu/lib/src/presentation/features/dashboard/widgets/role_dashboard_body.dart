@@ -248,7 +248,7 @@ class _RecentStudentRow extends StatelessWidget {
         radius: 20,
         isActive: student.isActive,
       ),
-      onTap: () => context.go('/admin/people'),
+      onTap: () => context.go('/admin/people/students'),
     );
   }
 }

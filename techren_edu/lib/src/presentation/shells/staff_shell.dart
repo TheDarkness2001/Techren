@@ -48,11 +48,23 @@ class FounderBranchesScreen extends StatelessWidget {
 }
 
 class FounderPeopleScreen extends StatelessWidget {
-  const FounderPeopleScreen({super.key});
+  const FounderPeopleScreen({
+    super.key,
+    this.mode = PeopleListMode.students,
+  });
+
+  final PeopleListMode mode;
 
   @override
   Widget build(BuildContext context) {
-    return const PeopleScreen(navItems: founderNavItems, selectedRoute: '/founder/people');
+    final route = mode == PeopleListMode.teachers
+        ? '/founder/people/teachers'
+        : '/founder/people/students';
+    return PeopleScreen(
+      navItems: founderNavItems,
+      selectedRoute: route,
+      mode: mode,
+    );
   }
 }
 
@@ -165,11 +177,23 @@ class _StaffQuickActions extends StatelessWidget {
 }
 
 class AdminPeopleScreen extends StatelessWidget {
-  const AdminPeopleScreen({super.key});
+  const AdminPeopleScreen({
+    super.key,
+    this.mode = PeopleListMode.students,
+  });
+
+  final PeopleListMode mode;
 
   @override
   Widget build(BuildContext context) {
-    return const PeopleScreen(navItems: adminNavItems, selectedRoute: '/admin/people');
+    final route = mode == PeopleListMode.teachers
+        ? '/admin/people/teachers'
+        : '/admin/people/students';
+    return PeopleScreen(
+      navItems: adminNavItems,
+      selectedRoute: route,
+      mode: mode,
+    );
   }
 }
 

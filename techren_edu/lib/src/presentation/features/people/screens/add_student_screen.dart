@@ -155,7 +155,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Student ${created.displayId ?? created.name} created')),
       );
-      context.go('${widget.prefix}/people');
+      context.go('${widget.prefix}/people/students');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -177,13 +177,13 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         title: const Text('Add Student'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('${widget.prefix}/people'),
+          onPressed: () => context.go('${widget.prefix}/people/students'),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: FilledButton.tonal(
-              onPressed: () => context.go('${widget.prefix}/people'),
+              onPressed: () => context.go('${widget.prefix}/people/students'),
               child: const Text('← Back'),
             ),
           ),
@@ -432,7 +432,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: _saving ? null : () => context.go('${widget.prefix}/people'),
+                      onPressed: _saving ? null : () => context.go('${widget.prefix}/people/students'),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: AppSpacing.sm),

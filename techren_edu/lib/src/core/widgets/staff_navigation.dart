@@ -104,7 +104,16 @@ List<StaffNavItem> staffNavigationFor(
       label: l10n.navPeople,
       icon: Icons.people_outline,
       children: [
-        StaffNavItem(label: l10n.navStudentsTeachers, icon: Icons.groups_outlined, route: '$prefix/people'),
+        StaffNavItem(
+          label: l10n.navTeachers,
+          icon: Icons.person_outline,
+          route: '$prefix/people/teachers',
+        ),
+        StaffNavItem(
+          label: l10n.navStudents,
+          icon: Icons.school_outlined,
+          route: '$prefix/people/students',
+        ),
       ],
     ),
     StaffNavItem(
@@ -154,6 +163,10 @@ bool staffRouteMatches(String currentRoute, StaffNavItem item) {
 bool _routeActive(String current, String target) {
   if (current == target) return true;
   if (target.endsWith('/more') && current.startsWith(target)) return true;
+  // Keep Students / Teachers distinct under People (don't treat siblings as active).
+  if (target.endsWith('/people/students') || target.endsWith('/people/teachers')) {
+    return current == target || current.startsWith('$target/');
+  }
   return current.startsWith('$target/');
 }
 

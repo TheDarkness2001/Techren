@@ -207,8 +207,23 @@ class _PaginatedScrollBodyState<T, Q> extends ConsumerState<PaginatedScrollBody<
     ref.listen(provider, (_, next) => next.whenData(_merge));
     final async = ref.watch(provider);
 
+    // First frame can have data before [ref.listen] merges it — avoid flashing empty.
+    if (async.hasValue) {
+      final result = async.value!;
+      final needsMerge = result.page == 1
+          ? _lastMergedPage == 0 || (_items.isEmpty && result.items.isNotEmpty)
+          : result.page > _lastMergedPage;
+      if (needsMerge) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final still = ref.read(provider).valueOrNull;
+          if (still != null) _merge(still);
+        });
+      }
+    }
+
     if (_items.isEmpty) {
-      if (async.isLoading) {
+      if (async.isLoading || async.isRefreshing) {
         return LoadingState(kind: widget.initialLoadingKind);
       }
       if (async.hasError) {
@@ -216,6 +231,10 @@ class _PaginatedScrollBodyState<T, Q> extends ConsumerState<PaginatedScrollBody<
       }
       if (async.hasValue && async.value!.items.isEmpty) {
         return widget.empty ?? const SizedBox.shrink();
+      }
+      // Data arrived but merge is scheduled — keep loading, do not show empty.
+      if (async.hasValue && async.value!.items.isNotEmpty) {
+        return LoadingState(kind: widget.initialLoadingKind);
       }
     }
 

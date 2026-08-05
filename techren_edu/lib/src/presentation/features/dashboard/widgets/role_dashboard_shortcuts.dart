@@ -54,9 +54,9 @@ List<DashboardShortcut> dashboardShortcutsFor({
 
     return const [
 
-      (label: 'Manage Students', icon: Icons.school_outlined, route: '/founder/people'),
+      (label: 'Manage Students', icon: Icons.school_outlined, route: '/founder/people/students'),
 
-      (label: 'Manage Teachers', icon: Icons.groups_outlined, route: '/founder/people'),
+      (label: 'Manage Teachers', icon: Icons.groups_outlined, route: '/founder/people/teachers'),
 
       (label: 'View Payments', icon: Icons.payments_outlined, route: '/founder/more'),
 
@@ -80,11 +80,11 @@ List<DashboardShortcut> dashboardShortcutsFor({
 
       if (canAccessStaffRoute(user, '/admin/people', rolePerms))
 
-        (label: 'Manage Students', icon: Icons.school_outlined, route: '/admin/people'),
+        (label: 'Manage Students', icon: Icons.school_outlined, route: '/admin/people/students'),
 
       if (canAccessStaffRoute(user, '/admin/people', rolePerms))
 
-        (label: 'Manage Teachers', icon: Icons.groups_outlined, route: '/admin/people'),
+        (label: 'Manage Teachers', icon: Icons.groups_outlined, route: '/admin/people/teachers'),
 
       if (canAccessStaffRoute(user, '/admin/more', rolePerms))
 
@@ -130,7 +130,7 @@ List<DashboardShortcut> dashboardShortcutsFor({
 
     if (canAccessStaffRoute(user, '$prefix/people', rolePerms))
 
-      (label: 'Manage Students', icon: Icons.school_outlined, route: '$prefix/people'),
+      (label: 'Manage Students', icon: Icons.school_outlined, route: '$prefix/people/students'),
 
     if (canAccessStaffRoute(user, '$prefix/more', rolePerms))
 

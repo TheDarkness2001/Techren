@@ -28,6 +28,7 @@ import '../../presentation/features/upload/screens/content_import_screen.dart';
 import '../../presentation/features/learning_cms/screens/learning_cms_screen.dart';
 import '../../presentation/features/people/screens/add_student_screen.dart';
 import '../../presentation/features/people/screens/add_teacher_screen.dart';
+import '../../presentation/features/people/screens/people_screen.dart';
 import '../../presentation/features/progress/screens/teacher_progress_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_hub_screen.dart';
 import '../../presentation/features/ielts/screens/ielts_exam_player_screen.dart';
@@ -286,7 +287,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ContentImportScreen(navItems: teacherNavItems, selectedRoute: '/teacher/content-import'),
       ),
       AppPageTransitions.route(path: '/admin/dashboard', builder: (_, __) => const AdminDashboardScreen()),
-      AppPageTransitions.route(path: '/admin/people', builder: (_, __) => const AdminPeopleScreen()),
+      AppPageTransitions.route(
+        path: '/admin/people',
+        redirect: (_, __) => '/admin/people/students',
+      ),
+      AppPageTransitions.route(
+        path: '/admin/people/students',
+        builder: (_, __) => const AdminPeopleScreen(mode: PeopleListMode.students),
+      ),
+      AppPageTransitions.route(
+        path: '/admin/people/teachers',
+        builder: (_, __) => const AdminPeopleScreen(mode: PeopleListMode.teachers),
+      ),
       AppPageTransitions.route(
         path: '/admin/people/add-student',
         builder: (_, __) => const AddStudentScreen(prefix: '/admin'),
@@ -312,7 +324,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ...buildSharedStaffOpsRoutes(prefix: '/admin', navItems: adminNavItems),
       AppPageTransitions.route(path: '/founder/dashboard', builder: (_, __) => const FounderDashboardScreen()),
       AppPageTransitions.route(path: '/founder/branches', builder: (_, __) => const FounderBranchesScreen()),
-      AppPageTransitions.route(path: '/founder/people', builder: (_, __) => const FounderPeopleScreen()),
+      AppPageTransitions.route(
+        path: '/founder/people',
+        redirect: (_, __) => '/founder/people/students',
+      ),
+      AppPageTransitions.route(
+        path: '/founder/people/students',
+        builder: (_, __) => const FounderPeopleScreen(mode: PeopleListMode.students),
+      ),
+      AppPageTransitions.route(
+        path: '/founder/people/teachers',
+        builder: (_, __) => const FounderPeopleScreen(mode: PeopleListMode.teachers),
+      ),
       AppPageTransitions.route(
         path: '/founder/people/add-student',
         builder: (_, __) => const AddStudentScreen(prefix: '/founder'),

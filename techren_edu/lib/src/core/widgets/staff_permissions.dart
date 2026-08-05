@@ -3,7 +3,7 @@ import 'staff_navigation.dart';
 String? permissionKeyForStaffRoute(String route) {
   if (route.endsWith('/dashboard') || route.endsWith('/branches')) return null;
 
-  if (route.endsWith('/people')) return 'canViewStudents';
+  if (route.contains('/people')) return 'canViewStudents';
   if (route.contains('/schedule')) return 'canViewScheduler';
   if (route.contains('/attendance')) return 'canViewAttendance';
   if (route.endsWith('/feedback')) return 'canViewFeedback';
