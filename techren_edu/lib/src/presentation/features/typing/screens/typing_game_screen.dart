@@ -89,7 +89,8 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
       if (!mounted) return;
       setState(() {
         _payload = payload;
-        _target = payload.prompt.text;
+        // Soft-wrap only — hard newlines block caret advance in the capture field.
+        _target = payload.prompt.text.replaceAll(RegExp(r'[\r\n]+'), ' ');
         _loading = false;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -419,16 +420,12 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                                   ),
                                 ),
 
-                                // Prompt
-                                Flexible(
-                                  child: SingleChildScrollView(
-                                    child: _MonkeytypePrompt(
-                                      target: _target,
-                                      typed: _inputCtrl.text,
-                                      caret: _caret,
-                                      caretBlink: _caretBlink,
-                                    ),
-                                  ),
+                                // Prompt — 3 visible rows, auto-follows caret
+                                _MonkeytypePrompt(
+                                  target: _target,
+                                  typed: _inputCtrl.text,
+                                  caret: _caret,
+                                  caretBlink: _caretBlink,
                                 ),
 
                                 const SizedBox(height: 36),
@@ -455,9 +452,22 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                           autofocus: true,
                           enableSuggestions: false,
                           autocorrect: false,
-                          keyboardType: TextInputType.visiblePassword,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          maxLines: null,
                           inputFormatters: [
                             FilteringTextInputFormatter.deny(RegExp(r'[\u200B-\u200D\uFEFF]')),
+                            // Map Enter → space so soft-wrapped lines keep flowing
+                            TextInputFormatter.withFunction((oldValue, newValue) {
+                              final text = newValue.text.replaceAll('\r\n', ' ').replaceAll('\n', ' ').replaceAll('\r', ' ');
+                              if (text == newValue.text) return newValue;
+                              final delta = newValue.text.length - text.length;
+                              final offset = (newValue.selection.baseOffset - delta).clamp(0, text.length);
+                              return TextEditingValue(
+                                text: text,
+                                selection: TextSelection.collapsed(offset: offset),
+                              );
+                            }),
                           ],
                         ),
                       ),
@@ -513,7 +523,7 @@ class _MonoStat extends StatelessWidget {
   }
 }
 
-/// Monkeytype-inspired prompt: muted upcoming text, bright correct, red wrong, blinking caret.
+/// Monkeytype-inspired prompt: 3 rows, larger type, soft-wraps freely, caret follows.
 class _MonkeytypePrompt extends StatelessWidget {
   const _MonkeytypePrompt({
     required this.target,
@@ -527,62 +537,40 @@ class _MonkeytypePrompt extends StatelessWidget {
   final int caret;
   final Animation<double> caretBlink;
 
-  static const _fontSize = 28.0;
-  static const _lineHeight = 1.75;
+  static const _fontSize = 34.0;
+  static const _lineHeight = 1.55;
+  static const _visibleLines = 3;
+
+  double get _rowHeight => _fontSize * _lineHeight;
+
+  TextStyle get _baseStyle => const TextStyle(
+        fontFamily: 'Consolas',
+        fontFamilyFallback: ['Courier New', 'Menlo', 'monospace'],
+        fontSize: _fontSize,
+        height: _lineHeight,
+        letterSpacing: 0.35,
+        fontWeight: FontWeight.w400,
+      );
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
 
-    // Monkeytype palette adapted to theme:
-    // upcoming = soft gray, typed correct = near-white, wrong = soft red, caret = accent
     final upcoming = scheme.onSurface.withValues(alpha: 0.32);
     final typedOk = scheme.onSurface.withValues(alpha: 0.92);
     final wrong = semantic.danger;
     final caretColor = scheme.primary;
 
-    final baseStyle = TextStyle(
-      fontFamily: 'Consolas',
-      fontFamilyFallback: const ['Courier New', 'Menlo', 'monospace'],
-      fontSize: _fontSize,
-      height: _lineHeight,
-      letterSpacing: 0.2,
-      fontWeight: FontWeight.w400,
-      color: upcoming,
-    );
-
     final spans = <InlineSpan>[];
     for (var i = 0; i < target.length; i++) {
-      if (i == caret) {
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: FadeTransition(
-              opacity: caretBlink,
-              child: Container(
-                width: 2.5,
-                height: _fontSize * 1.15,
-                margin: const EdgeInsets.only(right: 1),
-                decoration: BoxDecoration(
-                  color: caretColor,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-
       final ch = target[i];
       Color color;
       TextDecoration decoration = TextDecoration.none;
       if (i < caret) {
         final ok = typed.length > i && typed[i] == ch;
         color = ok ? typedOk : wrong;
-        if (!ok) {
-          decoration = TextDecoration.underline;
-        }
+        if (!ok) decoration = TextDecoration.underline;
       } else {
         color = upcoming;
       }
@@ -600,29 +588,74 @@ class _MonkeytypePrompt extends StatelessWidget {
       );
     }
 
-    // Caret at end when finished typing all available text
-    if (caret >= target.length) {
-      spans.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: FadeTransition(
-            opacity: caretBlink,
-            child: Container(
-              width: 2.5,
-              height: _fontSize * 1.15,
-              decoration: BoxDecoration(
-                color: caretColor,
-                borderRadius: BorderRadius.circular(1),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : 880.0;
+        final rich = TextSpan(style: _baseStyle.copyWith(color: upcoming), children: spans);
+
+        final fullPainter = TextPainter(
+          text: rich,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: maxWidth);
+
+        final caretOffset = _caretPixelOffset(maxWidth: maxWidth);
+        final caretLineTop = (caretOffset.dy / _rowHeight).floor() * _rowHeight;
+        final maxScroll = (fullPainter.height - _rowHeight * _visibleLines).clamp(0.0, double.infinity);
+        final scrollY = caretLineTop.clamp(0.0, maxScroll);
+        final viewportHeight = _rowHeight * _visibleLines;
+
+        return SizedBox(
+          height: viewportHeight,
+          width: maxWidth,
+          child: ClipRect(
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Transform.translate(
+                  offset: Offset(0, -scrollY),
+                  child: SizedBox(
+                    width: maxWidth,
+                    child: Text.rich(
+                      rich,
+                      textAlign: TextAlign.left,
+                      softWrap: true,
+                    ),
+                  ),
+                ),
+                FadeTransition(
+                  opacity: caretBlink,
+                  child: Transform.translate(
+                    offset: Offset(caretOffset.dx, caretOffset.dy - scrollY + 2),
+                    child: Container(
+                      width: 3,
+                      height: _fontSize * 1.05,
+                      decoration: BoxDecoration(
+                        color: caretColor,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      );
-    }
+        );
+      },
+    );
+  }
 
-    return Text.rich(
-      TextSpan(style: baseStyle, children: spans),
-      textAlign: TextAlign.left,
+  Offset _caretPixelOffset({required double maxWidth}) {
+    final before = target.substring(0, caret.clamp(0, target.length));
+    if (before.isEmpty) return Offset.zero;
+
+    final measure = TextPainter(
+      text: TextSpan(text: before, style: _baseStyle),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+
+    return measure.getOffsetForCaret(
+      TextPosition(offset: before.length),
+      Rect.fromLTWH(0, 0, measure.width, _rowHeight),
     );
   }
 }
