@@ -1,6 +1,6 @@
 {
-  "version": "1.0.21",
-  "builtAt": "2026-08-04T07:07:10Z",
+  "version": "1.0.26",
+  "builtAt": "2026-08-05T16:45:00Z",
   "mode": "release",
   "apiBaseUrl": "https://techren-production.up.railway.app/api/v1",
   "android": true,
