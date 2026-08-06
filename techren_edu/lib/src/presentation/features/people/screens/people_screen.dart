@@ -79,6 +79,41 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     }
   }
 
+  ButtonStyle get _headerButtonStyle => FilledButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        visualDensity: VisualDensity.standard,
+      );
+
+  InputDecoration _compactFieldDecoration({
+    required String label,
+    String? hint,
+    Widget? prefixIcon,
+  }) {
+    return InputDecoration(
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      labelText: label,
+      hintText: hint,
+      prefixIcon: prefixIcon,
+      prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+    );
+  }
+
+  int _countOf(AsyncValue<PaginatedResult<Person>> async) {
+    return async.asData?.value.total ?? async.valueOrNull?.total ?? 0;
+  }
+
+  PageMeta _countQuery(PageMeta listQuery, {String? status, bool clearStatus = false}) {
+    return PageMeta(
+      page: 1,
+      limit: 1,
+      search: listQuery.search,
+      status: clearStatus ? null : (status ?? listQuery.status),
+      branchId: listQuery.branchId,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = widget.navItems.indexWhere((i) => widget.selectedRoute.startsWith(i.route));
@@ -99,23 +134,80 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     final queryCacheKey =
         '${widget.mode}|${listQuery.limit}|${listQuery.search ?? ''}|${listQuery.status ?? ''}|${listQuery.branchId ?? ''}';
 
-    final statsQuery = listQuery.copyWith(clearStatus: true);
-    final allAsync = _isTeachers
-        ? ref.watch(teachersProvider(statsQuery))
-        : ref.watch(studentsProvider(statsQuery));
-    final activeAsync = _isTeachers
-        ? ref.watch(teachersProvider(statsQuery.copyWith(status: 'active')))
-        : ref.watch(studentsProvider(statsQuery.copyWith(status: 'active')));
-    final inactiveAsync = _isTeachers
-        ? ref.watch(teachersProvider(statsQuery.copyWith(status: 'inactive')))
-        : ref.watch(studentsProvider(statsQuery.copyWith(status: 'inactive')));
-    final graduatedAsync =
-        _isTeachers ? null : ref.watch(studentsProvider(statsQuery.copyWith(status: 'graduated')));
+    final totalQuery = _countQuery(listQuery, clearStatus: true);
+    final activeQuery = _countQuery(listQuery, status: 'active');
+    final inactiveQuery = _countQuery(listQuery, status: 'inactive');
+    final fourthQuery = _isTeachers
+        ? _countQuery(listQuery, status: 'on-leave')
+        : _countQuery(listQuery, status: 'graduated');
 
-    final total = allAsync.valueOrNull?.total ?? 0;
-    final active = activeAsync.valueOrNull?.total ?? 0;
-    final inactive = inactiveAsync.valueOrNull?.total ?? 0;
-    final graduated = graduatedAsync?.valueOrNull?.total ?? 0;
+    final totalAsync =
+        _isTeachers ? ref.watch(teachersProvider(totalQuery)) : ref.watch(studentsProvider(totalQuery));
+    final activeAsync =
+        _isTeachers ? ref.watch(teachersProvider(activeQuery)) : ref.watch(studentsProvider(activeQuery));
+    final inactiveAsync = _isTeachers
+        ? ref.watch(teachersProvider(inactiveQuery))
+        : ref.watch(studentsProvider(inactiveQuery));
+    final fourthAsync =
+        _isTeachers ? ref.watch(teachersProvider(fourthQuery)) : ref.watch(studentsProvider(fourthQuery));
+
+    final total = _countOf(totalAsync);
+    final active = _countOf(activeAsync);
+    final inactive = _countOf(inactiveAsync);
+    final fourth = _countOf(fourthAsync);
+
+    final filterHeader = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PeopleFilterCard(
+          title: 'Search & Filter',
+          child: PeopleFormRow(
+            left: TextField(
+              controller: _searchController,
+              style: const TextStyle(fontSize: 12, height: 1.2),
+              decoration: _compactFieldDecoration(
+                label: 'Search',
+                hint: _isTeachers ? 'Name or email…' : 'Name, ID, phone…',
+                prefixIcon: const Icon(Icons.search, size: 16),
+              ),
+              onSubmitted: (v) => setState(() => _meta = _meta.copyWith(search: v, page: 1)),
+            ),
+            right: DropdownButtonFormField<String?>(
+              value: _meta.status,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.2),
+              decoration: _compactFieldDecoration(label: 'Status'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('All Status')),
+                const DropdownMenuItem(value: 'active', child: Text('Active')),
+                const DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                if (!_isTeachers)
+                  const DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
+                if (_isTeachers)
+                  const DropdownMenuItem(value: 'on-leave', child: Text('On leave')),
+              ],
+              onChanged: (v) => setState(() {
+                _meta = v == null
+                    ? _meta.copyWith(clearStatus: true, page: 1)
+                    : _meta.copyWith(status: v, page: 1);
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        PeopleStatStrip(
+          items: [
+            ('Total', '$total', AppColors.primary),
+            ('Active', '$active', context.semantic.success),
+            ('Inactive', '$inactive', context.semantic.warning),
+            if (_isTeachers)
+              ('On leave', '$fourth', AppColors.secondary)
+            else
+              ('Graduated', '$fourth', AppColors.secondary),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+      ],
+    );
 
     return AdaptiveScaffold(
       title: _isTeachers ? 'Teachers' : 'Students',
@@ -123,123 +215,42 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 0, AppSpacing.md, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Spacer(),
-                    if (canManage)
-                      FilledButton.icon(
-                        onPressed: _openAdd,
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add'),
-                      ),
-                    const SizedBox(width: AppSpacing.sm),
-                    FilledButton.tonalIcon(
-                      onPressed: _refresh,
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        minimumSize: const Size(0, 36),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Refresh'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                PeopleFilterCard(
-                  title: 'Search & Filter',
-                  child: PeopleFormRow(
-                    left: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        labelText: 'Search',
-                        hintText: _isTeachers ? 'Name or email…' : 'Name, ID, phone…',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                      ),
-                      onSubmitted: (v) => setState(() => _meta = _meta.copyWith(search: v, page: 1)),
-                    ),
-                    right: DropdownButtonFormField<String?>(
-                      value: _meta.status,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        labelText: 'Status',
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('All Status')),
-                        const DropdownMenuItem(value: 'active', child: Text('Active')),
-                        const DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                        if (!_isTeachers)
-                          const DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
-                        if (_isTeachers)
-                          const DropdownMenuItem(value: 'on-leave', child: Text('On leave')),
-                      ],
-                      onChanged: (v) => setState(() {
-                        _meta = v == null
-                            ? _meta.copyWith(clearStatus: true, page: 1)
-                            : _meta.copyWith(status: v, page: 1);
-                      }),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                PeopleStatStrip(
-                  items: [
-                    ('Total', '$total', AppColors.primary),
-                    ('Active', '$active', context.semantic.success),
-                    ('Inactive', '$inactive', context.semantic.warning),
-                    if (!_isTeachers)
-                      ('Graduated', '$graduated', AppColors.secondary)
-                    else
-                      (
-                        'Roles',
-                        '${allAsync.valueOrNull?.items.map((e) => e.role).toSet().length ?? 0}',
-                        AppColors.secondary
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-              ],
-            ),
+      actions: [
+        if (canManage) ...[
+          FilledButton.icon(
+            onPressed: _openAdd,
+            style: _headerButtonStyle,
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Add'),
           ),
-          Expanded(
-            child: _isTeachers
-                ? _TeacherList(
-                    query: listQuery,
-                    queryCacheKey: queryCacheKey,
-                    onRefresh: _refresh,
-                    canManageStatus: canManage,
-                    prefix: _prefix,
-                    statusColor: _statusColor,
-                  )
-                : _StudentList(
-                    query: listQuery,
-                    queryCacheKey: queryCacheKey,
-                    onRefresh: _refresh,
-                    canManageStatus: canManage,
-                    prefix: _prefix,
-                    statusColor: _statusColor,
-                  ),
-          ),
+          const SizedBox(width: AppSpacing.sm),
         ],
-      ),
+        FilledButton.tonalIcon(
+          onPressed: _refresh,
+          style: _headerButtonStyle,
+          icon: const Icon(Icons.refresh, size: 20),
+          label: const Text('Refresh'),
+        ),
+      ],
+      body: _isTeachers
+          ? _TeacherList(
+              query: listQuery,
+              queryCacheKey: queryCacheKey,
+              header: filterHeader,
+              onRefresh: _refresh,
+              canManageStatus: canManage,
+              prefix: _prefix,
+              statusColor: _statusColor,
+            )
+          : _StudentList(
+              query: listQuery,
+              queryCacheKey: queryCacheKey,
+              header: filterHeader,
+              onRefresh: _refresh,
+              canManageStatus: canManage,
+              prefix: _prefix,
+              statusColor: _statusColor,
+            ),
     );
   }
 
@@ -255,6 +266,7 @@ class _StudentList extends ConsumerWidget {
   const _StudentList({
     required this.query,
     required this.queryCacheKey,
+    required this.header,
     required this.onRefresh,
     required this.canManageStatus,
     required this.prefix,
@@ -263,6 +275,7 @@ class _StudentList extends ConsumerWidget {
 
   final PageMeta query;
   final Object queryCacheKey;
+  final Widget header;
   final VoidCallback onRefresh;
   final bool canManageStatus;
   final String prefix;
@@ -275,6 +288,7 @@ class _StudentList extends ConsumerWidget {
       query: query,
       withPage: (q, page) => q.copyWith(page: page),
       queryCacheKey: queryCacheKey,
+      header: header,
       onInvalidate: (ref, q) => ref.invalidate(studentsProvider(q)),
       itemLabel: 'students',
       initialLoadingKind: LoadingSkeletonKind.table,
@@ -288,30 +302,24 @@ class _StudentList extends ConsumerWidget {
           builder: (context, constraints) {
             final useTable = constraints.maxWidth >= 760;
             if (!useTable) {
-              return ListView.builder(
-                controller: controller,
-                padding: const EdgeInsets.only(right: AppSpacing.md),
-                itemCount: items.length,
-                itemBuilder: (context, index) => _PersonActions(
-                  person: items[index],
-                  onChanged: onRefresh,
-                  canManageStatus: canManageStatus,
-                  prefix: prefix,
-                ),
+              return Column(
+                children: [
+                  for (final person in items)
+                    _PersonActions(
+                      person: person,
+                      onChanged: onRefresh,
+                      canManageStatus: canManageStatus,
+                      prefix: prefix,
+                    ),
+                ],
               );
             }
-            return ListView(
-              controller: controller,
-              padding: const EdgeInsets.only(right: AppSpacing.md),
-              children: [
-                _PeopleDataTable(
-                  people: items,
-                  onChanged: onRefresh,
-                  canManageStatus: canManageStatus,
-                  prefix: prefix,
-                  statusColor: statusColor,
-                ),
-              ],
+            return _PeopleDataTable(
+              people: items,
+              onChanged: onRefresh,
+              canManageStatus: canManageStatus,
+              prefix: prefix,
+              statusColor: statusColor,
             );
           },
         );
@@ -324,6 +332,7 @@ class _TeacherList extends ConsumerWidget {
   const _TeacherList({
     required this.query,
     required this.queryCacheKey,
+    required this.header,
     required this.onRefresh,
     required this.canManageStatus,
     required this.prefix,
@@ -332,6 +341,7 @@ class _TeacherList extends ConsumerWidget {
 
   final PageMeta query;
   final Object queryCacheKey;
+  final Widget header;
   final VoidCallback onRefresh;
   final bool canManageStatus;
   final String prefix;
@@ -344,6 +354,7 @@ class _TeacherList extends ConsumerWidget {
       query: query,
       withPage: (q, page) => q.copyWith(page: page),
       queryCacheKey: queryCacheKey,
+      header: header,
       onInvalidate: (ref, q) => ref.invalidate(teachersProvider(q)),
       itemLabel: 'staff',
       initialLoadingKind: LoadingSkeletonKind.table,
@@ -357,31 +368,25 @@ class _TeacherList extends ConsumerWidget {
           builder: (context, constraints) {
             final useTable = constraints.maxWidth >= 760;
             if (!useTable) {
-              return ListView.builder(
-                controller: controller,
-                padding: const EdgeInsets.only(right: AppSpacing.md),
-                itemCount: items.length,
-                itemBuilder: (context, index) => _PersonActions(
-                  person: items[index],
-                  onChanged: onRefresh,
-                  canManageStatus: canManageStatus,
-                  prefix: prefix,
-                ),
+              return Column(
+                children: [
+                  for (final person in items)
+                    _PersonActions(
+                      person: person,
+                      onChanged: onRefresh,
+                      canManageStatus: canManageStatus,
+                      prefix: prefix,
+                    ),
+                ],
               );
             }
-            return ListView(
-              controller: controller,
-              padding: const EdgeInsets.only(right: AppSpacing.md),
-              children: [
-                _PeopleDataTable(
-                  people: items,
-                  onChanged: onRefresh,
-                  canManageStatus: canManageStatus,
-                  isTeacher: true,
-                  prefix: prefix,
-                  statusColor: statusColor,
-                ),
-              ],
+            return _PeopleDataTable(
+              people: items,
+              onChanged: onRefresh,
+              canManageStatus: canManageStatus,
+              isTeacher: true,
+              prefix: prefix,
+              statusColor: statusColor,
             );
           },
         );

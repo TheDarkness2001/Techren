@@ -98,7 +98,7 @@ class PeopleFilterCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 6, AppSpacing.sm, 6),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,
@@ -109,12 +109,12 @@ class PeopleFilterCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: context.semantic.textMuted,
                 ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 6),
           child,
         ],
       ),
@@ -175,7 +175,7 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,

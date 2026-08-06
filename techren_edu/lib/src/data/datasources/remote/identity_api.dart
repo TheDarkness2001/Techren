@@ -7,6 +7,13 @@ import '../../../domain/entities/dashboard_data.dart';
 import '../../../domain/entities/paginated_result.dart';
 import '../../../domain/entities/person.dart';
 
+int _asInt(dynamic value, {required int fallback}) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
 PaginatedResult<T> _parsePaginated<T>(
   Response<dynamic> response,
   T Function(Map<String, dynamic>) fromJson,
@@ -16,10 +23,10 @@ PaginatedResult<T> _parsePaginated<T>(
   final meta = data['meta'] as Map<String, dynamic>? ?? {};
   return PaginatedResult(
     items: items,
-    page: meta['page'] as int? ?? 1,
-    limit: meta['limit'] as int? ?? 20,
-    total: meta['total'] as int? ?? items.length,
-    totalPages: meta['totalPages'] as int? ?? 1,
+    page: _asInt(meta['page'], fallback: 1),
+    limit: _asInt(meta['limit'], fallback: 20),
+    total: _asInt(meta['total'], fallback: items.length),
+    totalPages: _asInt(meta['totalPages'], fallback: 1),
   );
 }
 

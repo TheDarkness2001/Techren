@@ -90,6 +90,7 @@ class PaginatedScrollBody<T, Q> extends ConsumerStatefulWidget {
     required this.queryCacheKey,
     required this.builder,
     required this.onInvalidate,
+    this.header,
     this.itemLabel = 'items',
     this.initialLoadingKind = LoadingSkeletonKind.list,
     this.empty,
@@ -101,6 +102,8 @@ class PaginatedScrollBody<T, Q> extends ConsumerStatefulWidget {
   final Object queryCacheKey;
   final PaginatedScrollBuilder<T> builder;
   final void Function(WidgetRef ref, Q query) onInvalidate;
+  /// When set, scrolls away with the list (filters, stats, etc.).
+  final Widget? header;
   final String itemLabel;
   final LoadingSkeletonKind initialLoadingKind;
   final Widget? empty;
@@ -223,35 +226,98 @@ class _PaginatedScrollBodyState<T, Q> extends ConsumerState<PaginatedScrollBody<
     }
 
     if (_items.isEmpty) {
+      Widget body;
       if (async.isLoading || async.isRefreshing) {
-        return LoadingState(kind: widget.initialLoadingKind);
+        body = LoadingState(kind: widget.initialLoadingKind);
+      } else if (async.hasError) {
+        body = Center(child: Text('${async.error}'));
+      } else if (async.hasValue && async.value!.items.isEmpty) {
+        body = widget.empty ?? const SizedBox.shrink();
+      } else if (async.hasValue && async.value!.items.isNotEmpty) {
+        body = LoadingState(kind: widget.initialLoadingKind);
+      } else {
+        body = LoadingState(kind: widget.initialLoadingKind);
       }
-      if (async.hasError) {
-        return Center(child: Text('${async.error}'));
-      }
-      if (async.hasValue && async.value!.items.isEmpty) {
-        return widget.empty ?? const SizedBox.shrink();
-      }
-      // Data arrived but merge is scheduled — keep loading, do not show empty.
-      if (async.hasValue && async.value!.items.isNotEmpty) {
-        return LoadingState(kind: widget.initialLoadingKind);
-      }
+
+      if (widget.header == null) return body;
+
+      return RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.md),
+                child: widget.header!,
+              ),
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.md),
+                child: body,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     return _buildScaffold();
   }
 
   Widget _buildScaffold() {
-    if (_items.isEmpty && widget.empty != null) {
+    if (_items.isEmpty && widget.empty != null && widget.header == null) {
       return widget.empty!;
     }
 
+    final content = widget.builder(context, _scrollController, _items, _scrollState);
+
+    if (widget.header == null) {
+      return Column(
+        children: [
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _handleRefresh,
+              child: content,
+            ),
+          ),
+          PaginatedScrollFooter(
+            loadedCount: _items.length,
+            total: _total,
+            itemLabel: widget.itemLabel,
+            loadingMore: _loadingMore,
+            hasMore: _hasMore,
+          ),
+        ],
+      );
+    }
+
+    // Header scrolls with list: builders must not attach [scrollController]
+    // (use NeverScrollableScrollPhysics / plain Column instead of nested ListView).
     return Column(
       children: [
         Expanded(
           child: RefreshIndicator(
             onRefresh: _handleRefresh,
-            child: widget.builder(context, _scrollController, _items, _scrollState),
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.md),
+                    child: widget.header!,
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md, bottom: AppSpacing.sm),
+                  sliver: SliverToBoxAdapter(child: content),
+                ),
+              ],
+            ),
           ),
         ),
         PaginatedScrollFooter(
