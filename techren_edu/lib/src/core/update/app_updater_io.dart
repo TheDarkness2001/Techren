@@ -70,6 +70,8 @@ Future<bool> _updateWindows(
   );
 
   // Same AppId in Inno Setup → upgrades in place, closes running app, relaunches.
+  // Mark before exit so the banner hides even if PackageInfo lags on first relaunch.
+  await markUpdateInstalled(update.latestVersion);
   await Process.start(target.path, const ['/SILENT'], mode: ProcessStartMode.detached);
   exit(0);
 }
