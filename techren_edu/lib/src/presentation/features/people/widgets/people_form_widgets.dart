@@ -65,7 +65,7 @@ class PeopleFormRow extends StatelessWidget {
           return Column(
             children: [
               left,
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               right,
             ],
           );
@@ -74,7 +74,7 @@ class PeopleFormRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: left),
-            const SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(child: right),
           ],
         );
@@ -98,21 +98,23 @@ class PeopleFilterCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,
         border: Border.all(color: context.semantic.border),
-        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: context.semantic.textMuted,
+                ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           child,
         ],
       ),
@@ -173,12 +175,11 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,
         border: Border.all(color: context.semantic.border),
-        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,16 +187,16 @@ class _MiniStat extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+              letterSpacing: 0.5,
               color: context.semantic.textMuted,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: color),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color, height: 1.1),
           ),
         ],
       ),

@@ -129,44 +129,56 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        _isTeachers ? 'Teachers' : 'Students',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
+                    const Spacer(),
                     if (canManage)
                       FilledButton.icon(
                         onPressed: _openAdd,
-                        icon: const Icon(Icons.add),
-                        label: Text(_isTeachers ? 'Add Teacher' : 'Add Student'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add'),
                       ),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton.tonalIcon(
                       onPressed: _refresh,
-                      icon: const Icon(Icons.refresh),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        minimumSize: const Size(0, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Refresh'),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 PeopleFilterCard(
                   title: 'Search & Filter',
                   child: PeopleFormRow(
                     left: TextField(
                       controller: _searchController,
+                      style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         labelText: 'Search',
-                        hintText: _isTeachers
-                            ? 'Search teachers by name or email...'
-                            : 'Search students...',
-                        prefixIcon: const Icon(Icons.search),
+                        hintText: _isTeachers ? 'Name or email…' : 'Name, ID, phone…',
+                        prefixIcon: const Icon(Icons.search, size: 18),
                       ),
                       onSubmitted: (v) => setState(() => _meta = _meta.copyWith(search: v, page: 1)),
                     ),
                     right: DropdownButtonFormField<String?>(
                       value: _meta.status,
-                      decoration: const InputDecoration(labelText: 'Status'),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        labelText: 'Status',
+                      ),
                       items: [
                         const DropdownMenuItem(value: null, child: Text('All Status')),
                         const DropdownMenuItem(value: 'active', child: Text('Active')),
@@ -184,7 +196,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 PeopleStatStrip(
                   items: [
                     ('Total', '$total', AppColors.primary),
@@ -200,7 +212,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
               ],
             ),
           ),
@@ -407,8 +419,8 @@ class _PeopleDataTable extends ConsumerWidget {
       padding: const EdgeInsets.all(AppSpacing.sm),
       child: AppDataTable(
         columns: isTeacher
-            ? const ['Teacher ID', 'Photo', 'Name', 'Subject(s)', 'Status', 'Role', 'Actions']
-            : const ['Student ID', 'Photo', 'Name', 'Subjects', 'Status', 'Actions'],
+            ? const ['ID', 'Photo', 'Name', 'Subject(s)', 'Status', 'Role', 'Actions']
+            : const ['ID', 'Photo', 'Name', 'Subjects', 'Status', 'Actions'],
         onSelectChanged: (index) => showPersonDetailSheet(
           context: context,
           ref: ref,

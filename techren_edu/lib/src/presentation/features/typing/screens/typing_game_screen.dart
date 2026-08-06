@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_semantic_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/typing.dart';
 import '../../../providers/typing_provider.dart';
@@ -33,7 +32,8 @@ class TypingGameScreen extends ConsumerStatefulWidget {
   ConsumerState<TypingGameScreen> createState() => _TypingGameScreenState();
 }
 
-class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
+class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
+    with SingleTickerProviderStateMixin {
   TypingStartPayload? _payload;
   String? _error;
   bool _loading = true;
@@ -51,16 +51,22 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
   int _elapsedSec = 0;
   Timer? _ticker;
   DateTime? _startedAt;
+  late final AnimationController _caretBlink;
 
   @override
   void initState() {
     super.initState();
+    _caretBlink = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 530),
+    )..repeat(reverse: true);
     _bootstrap();
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _caretBlink.dispose();
     _focus.dispose();
     _inputCtrl.dispose();
     super.dispose();
@@ -117,7 +123,6 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
     if (_finished || _target.isEmpty) return;
     _ensureTicker();
 
-    // Rebuild from full typed string vs target (handles paste / backspace).
     var correct = 0;
     var incorrect = 0;
     final len = value.length.clamp(0, _target.length);
@@ -143,7 +148,8 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
       _mistakes += mistakesDelta;
     });
 
-    if (_caret >= _target.length && (_payload?.session.unlimited == true || (_payload?.session.durationSec ?? 0) == 0)) {
+    if (_caret >= _target.length &&
+        (_payload?.session.unlimited == true || (_payload?.session.durationSec ?? 0) == 0)) {
       _complete();
     }
   }
@@ -169,13 +175,30 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
     return (session.durationSec - _elapsedSec).clamp(0, session.durationSec);
   }
 
-  double get _progress {
-    final session = _payload?.session;
-    if (session == null) return 0;
-    if (session.unlimited || session.durationSec <= 0) {
-      return _target.isEmpty ? 0 : (_caret / _target.length).clamp(0.0, 1.0);
+  String get _modeLabel {
+    switch (widget.mode) {
+      case 'english':
+        return 'english';
+      case 'uzbek':
+        return 'uzbek';
+      case 'code':
+        return 'code';
+      case 'programming':
+      default:
+        return 'programming';
     }
-    return (_elapsedSec / session.durationSec).clamp(0.0, 1.0);
+  }
+
+  IconData get _modeIcon {
+    switch (widget.mode) {
+      case 'english':
+      case 'uzbek':
+        return Icons.public;
+      case 'code':
+        return Icons.code;
+      default:
+        return Icons.terminal;
+    }
   }
 
   ({int wordsTyped, int correctWords, int wrongWords}) _wordStats() {
@@ -247,16 +270,15 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
           );
         },
         onLeaderboard: () {
-          Navigator.of(context).pop(); // close result sheet
-          Navigator.of(context).pop(); // leave game screen
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
           widget.onOpenLeaderboard?.call();
         },
         onContinue: () {
-          Navigator.of(context).pop(); // close result sheet
-          Navigator.of(context).pop(); // leave game screen
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
         },
       );
-      // Sheet handlers already dismiss the game when needed — don't pop the hub.
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -269,16 +291,33 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
+    final started = _elapsedSec > 0 || _caret > 0;
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: Text(widget.isDaily ? 'Daily challenge' : 'Typing practice'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          widget.isDaily ? 'daily' : 'practice',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+                color: semantic.textMuted,
+              ),
+        ),
+        centerTitle: true,
         actions: [
           if (!_finished && _payload != null)
             TextButton(
               onPressed: _complete,
-              child: const Text('Finish'),
+              child: Text(
+                'finish',
+                style: TextStyle(color: semantic.textMuted, fontWeight: FontWeight.w600),
+              ),
             ),
         ],
       ),
@@ -291,147 +330,299 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen> {
                   icon: Icons.error_outline,
                   action: FilledButton(onPressed: _bootstrap, child: const Text('Retry')),
                 )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 720;
-                    final fontSize = wide ? 36.0 : 28.0;
-                    final maxPromptWidth = wide ? 920.0 : constraints.maxWidth;
+              : Focus(
+                  autofocus: false,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape &&
+                        !_finished &&
+                        _payload != null) {
+                      _complete();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _focus.requestFocus(),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 920),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 28),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Monkeytype-style mode chip
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(_modeIcon, size: 14, color: scheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _modeLabel,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.3,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
+                                    if (widget.durationSec > 0) ...[
+                                      Text(
+                                        '  ·  ',
+                                        style: TextStyle(color: semantic.textMuted),
+                                      ),
+                                      Text(
+                                        '${widget.durationSec}s',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: semantic.textMuted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 28),
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.md,
-                            AppSpacing.sm,
-                            AppSpacing.md,
-                            0,
-                          ),
-                          child: TypingLiveStatsBar(
-                            wpm: _wpm.isFinite ? _wpm : 0,
-                            accuracy: _accuracy,
-                            correctChars: _correctChars,
-                            incorrectChars: _incorrectChars,
-                            mistakes: _mistakes,
-                            timeLeftLabel: _timeLeft < 0 ? '∞' : '${_timeLeft}s',
-                            progress: _progress,
-                            compact: true,
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _focus.requestFocus(),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: maxPromptWidth),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.lg,
-                                    vertical: AppSpacing.md,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    child: _TypingPrompt(
-                                      target: _target,
-                                      typed: _inputCtrl.text,
-                                      caret: _caret,
-                                      fontSize: fontSize,
+                                // Live stats — only after typing starts (Monkeytype style)
+                                AnimatedOpacity(
+                                  opacity: started ? 1 : 0,
+                                  duration: const Duration(milliseconds: 220),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 22),
+                                    child: Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: 28,
+                                      runSpacing: 8,
+                                      children: [
+                                        _MonoStat(
+                                          value: (_wpm.isFinite ? _wpm : 0).toStringAsFixed(0),
+                                          label: 'wpm',
+                                          color: scheme.primary,
+                                        ),
+                                        _MonoStat(
+                                          value: _accuracy.toStringAsFixed(0),
+                                          label: 'acc',
+                                          color: scheme.primary,
+                                        ),
+                                        _MonoStat(
+                                          value: _timeLeft < 0 ? '∞' : '$_timeLeft',
+                                          label: 'time',
+                                          color: scheme.primary,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              ),
+
+                                // Prompt
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    child: _MonkeytypePrompt(
+                                      target: _target,
+                                      typed: _inputCtrl.text,
+                                      caret: _caret,
+                                      caretBlink: _caretBlink,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 36),
+                                Text(
+                                  started ? 'esc — finish early' : 'start typing',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    letterSpacing: 0.6,
+                                    color: semantic.textMuted.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: Text(
-                            _elapsedSec == 0 && _caret == 0
-                                ? 'Tap here and start typing'
-                                : 'Keep typing — finish when ready',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: semantic.textMuted,
-                                ),
-                          ),
+                      ),
+                      // Hidden capture field
+                      Offstage(
+                        offstage: true,
+                        child: TextField(
+                          focusNode: _focus,
+                          controller: _inputCtrl,
+                          onChanged: _onText,
+                          autofocus: true,
+                          enableSuggestions: false,
+                          autocorrect: false,
+                          keyboardType: TextInputType.visiblePassword,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[\u200B-\u200D\uFEFF]')),
+                          ],
                         ),
-                        Offstage(
-                          offstage: true,
-                          child: TextField(
-                            focusNode: _focus,
-                            controller: _inputCtrl,
-                            onChanged: _onText,
-                            autofocus: true,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            keyboardType: TextInputType.visiblePassword,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.deny(RegExp(r'[\u200B-\u200D\uFEFF]')),
-                            ],
-                          ),
+                      ),
+                      if (_submitting)
+                        const Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: LinearProgressIndicator(minHeight: 2),
                         ),
-                        if (_submitting) const LinearProgressIndicator(),
-                      ],
-                    );
-                  },
+                    ],
+                  ),
+                ),
                 ),
     );
   }
 }
 
-/// Monkeytype-style large monospaced prompt with a clear caret.
-class _TypingPrompt extends StatelessWidget {
-  const _TypingPrompt({
+class _MonoStat extends StatelessWidget {
+  const _MonoStat({required this.value, required this.label, required this.color});
+
+  final String value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$value ',
+            style: TextStyle(
+              fontFamily: 'Consolas',
+              fontFamilyFallback: const ['Courier New', 'monospace'],
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: color,
+              height: 1,
+            ),
+          ),
+          TextSpan(
+            text: label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: context.semantic.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Monkeytype-inspired prompt: muted upcoming text, bright correct, red wrong, blinking caret.
+class _MonkeytypePrompt extends StatelessWidget {
+  const _MonkeytypePrompt({
     required this.target,
     required this.typed,
     required this.caret,
-    required this.fontSize,
+    required this.caretBlink,
   });
 
   final String target;
   final String typed;
   final int caret;
-  final double fontSize;
+  final Animation<double> caretBlink;
+
+  static const _fontSize = 28.0;
+  static const _lineHeight = 1.75;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
-    final upcoming = scheme.onSurface.withValues(alpha: 0.38);
-    final typedOk = scheme.onSurface;
+
+    // Monkeytype palette adapted to theme:
+    // upcoming = soft gray, typed correct = near-white, wrong = soft red, caret = accent
+    final upcoming = scheme.onSurface.withValues(alpha: 0.32);
+    final typedOk = scheme.onSurface.withValues(alpha: 0.92);
+    final wrong = semantic.danger;
+    final caretColor = scheme.primary;
+
     final baseStyle = TextStyle(
       fontFamily: 'Consolas',
-      fontFamilyFallback: const ['Courier New', 'monospace'],
-      fontSize: fontSize,
-      height: 1.6,
-      letterSpacing: 0.6,
-      fontWeight: FontWeight.w500,
+      fontFamilyFallback: const ['Courier New', 'Menlo', 'monospace'],
+      fontSize: _fontSize,
+      height: _lineHeight,
+      letterSpacing: 0.2,
+      fontWeight: FontWeight.w400,
+      color: upcoming,
     );
 
-    return Text.rich(
-      TextSpan(
-        style: baseStyle,
-        children: [
-          for (var i = 0; i < target.length; i++)
-            TextSpan(
-              text: target[i] == ' ' && i == caret ? '·' : target[i],
-              style: TextStyle(
-                color: i > caret
-                    ? upcoming
-                    : i == caret
-                        ? scheme.primary
-                        : (typed.length > i && typed[i] == target[i] ? typedOk : semantic.danger),
-                backgroundColor: i == caret ? scheme.primary.withValues(alpha: 0.18) : null,
-                decoration: i < caret && typed.length > i && typed[i] != target[i]
-                    ? TextDecoration.underline
-                    : TextDecoration.none,
-                decorationColor: semantic.danger,
-                decorationThickness: 2.5,
+    final spans = <InlineSpan>[];
+    for (var i = 0; i < target.length; i++) {
+      if (i == caret) {
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: FadeTransition(
+              opacity: caretBlink,
+              child: Container(
+                width: 2.5,
+                height: _fontSize * 1.15,
+                margin: const EdgeInsets.only(right: 1),
+                decoration: BoxDecoration(
+                  color: caretColor,
+                  borderRadius: BorderRadius.circular(1),
+                ),
               ),
             ),
-        ],
-      ),
-      textAlign: TextAlign.start,
+          ),
+        );
+      }
+
+      final ch = target[i];
+      Color color;
+      TextDecoration decoration = TextDecoration.none;
+      if (i < caret) {
+        final ok = typed.length > i && typed[i] == ch;
+        color = ok ? typedOk : wrong;
+        if (!ok) {
+          decoration = TextDecoration.underline;
+        }
+      } else {
+        color = upcoming;
+      }
+
+      spans.add(
+        TextSpan(
+          text: ch,
+          style: TextStyle(
+            color: color,
+            decoration: decoration,
+            decorationColor: wrong,
+            decorationThickness: 2,
+          ),
+        ),
+      );
+    }
+
+    // Caret at end when finished typing all available text
+    if (caret >= target.length) {
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: FadeTransition(
+            opacity: caretBlink,
+            child: Container(
+              width: 2.5,
+              height: _fontSize * 1.15,
+              decoration: BoxDecoration(
+                color: caretColor,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Text.rich(
+      TextSpan(style: baseStyle, children: spans),
+      textAlign: TextAlign.left,
     );
   }
 }
