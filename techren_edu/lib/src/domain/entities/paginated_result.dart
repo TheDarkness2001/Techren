@@ -33,13 +33,14 @@ class PageMeta {
     String? branchId,
     bool clearStatus = false,
     bool clearSearch = false,
+    bool clearBranchId = false,
   }) {
     return PageMeta(
       page: page ?? this.page,
       limit: limit ?? this.limit,
       search: clearSearch ? null : (search ?? this.search),
       status: clearStatus ? null : (status ?? this.status),
-      branchId: branchId ?? this.branchId,
+      branchId: clearBranchId ? null : (branchId ?? this.branchId),
     );
   }
 
@@ -50,4 +51,17 @@ class PageMeta {
         if (status != null && status!.isNotEmpty) 'status': status,
         if (branchId != null && branchId!.isNotEmpty) 'branchId': branchId,
       };
+
+  @override
+  bool operator ==(Object other) {
+    return other is PageMeta &&
+        other.page == page &&
+        other.limit == limit &&
+        other.search == search &&
+        other.status == status &&
+        other.branchId == branchId;
+  }
+
+  @override
+  int get hashCode => Object.hash(page, limit, search, status, branchId);
 }

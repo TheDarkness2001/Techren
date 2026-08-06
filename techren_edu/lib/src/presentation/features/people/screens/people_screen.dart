@@ -55,11 +55,10 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   }
 
   void _refresh() {
-    final query = _meta.copyWith(page: 1);
     if (_isTeachers) {
-      ref.invalidate(teachersProvider(query));
+      ref.invalidate(teachersProvider);
     } else {
-      ref.invalidate(studentsProvider(query));
+      ref.invalidate(studentsProvider);
     }
   }
 
@@ -85,7 +84,11 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     final selectedIndex = widget.navItems.indexWhere((i) => widget.selectedRoute.startsWith(i.route));
     final branchFilter = ref.watch(staffBranchFilterProvider);
     final branchId = branchFilter == 'all' ? null : branchFilter;
-    final meta = _meta.branchId == branchId ? _meta : _meta.copyWith(branchId: branchId);
+    final meta = _meta.branchId == branchId
+        ? _meta
+        : (branchId == null
+            ? _meta.copyWith(clearBranchId: true)
+            : _meta.copyWith(branchId: branchId));
     if (meta != _meta) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _meta = meta);
