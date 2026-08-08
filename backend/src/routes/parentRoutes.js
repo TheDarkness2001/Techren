@@ -1,4 +1,5 @@
 const express = require('express');
+const { body } = require('express-validator');
 const controller = require('../controllers/parentController');
 const { protect } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -14,5 +15,15 @@ router.get('/children/:studentId/overview', objectId('studentId'), validate, con
 router.get('/children/:studentId/feedback', objectId('studentId'), paginationRules, validate, controller.feedback);
 router.get('/children/:studentId/attendance', objectId('studentId'), paginationRules, validate, controller.attendance);
 router.get('/children/:studentId/exams', objectId('studentId'), paginationRules, validate, controller.exams);
+router.get('/children/:studentId/payments', objectId('studentId'), validate, controller.payments);
+router.get('/children/:studentId/alerts', objectId('studentId'), validate, controller.alerts);
+router.post(
+  '/children/:studentId/attendance/:attendanceId/excuse',
+  objectId('studentId'),
+  objectId('attendanceId'),
+  body('reason').isString().trim().isLength({ min: 3, max: 2000 }),
+  validate,
+  controller.submitExcuse
+);
 
 module.exports = router;

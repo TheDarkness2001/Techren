@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const participantSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ['teacher', 'student'], required: true },
+    userType: { type: String, enum: ['teacher', 'student', 'parent'], required: true },
     role: { type: String, enum: ['member', 'admin', 'owner'], default: 'member' },
     lastReadAt: { type: Date, default: null },
     muted: { type: Boolean, default: false },
@@ -31,11 +31,11 @@ const conversationSchema = new mongoose.Schema(
     allowReplies: { type: Boolean, default: true },
     archived: { type: Boolean, default: false, index: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
-    createdByType: { type: String, enum: ['teacher', 'student', null], default: null },
+    createdByType: { type: String, enum: ['teacher', 'student', 'parent', null], default: null },
     lastMessageAt: { type: Date, default: null, index: true },
     lastMessagePreview: { type: String, default: '' },
     pinnedMessageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
-    /** For private DMs: sorted "teacher:id|student:id" key for find-or-create */
+    /** For private DMs: sorted "teacher:id|student:id" (or parent) key for find-or-create */
     privateKey: { type: String, default: null, sparse: true, unique: true },
   },
   { timestamps: true }

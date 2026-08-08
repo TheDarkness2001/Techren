@@ -3,6 +3,7 @@ const Message = require('../models/Message');
 const UserPresence = require('../models/UserPresence');
 const Teacher = require('../models/Teacher');
 const Student = require('../models/Student');
+const Parent = require('../models/Parent');
 const ExamGroup = require('../models/ExamGroup');
 const notificationService = require('./notificationService');
 const { hasPermission, isPrivilegedStaff } = require('../middleware/auth');
@@ -13,7 +14,8 @@ const forbidden = (msg) => Object.assign(new Error(msg), { statusCode: 403, code
 
 const actorKey = (req) => ({
   userId: req.user._id,
-  userType: req.userType === 'student' ? 'student' : 'teacher',
+  userType:
+    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher',
 });
 
 const isParticipant = (conversation, userId, userType) =>
@@ -59,12 +61,18 @@ const loadUserProfiles = async (pairs = []) => {
   const studentIds = [
     ...new Set(pairs.filter((p) => p.userType === 'student' && p.userId).map((p) => String(p.userId))),
   ];
-  const [teachers, students] = await Promise.all([
+  const parentIds = [
+    ...new Set(pairs.filter((p) => p.userType === 'parent' && p.userId).map((p) => String(p.userId))),
+  ];
+  const [teachers, students, parents] = await Promise.all([
     teacherIds.length
       ? Teacher.find({ _id: { $in: teacherIds } }).select('name profileImage').lean()
       : [],
     studentIds.length
       ? Student.find({ _id: { $in: studentIds } }).select('name profileImage').lean()
+      : [],
+    parentIds.length
+      ? Parent.find({ _id: { $in: parentIds } }).select('name relation').lean()
       : [],
   ]);
   const map = new Map();
@@ -80,6 +88,15 @@ const loadUserProfiles = async (pairs = []) => {
       name: s.name || '',
       firstName: firstNameOf(s.name),
       profileImage: s.profileImage || null,
+    });
+  }
+  for (const p of parents) {
+    const relation = p.relation || 'guardian';
+    const label = `${p.name || 'Parent'} (${relation})`;
+    map.set(`parent:${p._id}`, {
+      name: label,
+      firstName: firstNameOf(p.name) || 'Parent',
+      profileImage: null,
     });
   }
   return map;
@@ -207,6 +224,8 @@ const formatConversation = (doc, { userId, userType, unreadCount = 0 } = {}) => 
 
 const assertCanUse = async (req) => {
   if (req.userType === 'student') return;
+  // Parents may only use communications via dedicated excuse helper (not general chat APIs).
+  if (req.userType === 'parent') throw forbidden('Parents cannot open the chat directory');
   if (req.user.role === 'founder') return;
   const ok = await hasPermission(req, 'canUseCommunications');
   if (!ok) throw forbidden('Missing permission: canUseCommunications');
@@ -239,12 +258,23 @@ const resolvePrivatePeer = async (conversation, viewer) => {
       peerUserType: null,
     };
   }
-  const Model = other.userType === 'teacher' ? Teacher : Student;
-  const u = await Model.findById(other.userId).select('name profileImage').lean();
-  const fullName = u?.name || (other.userType === 'teacher' ? 'Staff' : 'Student');
+  let fullName = 'Chat';
+  let avatarUrl = null;
+  if (other.userType === 'teacher') {
+    const u = await Teacher.findById(other.userId).select('name profileImage').lean();
+    fullName = u?.name || 'Staff';
+    avatarUrl = u?.profileImage || null;
+  } else if (other.userType === 'parent') {
+    const u = await Parent.findById(other.userId).select('name relation').lean();
+    fullName = u ? `${u.name || 'Parent'} (${u.relation || 'guardian'})` : 'Parent';
+  } else {
+    const u = await Student.findById(other.userId).select('name profileImage').lean();
+    fullName = u?.name || 'Student';
+    avatarUrl = u?.profileImage || null;
+  }
   return {
     title: firstNameOf(fullName) || fullName,
-    avatarUrl: u?.profileImage || null,
+    avatarUrl,
     peerUserId: String(other.userId),
     peerUserType: other.userType,
   };
@@ -1182,6 +1212,67 @@ const signalCall = async (req, conversationId, { action = 'invite', media = 'aud
   });
 };
 
+/**
+ * Narrow parent→teacher DM used only for absence excuses.
+ * Display identity uses parent name + relation (not the student's name).
+ */
+const sendParentAbsenceExcuse = async ({
+  parent,
+  teacherId,
+  body,
+}) => {
+  if (!parent?._id) throw badRequest('Parent required');
+  if (!teacherId) throw badRequest('Teacher required');
+  const teacher = await Teacher.findById(teacherId).select('_id name');
+  if (!teacher) throw notFound('Teacher not found');
+
+  const me = { userId: parent._id, userType: 'parent' };
+  const other = { userId: teacher._id, userType: 'teacher' };
+  const key = privateKeyFor(me, other);
+
+  let conv = await Conversation.findOne({ privateKey: key, type: 'private' });
+  if (!conv) {
+    conv = await Conversation.create({
+      type: 'private',
+      privateKey: key,
+      title: '',
+      allowReplies: true,
+      createdBy: parent._id,
+      createdByType: 'parent',
+      participants: [
+        { userId: parent._id, userType: 'parent', role: 'member' },
+        { userId: teacher._id, userType: 'teacher', role: 'member' },
+      ],
+    });
+  }
+
+  const text = String(body || '').trim();
+  if (!text) throw badRequest('Excuse reason required');
+
+  const message = await Message.create({
+    conversationId: conv._id,
+    senderId: parent._id,
+    senderType: 'parent',
+    body: text,
+    status: 'sent',
+    messageType: 'text',
+  });
+
+  conv.lastMessageAt = message.createdAt;
+  conv.lastMessagePreview = text.slice(0, 200);
+  await conv.save();
+
+  const formatted = await enrichMessage(message, me);
+  emitToConversation(String(conv._id), 'message', formatted, conv.participants);
+  await notifyParticipants(conv, message, me);
+
+  return {
+    conversationId: String(conv._id),
+    messageId: String(message._id),
+    message: formatted,
+  };
+};
+
 module.exports = {
   listConversations,
   getConversation,
@@ -1190,6 +1281,7 @@ module.exports = {
   markRead,
   findOrCreatePrivate,
   createSupport,
+  sendParentAbsenceExcuse,
   createBroadcast,
   syncGroupConversation,
   updateMessage,

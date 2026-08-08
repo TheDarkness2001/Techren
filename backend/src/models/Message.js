@@ -16,7 +16,7 @@ const reactionSchema = new mongoose.Schema(
   {
     emoji: { type: String, required: true },
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ['teacher', 'student'], required: true },
+    userType: { type: String, enum: ['teacher', 'student', 'parent'], required: true },
   },
   { _id: false }
 );
@@ -24,7 +24,7 @@ const reactionSchema = new mongoose.Schema(
 const mentionSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ['teacher', 'student'], required: true },
+    userType: { type: String, enum: ['teacher', 'student', 'parent'], required: true },
     name: { type: String, default: '' },
   },
   { _id: false }
@@ -33,7 +33,7 @@ const mentionSchema = new mongoose.Schema(
 const starSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ['teacher', 'student'], required: true },
+    userType: { type: String, enum: ['teacher', 'student', 'parent'], required: true },
   },
   { _id: false }
 );
@@ -47,7 +47,7 @@ const messageSchema = new mongoose.Schema(
       index: true,
     },
     senderId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
-    senderType: { type: String, enum: ['teacher', 'student'], required: true },
+    senderType: { type: String, enum: ['teacher', 'student', 'parent'], required: true },
     body: { type: String, default: '' },
     attachments: { type: [attachmentSchema], default: [] },
     replyToId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },

@@ -221,145 +221,97 @@ class _ChildSelectorCard extends ConsumerWidget {
 
 
 class ParentChildOverviewScreen extends ConsumerWidget {
-
   const ParentChildOverviewScreen({super.key, required this.studentId});
 
+  final String studentId;
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final route = '/parent/child/$studentId/overview';
+    return ParentChildScaffold(
+      studentId: studentId,
+      selectedRoute: route,
+      selectedIndex: parentChildNavIndex(route, studentId),
+      body: ParentOverviewTab(
+        studentId: studentId,
+        onRefresh: () {
+          ref.invalidate(parentChildOverviewProvider(studentId));
+          ref.invalidate(parentChildPaymentsProvider(studentId));
+          ref.invalidate(parentChildFeedbackProvider);
+          ref.invalidate(parentChildAttendanceProvider);
+          ref.invalidate(parentChildExamsProvider);
+        },
+      ),
+    );
+  }
+}
+
+class ParentChildPaymentsScreen extends ConsumerWidget {
+  const ParentChildPaymentsScreen({super.key, required this.studentId});
 
   final String studentId;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
+    final route = '/parent/child/$studentId/payments';
     return ParentChildScaffold(
-
       studentId: studentId,
-
-      selectedRoute: '/parent/child/$studentId/overview',
-
-      selectedIndex: 0,
-
-      body: ParentOverviewTab(
-
-        studentId: studentId,
-
-        onRefresh: () {
-
-          ref.invalidate(parentChildOverviewProvider(studentId));
-
-          ref.invalidate(parentChildFeedbackProvider);
-
-          ref.invalidate(parentChildAttendanceProvider);
-
-          ref.invalidate(parentChildExamsProvider);
-
-        },
-
-      ),
-
+      selectedRoute: route,
+      selectedIndex: parentChildNavIndex(route, studentId),
+      body: ParentPaymentsTab(studentId: studentId),
     );
-
   }
-
 }
-
-
 
 class ParentChildFeedbackScreen extends ConsumerWidget {
-
   const ParentChildFeedbackScreen({super.key, required this.studentId});
 
-
-
   final String studentId;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
+    final route = '/parent/child/$studentId/feedback';
     return ParentChildScaffold(
-
       studentId: studentId,
-
-      selectedRoute: '/parent/child/$studentId/feedback',
-
-      selectedIndex: 1,
-
+      selectedRoute: route,
+      selectedIndex: parentChildNavIndex(route, studentId),
       body: ParentFeedbackTab(studentId: studentId),
-
     );
-
   }
-
 }
-
-
 
 class ParentChildAttendanceScreen extends ConsumerWidget {
-
   const ParentChildAttendanceScreen({super.key, required this.studentId});
 
-
-
   final String studentId;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
+    final route = '/parent/child/$studentId/attendance';
     return ParentChildScaffold(
-
       studentId: studentId,
-
-      selectedRoute: '/parent/child/$studentId/attendance',
-
-      selectedIndex: 2,
-
+      selectedRoute: route,
+      selectedIndex: parentChildNavIndex(route, studentId),
       body: ParentAttendanceTab(studentId: studentId),
-
     );
-
   }
-
 }
 
-
-
 class ParentChildExamsScreen extends ConsumerWidget {
-
   const ParentChildExamsScreen({super.key, required this.studentId});
-
-
 
   final String studentId;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
+    final route = '/parent/child/$studentId/exams';
     return ParentChildScaffold(
-
       studentId: studentId,
-
-      selectedRoute: '/parent/child/$studentId/exams',
-
-      selectedIndex: 3,
-
+      selectedRoute: route,
+      selectedIndex: parentChildNavIndex(route, studentId),
       body: ParentExamsTab(studentId: studentId),
-
     );
-
   }
-
 }
 
 

@@ -3,8 +3,11 @@ const Student = require('../models/Student');
 const Feedback = require('../models/Feedback');
 const StudentAttendance = require('../models/StudentAttendance');
 const Exam = require('../models/Exam');
+const Payment = require('../models/Payment');
 const { getFeatureFlag } = require('./settingsService');
 const feedbackService = require('./feedbackService');
+const paymentService = require('./paymentService');
+const communicationService = require('./communicationService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 
 const assertPortalEnabled = async () => {
@@ -32,10 +35,123 @@ const formatChild = (student) => ({
   profileImage: student.profileImage,
 });
 
+const relationLabel = (relation) => {
+  if (relation === 'mother') return 'mother';
+  if (relation === 'father') return 'father';
+  return 'guardian';
+};
+
 const listChildren = async (parent) => {
   await assertPortalEnabled();
   const students = await Student.find({ _id: { $in: parent.children || [] } });
   return students.map(formatChild);
+};
+
+const getChildPayments = async (parent, studentId, query = {}) => {
+  await assertPortalEnabled();
+  await assertChildAccess(parent, studentId);
+
+  const now = new Date();
+  const month = Math.min(12, Math.max(1, Number(query.month) || now.getMonth() + 1));
+  const year = Number(query.year) || now.getFullYear();
+
+  const dues = await paymentService.getStudentDues(studentId, month, year);
+  const amountPaid = (dues.courses || []).reduce((sum, c) => sum + Number(c.amountPaid || 0), 0);
+  const amountDue = (dues.courses || []).reduce((sum, c) => sum + Number(c.amountDue || 0), 0);
+
+  const recent = await Payment.find({ student: studentId })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .lean();
+
+  return {
+    month,
+    year,
+    overallStatus: dues.overallStatus,
+    amountRemaining: dues.amountRemaining,
+    amountPaid,
+    amountDue,
+    isPaid: dues.isPaid,
+    courses: dues.courses,
+    recentPayments: recent.map((p) => ({
+      id: p._id,
+      amount: p.amount,
+      status: p.status,
+      paymentType: p.paymentType,
+      subject: p.subject,
+      month: p.month,
+      year: p.year,
+      dueDate: p.dueDate,
+      paidDate: p.paidDate,
+      createdAt: p.createdAt,
+    })),
+  };
+};
+
+const getChildAlerts = async (parent, studentId) => {
+  await assertPortalEnabled();
+  await assertChildAccess(parent, studentId);
+
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const sinceAttendance = new Date(now.getTime() - 14 * dayMs);
+  const sinceFeedback = new Date(now.getTime() - 7 * dayMs);
+  const sinceAttendanceStr = sinceAttendance.toISOString().slice(0, 10);
+
+  const [dues, absences, recentFeedback] = await Promise.all([
+    paymentService.getStudentDues(studentId, month, year),
+    StudentAttendance.find({
+      student: studentId,
+      status: 'absent',
+      date: { $gte: sinceAttendanceStr },
+      $or: [{ excuseSubmittedAt: null }, { excuseSubmittedAt: { $exists: false } }, { excuseReason: '' }],
+    })
+      .sort({ date: -1 })
+      .limit(10),
+    Feedback.find({ student: studentId, createdAt: { $gte: sinceFeedback } })
+      .sort({ createdAt: -1 })
+      .limit(10),
+  ]);
+
+  const alerts = [];
+
+  if (Number(dues.amountRemaining || 0) > 0 || ['unpaid', 'partial', 'overdue'].includes(dues.overallStatus)) {
+    alerts.push({
+      type: 'payment',
+      severity: dues.overallStatus === 'overdue' ? 'high' : 'medium',
+      title: 'Payment remaining',
+      body: `Remaining this month: ${Number(dues.amountRemaining || 0).toFixed(0)} (${dues.overallStatus})`,
+      createdAt: now.toISOString(),
+      refId: null,
+    });
+  }
+
+  for (const a of absences) {
+    alerts.push({
+      type: 'attendance',
+      severity: 'high',
+      title: 'Absence needs explanation',
+      body: `Absent on ${a.date}. Please send a reason to the teacher.`,
+      createdAt: a.createdAt || now.toISOString(),
+      refId: String(a._id),
+    });
+  }
+
+  for (const f of recentFeedback) {
+    alerts.push({
+      type: 'feedback',
+      severity: 'low',
+      title: 'New teacher feedback',
+      body: `Feedback on ${f.date || ''}`,
+      createdAt: f.createdAt || now.toISOString(),
+      refId: String(f._id),
+    });
+  }
+
+  alerts.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return { alerts };
 };
 
 const getChildOverview = async (parent, studentId) => {
@@ -47,10 +163,16 @@ const getChildOverview = async (parent, studentId) => {
     throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  const [feedbackCount, attendanceRecords, exams] = await Promise.all([
+  const now = new Date();
+  const [feedbackCount, attendanceRecords, exams, payments, alerts] = await Promise.all([
     Feedback.countDocuments({ student: studentId }),
     StudentAttendance.find({ student: studentId }).sort({ date: -1 }).limit(30),
     Exam.find({ 'results.student': studentId }).select('examName subject examDate status results'),
+    getChildPayments(parent, studentId, {
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+    }),
+    getChildAlerts(parent, studentId),
   ]);
 
   const present = attendanceRecords.filter((a) => a.status === 'present').length;
@@ -62,7 +184,14 @@ const getChildOverview = async (parent, studentId) => {
       feedbackCount,
       attendance: { present, absent, total: attendanceRecords.length },
       examCount: exams.length,
+      payments: {
+        overallStatus: payments.overallStatus,
+        amountRemaining: payments.amountRemaining,
+        amountPaid: payments.amountPaid,
+        isPaid: payments.isPaid,
+      },
     },
+    alerts: alerts.alerts,
   };
 };
 
@@ -121,6 +250,7 @@ const getChildAttendance = async (parent, studentId, query = {}) => {
   const [records, total] = await Promise.all([
     StudentAttendance.find(filter)
       .populate('classSchedule', 'className')
+      .populate('teacher', 'name')
       .sort({ date: -1 })
       .skip(skip)
       .limit(limit),
@@ -131,11 +261,93 @@ const getChildAttendance = async (parent, studentId, query = {}) => {
     items: records.map((doc) => ({
       id: doc._id,
       className: doc.classSchedule?.className,
+      teacherName: doc.teacher?.name || null,
       date: doc.date,
       status: doc.status,
+      excuseReason: doc.excuseReason || '',
+      excuseSubmittedAt: doc.excuseSubmittedAt || null,
+      canSubmitExcuse: doc.status === 'absent' && !doc.excuseSubmittedAt,
       createdAt: doc.createdAt,
     })),
     meta: buildPaginationMeta(page, limit, total),
+  };
+};
+
+const submitAbsenceExcuse = async (parent, studentId, attendanceId, reason) => {
+  await assertPortalEnabled();
+  await assertChildAccess(parent, studentId);
+
+  const text = String(reason || '').trim();
+  if (text.length < 3) {
+    throw Object.assign(new Error('Please enter a short reason'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  const attendance = await StudentAttendance.findById(attendanceId);
+  if (!attendance || String(attendance.student) !== String(studentId)) {
+    throw Object.assign(new Error('Attendance record not found'), {
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
+  }
+  if (attendance.status !== 'absent') {
+    throw Object.assign(new Error('Only absences can be explained'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (attendance.excuseSubmittedAt) {
+    throw Object.assign(new Error('An excuse was already sent for this absence'), {
+      statusCode: 409,
+      code: 'DUPLICATE',
+    });
+  }
+
+  const teacherId = attendance.teacher || attendance.markedBy;
+  if (!teacherId) {
+    throw Object.assign(new Error('No teacher is linked to this absence'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  const student = await Student.findById(studentId).select('studentId name');
+  if (!student) {
+    throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const parentDoc = await Parent.findById(parent._id);
+  const studentCode = student.studentId || String(student._id).slice(-4);
+  const rel = relationLabel(parentDoc?.relation);
+  const parentName = parentDoc?.name || parent.name || 'Parent';
+
+  const body = [
+    'Absence excuse',
+    `Student ID: ${studentCode}`,
+    `Parent: ${parentName} (${rel})`,
+    `Date: ${attendance.date}`,
+    `Reason: ${text}`,
+  ].join('\n');
+
+  const sent = await communicationService.sendParentAbsenceExcuse({
+    parent: parentDoc || parent,
+    teacherId,
+    body,
+  });
+
+  attendance.excuseReason = text;
+  attendance.excuseSubmittedAt = new Date();
+  attendance.excuseMessageId = sent.messageId;
+  attendance.excuseConversationId = sent.conversationId;
+  await attendance.save();
+
+  return {
+    ok: true,
+    attendanceId: String(attendance._id),
+    conversationId: sent.conversationId,
+    messageId: sent.messageId,
   };
 };
 
@@ -184,4 +396,7 @@ module.exports = {
   getChildFeedback,
   getChildAttendance,
   getChildExams,
+  getChildPayments,
+  getChildAlerts,
+  submitAbsenceExcuse,
 };

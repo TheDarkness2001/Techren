@@ -4,8 +4,9 @@ const authService = require('../services/authService');
 
 exports.login = asyncHandler(async (req, res) => {
   try {
-    const { email, password, userType = 'auto' } = req.body;
-    const result = await authService.login(email, password, userType);
+    const identifier = req.body.identifier || req.body.email;
+    const { password, userType = 'auto' } = req.body;
+    const result = await authService.login(identifier, password, userType);
     sendSuccess(res, result);
   } catch (error) {
     sendError(res, error.statusCode || 401, error.code || 'UNAUTHORIZED', error.message);
@@ -14,8 +15,9 @@ exports.login = asyncHandler(async (req, res) => {
 
 exports.teacherLogin = asyncHandler(async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.loginTeacher(email, password);
+    const identifier = req.body.identifier || req.body.email;
+    const { password } = req.body;
+    const result = await authService.loginTeacher(identifier, password);
     sendSuccess(res, result);
   } catch (error) {
     sendError(res, error.statusCode || 401, error.code || 'UNAUTHORIZED', error.message);
@@ -24,8 +26,9 @@ exports.teacherLogin = asyncHandler(async (req, res) => {
 
 exports.studentLogin = asyncHandler(async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.loginStudent(email, password);
+    const identifier = req.body.identifier || req.body.email;
+    const { password } = req.body;
+    const result = await authService.loginStudent(identifier, password);
     sendSuccess(res, result);
   } catch (error) {
     sendError(res, error.statusCode || 401, error.code || 'UNAUTHORIZED', error.message);
@@ -34,8 +37,9 @@ exports.studentLogin = asyncHandler(async (req, res) => {
 
 exports.parentLogin = asyncHandler(async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.loginParent(email, password);
+    const identifier = req.body.identifier || req.body.email;
+    const { password } = req.body;
+    const result = await authService.loginParent(identifier, password);
     sendSuccess(res, result);
   } catch (error) {
     sendError(res, error.statusCode || 401, error.code || 'UNAUTHORIZED', error.message);

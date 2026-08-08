@@ -19,6 +19,28 @@ class ParentApi {
     return ParentChildOverview.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<ParentPaymentsPage> getPayments(String studentId, {int? month, int? year}) async {
+    final response = await _client.dio.get('/parent/children/$studentId/payments', queryParameters: {
+      if (month != null) 'month': month,
+      if (year != null) 'year': year,
+    });
+    return ParentPaymentsPage.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<List<ParentAlert>> getAlerts(String studentId) async {
+    final response = await _client.dio.get('/parent/children/$studentId/alerts');
+    return (response.data['data']['alerts'] as List<dynamic>? ?? [])
+        .map((e) => ParentAlert.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> submitAbsenceExcuse(String studentId, String attendanceId, String reason) async {
+    await _client.dio.post(
+      '/parent/children/$studentId/attendance/$attendanceId/excuse',
+      data: {'reason': reason},
+    );
+  }
+
   Future<PaginatedResult<ParentFeedbackEntry>> getFeedback(String studentId, {int page = 1, String? search}) async {
     final response = await _client.dio.get('/parent/children/$studentId/feedback', queryParameters: {
       'page': page,

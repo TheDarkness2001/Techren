@@ -15,6 +15,11 @@ List<NavItem> parentChildNavItems(String studentId) => [
         route: '/parent/child/$studentId/overview',
       ),
       NavItem(
+        label: 'Payments',
+        icon: Icons.payments_outlined,
+        route: '/parent/child/$studentId/payments',
+      ),
+      NavItem(
         label: 'Feedback',
         icon: Icons.rate_review_outlined,
         route: '/parent/child/$studentId/feedback',

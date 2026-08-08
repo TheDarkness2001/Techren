@@ -13,6 +13,11 @@ const studentAttendanceSchema = new mongoose.Schema(
     },
     branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
+    /** Parent-submitted absence excuse */
+    excuseReason: { type: String, default: '' },
+    excuseSubmittedAt: { type: Date, default: null },
+    excuseMessageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
+    excuseConversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', default: null },
   },
   { timestamps: true }
 );

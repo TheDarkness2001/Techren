@@ -114,17 +114,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 TextFormField(
                   controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.email, AutofillHints.username],
+                  autofillHints: const [AutofillHints.username, AutofillHints.email],
                   style: Theme.of(context).textTheme.bodyMedium,
-                  decoration: InputDecoration(
-                    labelText: l10n.email,
-                    prefixIcon: const Icon(Icons.email_outlined),
+                  decoration: const InputDecoration(
+                    labelText: 'Username or email',
+                    hintText: 'Staff/student email, or parent username',
+                    prefixIcon: Icon(Icons.person_outline),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return l10n.emailRequired;
-                    if (!v.contains('@')) return l10n.emailInvalid;
+                    if (v == null || v.trim().isEmpty) return 'Username or email is required';
                     return null;
                   },
                 ),

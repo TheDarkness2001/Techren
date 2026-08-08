@@ -18,16 +18,17 @@ class AuthRepository {
   }) async {
     // Stale tokens must not interfere with a fresh sign-in.
     await _storage.clearTokens();
+    final identifier = email.trim();
 
     try {
-      final response = await _postLogin(email: email, password: password);
+      final response = await _postLogin(identifier: identifier, password: password);
       return await _persistSession(response.data['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
       // One automatic retry for flaky first-connection / hot-restart races.
       if (_isTransientNetwork(e)) {
         try {
           await Future<void>.delayed(const Duration(milliseconds: 350));
-          final response = await _postLogin(email: email, password: password);
+          final response = await _postLogin(identifier: identifier, password: password);
           return await _persistSession(response.data['data'] as Map<String, dynamic>);
         } on DioException catch (retryError) {
           throw _client.mapError(retryError);
@@ -38,11 +39,12 @@ class AuthRepository {
   }
 
   Future<Response<dynamic>> _postLogin({
-    required String email,
+    required String identifier,
     required String password,
   }) {
     return _client.dio.post('/auth/login', data: {
-      'email': email.trim(),
+      'identifier': identifier,
+      'email': identifier, // legacy servers
       'password': password,
       'userType': 'auto',
     });

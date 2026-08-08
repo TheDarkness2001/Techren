@@ -19,9 +19,9 @@ class ParentChild {
 
   factory ParentChild.fromJson(Map<String, dynamic> json) {
     return ParentChild(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
-      studentCode: json['studentId'] as String?,
+      studentCode: json['studentId']?.toString(),
       email: json['email'] as String?,
       status: json['status'] as String?,
       examEligibility: json['examEligibility'] as bool?,
@@ -30,19 +30,76 @@ class ParentChild {
   }
 }
 
+class ParentAlert {
+  const ParentAlert({
+    required this.type,
+    required this.severity,
+    required this.title,
+    required this.body,
+    this.createdAt,
+    this.refId,
+  });
+
+  final String type;
+  final String severity;
+  final String title;
+  final String body;
+  final String? createdAt;
+  final String? refId;
+
+  factory ParentAlert.fromJson(Map<String, dynamic> json) {
+    return ParentAlert(
+      type: json['type'] as String? ?? '',
+      severity: json['severity'] as String? ?? 'low',
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      createdAt: json['createdAt']?.toString(),
+      refId: json['refId']?.toString(),
+    );
+  }
+}
+
+class ParentPaymentSummary {
+  const ParentPaymentSummary({
+    required this.overallStatus,
+    required this.amountRemaining,
+    required this.amountPaid,
+    required this.isPaid,
+  });
+
+  final String overallStatus;
+  final double amountRemaining;
+  final double amountPaid;
+  final bool isPaid;
+
+  factory ParentPaymentSummary.fromJson(Map<String, dynamic> json) {
+    return ParentPaymentSummary(
+      overallStatus: json['overallStatus'] as String? ?? 'paid',
+      amountRemaining: (json['amountRemaining'] as num?)?.toDouble() ?? 0,
+      amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? 0,
+      isPaid: json['isPaid'] as bool? ?? true,
+    );
+  }
+}
+
 class ParentChildOverview {
   const ParentChildOverview({
     required this.child,
     required this.summary,
+    this.alerts = const [],
   });
 
   final ParentChild child;
   final ParentChildSummary summary;
+  final List<ParentAlert> alerts;
 
   factory ParentChildOverview.fromJson(Map<String, dynamic> json) {
     return ParentChildOverview(
       child: ParentChild.fromJson(json['child'] as Map<String, dynamic>),
       summary: ParentChildSummary.fromJson(json['summary'] as Map<String, dynamic>),
+      alerts: (json['alerts'] as List<dynamic>? ?? [])
+          .map((e) => ParentAlert.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -52,17 +109,22 @@ class ParentChildSummary {
     required this.feedbackCount,
     required this.attendance,
     required this.examCount,
+    this.payments,
   });
 
   final int feedbackCount;
   final ParentAttendanceSummary attendance;
   final int examCount;
+  final ParentPaymentSummary? payments;
 
   factory ParentChildSummary.fromJson(Map<String, dynamic> json) {
     return ParentChildSummary(
       feedbackCount: json['feedbackCount'] as int? ?? 0,
       attendance: ParentAttendanceSummary.fromJson(json['attendance'] as Map<String, dynamic>? ?? {}),
       examCount: json['examCount'] as int? ?? 0,
+      payments: json['payments'] is Map<String, dynamic>
+          ? ParentPaymentSummary.fromJson(json['payments'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -116,7 +178,7 @@ class ParentFeedbackEntry {
 
   factory ParentFeedbackEntry.fromJson(Map<String, dynamic> json) {
     return ParentFeedbackEntry(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       className: json['className'] as String?,
       teacherName: json['teacherName'] as String?,
       date: json['date'] as String? ?? '',
@@ -135,21 +197,35 @@ class ParentAttendanceEntry {
   const ParentAttendanceEntry({
     required this.id,
     this.className,
+    this.teacherName,
     required this.date,
     required this.status,
+    this.excuseReason = '',
+    this.excuseSubmittedAt,
+    this.canSubmitExcuse = false,
   });
 
   final String id;
   final String? className;
+  final String? teacherName;
   final String date;
   final String status;
+  final String excuseReason;
+  final DateTime? excuseSubmittedAt;
+  final bool canSubmitExcuse;
 
   factory ParentAttendanceEntry.fromJson(Map<String, dynamic> json) {
     return ParentAttendanceEntry(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       className: json['className'] as String?,
+      teacherName: json['teacherName'] as String?,
       date: json['date'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      excuseReason: json['excuseReason'] as String? ?? '',
+      excuseSubmittedAt: json['excuseSubmittedAt'] != null
+          ? DateTime.tryParse(json['excuseSubmittedAt'].toString())
+          : null,
+      canSubmitExcuse: json['canSubmitExcuse'] as bool? ?? false,
     );
   }
 }
@@ -177,7 +253,7 @@ class ParentExamEntry {
 
   factory ParentExamEntry.fromJson(Map<String, dynamic> json) {
     return ParentExamEntry(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       examName: json['examName'] as String? ?? '',
       subject: json['subject'] as String?,
       className: json['className'] as String?,
@@ -185,6 +261,100 @@ class ParentExamEntry {
       status: json['status'] as String?,
       marksObtained: json['marksObtained'] as int?,
       passed: json['passed'] as bool? ?? false,
+    );
+  }
+}
+
+class ParentPaymentsPage {
+  const ParentPaymentsPage({
+    required this.month,
+    required this.year,
+    required this.overallStatus,
+    required this.amountRemaining,
+    required this.amountPaid,
+    required this.amountDue,
+    required this.isPaid,
+    this.courses = const [],
+    this.recentPayments = const [],
+  });
+
+  final int month;
+  final int year;
+  final String overallStatus;
+  final double amountRemaining;
+  final double amountPaid;
+  final double amountDue;
+  final bool isPaid;
+  final List<ParentCourseDue> courses;
+  final List<ParentPaymentRow> recentPayments;
+
+  factory ParentPaymentsPage.fromJson(Map<String, dynamic> json) {
+    return ParentPaymentsPage(
+      month: json['month'] as int? ?? DateTime.now().month,
+      year: json['year'] as int? ?? DateTime.now().year,
+      overallStatus: json['overallStatus'] as String? ?? 'paid',
+      amountRemaining: (json['amountRemaining'] as num?)?.toDouble() ?? 0,
+      amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? 0,
+      amountDue: (json['amountDue'] as num?)?.toDouble() ?? 0,
+      isPaid: json['isPaid'] as bool? ?? true,
+      courses: (json['courses'] as List<dynamic>? ?? [])
+          .map((e) => ParentCourseDue.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      recentPayments: (json['recentPayments'] as List<dynamic>? ?? [])
+          .map((e) => ParentPaymentRow.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class ParentCourseDue {
+  const ParentCourseDue({
+    required this.subject,
+    required this.amountDue,
+    required this.amountPaid,
+    required this.status,
+  });
+
+  final String subject;
+  final double amountDue;
+  final double amountPaid;
+  final String status;
+
+  factory ParentCourseDue.fromJson(Map<String, dynamic> json) {
+    return ParentCourseDue(
+      subject: json['subject'] as String? ?? json['name'] as String? ?? '',
+      amountDue: (json['amountDue'] as num?)?.toDouble() ?? 0,
+      amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? 0,
+      status: json['status'] as String? ?? '',
+    );
+  }
+}
+
+class ParentPaymentRow {
+  const ParentPaymentRow({
+    required this.id,
+    required this.amount,
+    required this.status,
+    this.paymentType,
+    this.subject,
+    this.paidDate,
+  });
+
+  final String id;
+  final double amount;
+  final String status;
+  final String? paymentType;
+  final String? subject;
+  final DateTime? paidDate;
+
+  factory ParentPaymentRow.fromJson(Map<String, dynamic> json) {
+    return ParentPaymentRow(
+      id: json['id']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      status: json['status'] as String? ?? '',
+      paymentType: json['paymentType'] as String?,
+      subject: json['subject'] as String?,
+      paidDate: json['paidDate'] != null ? DateTime.tryParse(json['paidDate'].toString()) : null,
     );
   }
 }

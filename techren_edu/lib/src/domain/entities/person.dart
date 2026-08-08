@@ -17,6 +17,47 @@ class SubjectFee extends Equatable {
   List<Object?> get props => [subject, amount];
 }
 
+class ParentAccountInfo extends Equatable {
+  const ParentAccountInfo({
+    this.id,
+    this.name,
+    this.username,
+    this.phone,
+    this.relation = 'guardian',
+    this.hasPassword = false,
+  });
+
+  final String? id;
+  final String? name;
+  final String? username;
+  final String? phone;
+  final String relation;
+  final bool hasPassword;
+
+  factory ParentAccountInfo.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const ParentAccountInfo();
+    return ParentAccountInfo(
+      id: json['id']?.toString(),
+      name: json['name'] as String?,
+      username: json['username'] as String?,
+      phone: json['phone'] as String?,
+      relation: json['relation'] as String? ?? 'guardian',
+      hasPassword: json['hasPassword'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toPayload({String? password}) => {
+        if (name != null && name!.trim().isNotEmpty) 'name': name!.trim(),
+        if (username != null && username!.trim().isNotEmpty) 'username': username!.trim(),
+        if (phone != null) 'phone': phone,
+        'relation': relation,
+        if (password != null && password.isNotEmpty) 'password': password,
+      };
+
+  @override
+  List<Object?> get props => [id, name, username, phone, relation, hasPassword];
+}
+
 class Person extends Equatable {
   const Person({
     required this.id,
@@ -29,6 +70,7 @@ class Person extends Equatable {
     this.branchId,
     this.parentName,
     this.parentPhone,
+    this.parentAccount,
     this.coursePrice,
     this.subjectFees = const [],
     this.dateOfBirth,
@@ -54,6 +96,7 @@ class Person extends Equatable {
   final String? branchId;
   final String? parentName;
   final String? parentPhone;
+  final ParentAccountInfo? parentAccount;
   final double? coursePrice;
   final List<SubjectFee> subjectFees;
   final DateTime? dateOfBirth;
@@ -84,6 +127,9 @@ class Person extends Equatable {
         branchId: json['branchId']?.toString(),
         parentName: json['parentName'] as String?,
         parentPhone: json['parentPhone'] as String?,
+        parentAccount: json['parentAccount'] is Map<String, dynamic>
+            ? ParentAccountInfo.fromJson(json['parentAccount'] as Map<String, dynamic>)
+            : null,
         coursePrice: (json['coursePrice'] as num?)?.toDouble(),
         subjectFees: (json['subjectFees'] as List<dynamic>? ?? [])
             .map((e) => SubjectFee.fromJson(e as Map<String, dynamic>))
@@ -116,6 +162,7 @@ class Person extends Equatable {
         branchId: branchId,
         parentName: parentName,
         parentPhone: parentPhone,
+        parentAccount: parentAccount,
         coursePrice: coursePrice ?? this.coursePrice,
         subjectFees: subjectFees,
         dateOfBirth: dateOfBirth,

@@ -369,6 +369,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ParentChildOverviewScreen(studentId: state.pathParameters['studentId']!),
       ),
       AppPageTransitions.route(
+        path: '/parent/child/:studentId/payments',
+        builder: (_, state) => ParentChildPaymentsScreen(studentId: state.pathParameters['studentId']!),
+      ),
+      AppPageTransitions.route(
         path: '/parent/child/:studentId/feedback',
         builder: (_, state) => ParentChildFeedbackScreen(studentId: state.pathParameters['studentId']!),
       ),

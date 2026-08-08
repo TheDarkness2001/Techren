@@ -31,20 +31,28 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   late final TextEditingController _emailController;
   late final TextEditingController _parentNameController;
   late final TextEditingController _parentPhoneController;
+  late final TextEditingController _parentUsernameController;
+  late final TextEditingController _parentPasswordController;
   late final TextEditingController _coursePriceController;
   late final TextEditingController _phoneController;
   late final TextEditingController _passwordController;
+  late String _parentRelation;
   bool _obscurePassword = true;
+  bool _obscureParentPassword = true;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     final person = widget.person;
+    final parentAcct = person.parentAccount;
     _nameController = TextEditingController(text: person.name);
     _emailController = TextEditingController(text: person.email ?? '');
-    _parentNameController = TextEditingController(text: person.parentName ?? '');
-    _parentPhoneController = TextEditingController(text: person.parentPhone ?? '');
+    _parentNameController = TextEditingController(text: parentAcct?.name ?? person.parentName ?? '');
+    _parentPhoneController = TextEditingController(text: parentAcct?.phone ?? person.parentPhone ?? '');
+    _parentUsernameController = TextEditingController(text: parentAcct?.username ?? '');
+    _parentPasswordController = TextEditingController();
+    _parentRelation = parentAcct?.relation ?? 'mother';
     _coursePriceController = TextEditingController(
       text: (person.coursePrice != null && person.coursePrice! > 0)
           ? person.coursePrice!.toStringAsFixed(
@@ -62,6 +70,8 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _emailController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _parentUsernameController.dispose();
+    _parentPasswordController.dispose();
     _coursePriceController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -95,12 +105,33 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
       final api = ref.read(identityApiProvider);
       final password = _passwordController.text;
       if (widget.person.isStudent) {
+        Map<String, dynamic>? parentAccount;
+        final parentUsername = _parentUsernameController.text.trim();
+        final parentPassword = _parentPasswordController.text;
+        final parentName = _parentNameController.text.trim();
+        if (parentUsername.isNotEmpty || parentPassword.isNotEmpty || parentName.isNotEmpty) {
+          if (parentUsername.isEmpty || parentName.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Parent portal needs name and username')),
+            );
+            setState(() => _saving = false);
+            return;
+          }
+          parentAccount = {
+            'name': parentName,
+            'username': parentUsername,
+            'relation': _parentRelation,
+            'phone': _parentPhoneController.text.trim(),
+            if (parentPassword.isNotEmpty) 'password': parentPassword,
+          };
+        }
         await api.updateStudent(
           id: widget.person.id,
           name: name,
           email: email,
-          parentName: _parentNameController.text.trim(),
+          parentName: parentName,
           parentPhone: _parentPhoneController.text.trim(),
+          parentAccount: parentAccount,
           coursePrice: coursePrice,
           password: password.isEmpty ? null : password,
         );
@@ -145,6 +176,26 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
             ),
             if (isStudent) ...[
               TextField(
+                controller: _coursePriceController,
+                decoration: const InputDecoration(
+                  labelText: 'Course price (monthly)',
+                  hintText: 'Student monthly fee',
+                  prefixText: '\$ ',
+                  helperText: 'Used for dues. Leave empty to use the group/subject price.',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              DropdownButtonFormField<String>(
+                value: _parentRelation,
+                decoration: const InputDecoration(labelText: 'Parent relation'),
+                items: const [
+                  DropdownMenuItem(value: 'mother', child: Text('Mother')),
+                  DropdownMenuItem(value: 'father', child: Text('Father')),
+                  DropdownMenuItem(value: 'guardian', child: Text('Guardian')),
+                ],
+                onChanged: (v) => setState(() => _parentRelation = v ?? 'mother'),
+              ),
+              TextField(
                 controller: _parentNameController,
                 decoration: const InputDecoration(labelText: 'Parent name'),
                 textCapitalization: TextCapitalization.words,
@@ -155,14 +206,25 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                 keyboardType: TextInputType.phone,
               ),
               TextField(
-                controller: _coursePriceController,
+                controller: _parentUsernameController,
                 decoration: const InputDecoration(
-                  labelText: 'Course price (monthly)',
-                  hintText: 'Student monthly fee',
-                  prefixText: '\$ ',
-                  helperText: 'Used for dues. Leave empty to use the group/subject price.',
+                  labelText: 'Parent username',
+                  hintText: 'Memorable login for parent portal',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              TextField(
+                controller: _parentPasswordController,
+                obscureText: _obscureParentPassword,
+                decoration: InputDecoration(
+                  labelText: 'Parent password',
+                  helperText: 'Leave blank to keep current parent password',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureParentPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () => setState(() => _obscureParentPassword = !_obscureParentPassword),
+                  ),
+                ),
               ),
             ] else
               TextField(
@@ -173,7 +235,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
             TextField(
               controller: _passwordController,
               decoration: InputDecoration(
-                labelText: 'New password',
+                labelText: isStudent ? 'New student password' : 'New password',
                 helperText: 'Leave blank to keep current password',
                 suffixIcon: IconButton(
                   icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),

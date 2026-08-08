@@ -39,4 +39,9 @@ final parentChildExamsProvider =
   return ref.watch(parentApiProvider).getExams(query.studentId, page: query.page);
 });
 
+final parentChildPaymentsProvider =
+    FutureProvider.autoDispose.family<ParentPaymentsPage, String>((ref, studentId) async {
+  return ref.watch(parentApiProvider).getPayments(studentId);
+});
+
 final selectedParentChildIdProvider = StateProvider<String?>((ref) => null);

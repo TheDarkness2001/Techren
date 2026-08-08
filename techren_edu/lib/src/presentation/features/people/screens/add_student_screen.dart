@@ -30,6 +30,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _password = TextEditingController();
   final _parentName = TextEditingController();
   final _parentPhone = TextEditingController();
+  final _parentUsername = TextEditingController();
+  final _parentPassword = TextEditingController();
   final _address = TextEditingController();
   final _medical = TextEditingController();
 
@@ -37,8 +39,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   String _gender = '';
   String _bloodGroup = '';
   String _status = 'active';
+  String _parentRelation = 'mother';
   String? _branchId;
   bool _obscure = true;
+  bool _obscureParentPassword = true;
   bool _saving = false;
 
   final List<({TextEditingController subject, TextEditingController amount})> _fees = [
@@ -56,6 +60,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     _password.dispose();
     _parentName.dispose();
     _parentPhone.dispose();
+    _parentUsername.dispose();
+    _parentPassword.dispose();
     _address.dispose();
     _medical.dispose();
     for (final row in _fees) {
@@ -125,6 +131,28 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     setState(() => _saving = true);
     try {
       final api = ref.read(identityApiProvider);
+      final parentUsername = _parentUsername.text.trim();
+      final parentPassword = _parentPassword.text;
+      Map<String, dynamic>? parentAccount;
+      if (parentUsername.isNotEmpty || parentPassword.isNotEmpty || _parentName.text.trim().isNotEmpty) {
+        if (parentUsername.isEmpty || parentPassword.length < 4 || _parentName.text.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Parent portal needs name, username, and password (min 4 chars)'),
+            ),
+          );
+          setState(() => _saving = false);
+          return;
+        }
+        parentAccount = {
+          'name': _parentName.text.trim(),
+          'username': parentUsername,
+          'password': parentPassword,
+          'relation': _parentRelation,
+          'phone': _parentPhone.text.trim(),
+        };
+      }
+
       final created = await api.createStudent(
         name: name,
         email: email,
@@ -132,6 +160,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         parentName: _parentName.text.trim().isEmpty ? null : _parentName.text.trim(),
         parentPhone: _parentPhone.text.trim().isEmpty ? null : _parentPhone.text.trim(),
+        parentAccount: parentAccount,
         coursePrice: coursePrice > 0 ? coursePrice : null,
         subjectFees: fees.isEmpty ? null : fees,
         dateOfBirth: _dob,
@@ -344,23 +373,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
             title: 'Student Credentials',
             child: Column(
               children: [
-                PeopleFormRow(
-                  left: TextField(
-                    controller: _parentName,
-                    decoration: const InputDecoration(labelText: 'Guardian / Parent Name (optional)'),
-                  ),
-                  right: TextField(
-                    controller: _parentPhone,
-                    decoration: const InputDecoration(labelText: 'Guardian / Parent Phone (optional)'),
-                    keyboardType: TextInputType.phone,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _password,
                   obscureText: _obscure,
                   decoration: InputDecoration(
-                    labelText: 'Password *',
+                    labelText: 'Student password *',
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _obscure = !_obscure),
@@ -369,8 +386,61 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Student uses this password to log in with their email. Min 6 characters.',
+                  'Student logs in with email + this password. Min 6 characters.',
                   style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          PeopleFormSection(
+            title: 'Parent portal login',
+            subtitle: 'Optional. Username + password for the parent app (not the student email).',
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _parentRelation,
+                  decoration: const InputDecoration(labelText: 'Relation'),
+                  items: const [
+                    DropdownMenuItem(value: 'mother', child: Text('Mother')),
+                    DropdownMenuItem(value: 'father', child: Text('Father')),
+                    DropdownMenuItem(value: 'guardian', child: Text('Guardian')),
+                  ],
+                  onChanged: (v) => setState(() => _parentRelation = v ?? 'mother'),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PeopleFormRow(
+                  left: TextField(
+                    controller: _parentName,
+                    decoration: const InputDecoration(labelText: 'Parent name'),
+                  ),
+                  right: TextField(
+                    controller: _parentPhone,
+                    decoration: const InputDecoration(labelText: 'Parent phone'),
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PeopleFormRow(
+                  left: TextField(
+                    controller: _parentUsername,
+                    decoration: const InputDecoration(
+                      labelText: 'Parent username',
+                      hintText: 'e.g. madina_mom',
+                    ),
+                  ),
+                  right: TextField(
+                    controller: _parentPassword,
+                    obscureText: _obscureParentPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Parent password',
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureParentPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(() => _obscureParentPassword = !_obscureParentPassword),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -13,10 +13,28 @@ const formatTeacherUser = (teacher) => teacher.toPublicJSON();
 const formatStudentUser = (student) => student.toPublicJSON();
 const formatParentUser = (parent) => parent.toPublicJSON();
 
+const normalizeIdentifier = (value) => String(value || '').trim().toLowerCase();
+
+const findParentByIdentifier = async (identifier) => {
+  const id = normalizeIdentifier(identifier);
+  if (!id) return null;
+  return Parent.findOne({
+    $or: [{ username: id }, { email: id }],
+  }).select('+password');
+};
+
+const assertParentPortal = async () => {
+  const { getFeatureFlag } = require('./settingsService');
+  const enabled = await getFeatureFlag('parentPortalEnabled');
+  if (!enabled) {
+    throw new AuthError('Parent portal is not enabled', 501, 'NOT_ENABLED');
+  }
+};
+
 const loginTeacher = async (email, password) => {
-  const teacher = await Teacher.findOne({ email: email.toLowerCase() }).select('+password');
+  const teacher = await Teacher.findOne({ email: normalizeIdentifier(email) }).select('+password');
   if (!teacher || !(await teacher.matchPassword(password))) {
-    throw new AuthError('Invalid email or password');
+    throw new AuthError('Invalid username/email or password');
   }
   if (teacher.status === 'inactive') {
     throw new AuthError('Account is inactive', 403, 'INACTIVE_ACCOUNT');
@@ -27,25 +45,21 @@ const loginTeacher = async (email, password) => {
 };
 
 const loginStudent = async (email, password) => {
-  const student = await Student.findOne({ email: email.toLowerCase() }).select('+password');
+  const student = await Student.findOne({ email: normalizeIdentifier(email) }).select('+password');
   if (!student || !(await student.matchPassword(password))) {
-    throw new AuthError('Invalid email or password');
+    throw new AuthError('Invalid username/email or password');
   }
 
   const tokens = await createTokenPair(student._id, 'student');
   return { ...tokens, user: formatStudentUser(student) };
 };
 
-const loginParent = async (email, password) => {
-  const { getFeatureFlag } = require('./settingsService');
-  const enabled = await getFeatureFlag('parentPortalEnabled');
-  if (!enabled) {
-    throw new AuthError('Parent portal is not enabled', 501, 'NOT_ENABLED');
-  }
+const loginParent = async (identifier, password) => {
+  await assertParentPortal();
 
-  const parent = await Parent.findOne({ email: email.toLowerCase() }).select('+password');
+  const parent = await findParentByIdentifier(identifier);
   if (!parent || !(await parent.matchPassword(password))) {
-    throw new AuthError('Invalid email or password');
+    throw new AuthError('Invalid username/email or password');
   }
   if (parent.status === 'inactive') {
     throw new AuthError('Account is inactive', 403, 'INACTIVE_ACCOUNT');
@@ -55,20 +69,20 @@ const loginParent = async (email, password) => {
   return { ...tokens, user: formatParentUser(parent) };
 };
 
-const login = async (email, password, userType = 'auto') => {
+const login = async (identifier, password, userType = 'auto') => {
+  const id = normalizeIdentifier(identifier);
+
   if (userType === 'teacher') {
-    return loginTeacher(email, password);
+    return loginTeacher(id, password);
   }
   if (userType === 'student') {
-    return loginStudent(email, password);
+    return loginStudent(id, password);
   }
   if (userType === 'parent') {
-    return loginParent(email, password);
+    return loginParent(id, password);
   }
 
-  const normalizedEmail = email.toLowerCase();
-
-  const teacher = await Teacher.findOne({ email: normalizedEmail }).select('+password');
+  const teacher = await Teacher.findOne({ email: id }).select('+password');
   if (teacher && (await teacher.matchPassword(password))) {
     if (teacher.status === 'inactive') {
       throw new AuthError('Account is inactive', 403, 'INACTIVE_ACCOUNT');
@@ -77,19 +91,15 @@ const login = async (email, password, userType = 'auto') => {
     return { ...tokens, user: formatTeacherUser(teacher) };
   }
 
-  const student = await Student.findOne({ email: normalizedEmail }).select('+password');
+  const student = await Student.findOne({ email: id }).select('+password');
   if (student && (await student.matchPassword(password))) {
     const tokens = await createTokenPair(student._id, 'student');
     return { ...tokens, user: formatStudentUser(student) };
   }
 
-  const parent = await Parent.findOne({ email: normalizedEmail }).select('+password');
+  const parent = await findParentByIdentifier(id);
   if (parent && (await parent.matchPassword(password))) {
-    const { getFeatureFlag } = require('./settingsService');
-    const enabled = await getFeatureFlag('parentPortalEnabled');
-    if (!enabled) {
-      throw new AuthError('Parent portal is not enabled', 501, 'NOT_ENABLED');
-    }
+    await assertParentPortal();
     if (parent.status === 'inactive') {
       throw new AuthError('Account is inactive', 403, 'INACTIVE_ACCOUNT');
     }
@@ -97,7 +107,7 @@ const login = async (email, password, userType = 'auto') => {
     return { ...tokens, user: formatParentUser(parent) };
   }
 
-  throw new AuthError('Invalid email or password');
+  throw new AuthError('Invalid username/email or password');
 };
 
 const getMe = async (user, userType) => {

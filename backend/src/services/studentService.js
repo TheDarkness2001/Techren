@@ -1,7 +1,122 @@
 const Student = require('../models/Student');
+const Parent = require('../models/Parent');
 const uploadService = require('./uploadService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
+
+const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
+
+const findParentForStudent = async (studentId) =>
+  Parent.findOne({ children: studentId });
+
+const formatStudentWithParent = async (studentJson, studentId) => {
+  const parent = await findParentForStudent(studentId);
+  return {
+    ...studentJson,
+    parentAccount: parent ? parent.toStaffJSON() : null,
+  };
+};
+
+/**
+ * Upsert parent portal credentials linked to a student.
+ * parentAccount: { name, username, password?, relation?, phone? }
+ */
+const upsertParentAccount = async (student, parentAccount) => {
+  if (!parentAccount || typeof parentAccount !== 'object') return null;
+
+  const username = normalizeUsername(parentAccount.username);
+  const name = String(parentAccount.name || student.parentName || '').trim();
+  const relation = ['mother', 'father', 'guardian'].includes(parentAccount.relation)
+    ? parentAccount.relation
+    : 'guardian';
+  const phone = parentAccount.phone != null
+    ? String(parentAccount.phone).trim()
+    : (student.parentPhone || '');
+  const password = parentAccount.password != null ? String(parentAccount.password) : '';
+
+  if (!username && !name && !password) return findParentForStudent(student._id);
+
+  if (!username) {
+    throw Object.assign(new Error('Parent username is required'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) {
+    throw Object.assign(
+      new Error('Parent username must be 3–40 characters (letters, numbers, . _ -)'),
+      { statusCode: 400, code: 'VALIDATION_ERROR' }
+    );
+  }
+  if (!name) {
+    throw Object.assign(new Error('Parent name is required'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  let parent = await findParentForStudent(student._id);
+  if (!parent) {
+    parent = await Parent.findOne({ username });
+  }
+
+  if (parent && String(parent.username || '') !== username) {
+    const taken = await Parent.findOne({ username, _id: { $ne: parent._id } });
+    if (taken) {
+      throw Object.assign(new Error('Parent username already in use'), {
+        statusCode: 409,
+        code: 'DUPLICATE',
+      });
+    }
+    parent.username = username;
+  } else if (!parent) {
+    const taken = await Parent.findOne({ username });
+    if (taken) {
+      // Reuse existing parent account and link this child.
+      parent = taken;
+    }
+  }
+
+  if (!parent) {
+    if (!password || password.length < 4) {
+      throw Object.assign(new Error('Parent password is required (min 4 characters)'), {
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    parent = await Parent.create({
+      name,
+      username,
+      password,
+      phone,
+      relation,
+      children: [student._id],
+      status: 'active',
+    });
+    return parent;
+  }
+
+  parent.name = name;
+  parent.username = username;
+  parent.relation = relation;
+  if (phone !== undefined) parent.phone = phone;
+  if (password) {
+    if (password.length < 4) {
+      throw Object.assign(new Error('Parent password must be at least 4 characters'), {
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    parent.password = password;
+  }
+  const childId = String(student._id);
+  const children = (parent.children || []).map((c) => String(c));
+  if (!children.includes(childId)) {
+    parent.children = [...(parent.children || []), student._id];
+  }
+  await parent.save();
+  return parent;
+};
 
 const listStudents = async (req) => {
   const { page, limit, skip } = parsePagination(req.query);
@@ -25,8 +140,11 @@ const listStudents = async (req) => {
     Student.countDocuments(filter),
   ]);
 
+  const mapped = await Promise.all(
+    items.map((s) => formatStudentWithParent(s.toPublicJSON(), s._id))
+  );
   return {
-    items: items.map((s) => s.toPublicJSON()),
+    items: mapped,
     meta: buildPaginationMeta(page, limit, total),
   };
 };
@@ -45,7 +163,7 @@ const getStudent = async (req, id) => {
     throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
   }
 
-  return student.toPublicJSON();
+  return formatStudentWithParent(student.toPublicJSON(), student._id);
 };
 
 const createStudent = async (req, data) => {
@@ -93,7 +211,14 @@ const createStudent = async (req, data) => {
     status,
   });
 
-  return student.toPublicJSON();
+  if (data.parentAccount) {
+    await upsertParentAccount(student, data.parentAccount);
+    if (data.parentAccount.name) student.parentName = String(data.parentAccount.name).trim();
+    if (data.parentAccount.phone != null) student.parentPhone = String(data.parentAccount.phone).trim();
+    await student.save();
+  }
+
+  return formatStudentWithParent(student.toPublicJSON(), student._id);
 };
 
 const updateStudent = async (req, id, data) => {
@@ -137,7 +262,20 @@ const updateStudent = async (req, id, data) => {
   if (data.profileImage !== undefined) student.profileImage = data.profileImage;
 
   await student.save();
-  return student.toPublicJSON();
+
+  if (data.parentAccount) {
+    await upsertParentAccount(student, data.parentAccount);
+    if (data.parentAccount.name) {
+      student.parentName = String(data.parentAccount.name).trim();
+      await student.save();
+    }
+    if (data.parentAccount.phone != null) {
+      student.parentPhone = String(data.parentAccount.phone).trim();
+      await student.save();
+    }
+  }
+
+  return formatStudentWithParent(student.toPublicJSON(), student._id);
 };
 
 const setStudentStatus = async (req, id, status) => updateStudent(req, id, { status });

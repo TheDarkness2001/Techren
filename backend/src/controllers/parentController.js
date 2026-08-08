@@ -56,4 +56,36 @@ exports.exams = asyncHandler(async (req, res) => {
   }
 });
 
+exports.payments = asyncHandler(async (req, res) => {
+  try {
+    const data = await parentService.getChildPayments(req.user, req.params.studentId, req.query);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.alerts = asyncHandler(async (req, res) => {
+  try {
+    const data = await parentService.getChildAlerts(req.user, req.params.studentId);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.submitExcuse = asyncHandler(async (req, res) => {
+  try {
+    const data = await parentService.submitAbsenceExcuse(
+      req.user,
+      req.params.studentId,
+      req.params.attendanceId,
+      req.body?.reason
+    );
+    sendSuccess(res, data, 201);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 exports.requireParent = requireParent;
