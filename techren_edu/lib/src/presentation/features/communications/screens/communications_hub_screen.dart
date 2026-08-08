@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
@@ -45,6 +46,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
   Conversation? _selected;
   final _messageCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  final _composerFocus = FocusNode();
   String? _typingLabel;
   Timer? _typingDebounce;
   List<ChatMessage> _liveMessages = [];
@@ -54,6 +56,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
   CommunicationsSocket? _socket;
   ChatMessage? _replyTo;
   String _threadSearch = '';
+  bool _showThreadFilter = false;
   final _recorder = AudioRecorder();
   bool _recording = false;
   int _recordElapsed = 0;
@@ -87,6 +90,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     }
     _messageCtrl.dispose();
     _searchCtrl.dispose();
+    _composerFocus.dispose();
     _typingDebounce?.cancel();
     _recordTick?.cancel();
     _recorder.dispose();
@@ -783,6 +787,113 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
         (me?.hasFullStaffAccess == true || me?.hasPermission('canBroadcast', rolePerms) == true);
     final messagesRoute = '${widget.routePrefix}/messages';
 
+    Widget chatToolbar() {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 4),
+        child: Row(
+          children: [
+            Text(
+              'Chats',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            if (widget.isStudent)
+              IconButton(
+                tooltip: 'Support',
+                visualDensity: VisualDensity.compact,
+                onPressed: _support,
+                icon: const Icon(Icons.support_agent, size: 20),
+              ),
+            if (!widget.isStudent)
+              IconButton(
+                tooltip: 'Subject room',
+                visualDensity: VisualDensity.compact,
+                onPressed: _createSubjectRoom,
+                icon: const Icon(Icons.menu_book_outlined, size: 20),
+              ),
+            if (!widget.isStudent)
+              IconButton(
+                tooltip: 'Moderation',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => context.go('${widget.routePrefix}/messages/moderation'),
+                icon: const Icon(Icons.gavel_outlined, size: 20),
+              ),
+            if (canBroadcast)
+              IconButton(
+                tooltip: 'Broadcast',
+                visualDensity: VisualDensity.compact,
+                onPressed: _broadcast,
+                icon: const Icon(Icons.campaign_outlined, size: 20),
+              ),
+            IconButton(
+              tooltip: 'New chat',
+              visualDensity: VisualDensity.compact,
+              onPressed: _startNewChat,
+              icon: const Icon(Icons.edit_square, size: 20),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget chatTile(Conversation c, {required bool selected}) {
+      final scheme = Theme.of(context).colorScheme;
+      final muted = context.semantic.textMuted;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Material(
+          color: selected ? scheme.onSurface.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () => _openConversation(c),
+            borderRadius: BorderRadius.circular(12),
+            hoverColor: scheme.onSurface.withValues(alpha: 0.05),
+            splashColor: scheme.onSurface.withValues(alpha: 0.08),
+            highlightColor: scheme.onSurface.withValues(alpha: 0.06),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Row(
+                children: [
+                  _avatar(
+                    imageUrl: c.avatarUrl,
+                    label: c.title,
+                    fallbackIcon: c.type == 'private' ? null : _iconForType(c.type),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.title.isEmpty ? c.type : c.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          c.lastMessagePreview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (c.unreadCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Badge(label: Text('${c.unreadCount}')),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     Widget listPane() {
       return async.when(
         loading: () => const LoadingState(message: 'Loading chats…'),
@@ -804,76 +915,71 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                 .toList();
           }
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: TextField(
-                  controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'Search chats or messages…',
-                    isDense: true,
-                    suffixIcon: IconButton(
-                      tooltip: 'Search messages',
-                      icon: const Icon(Icons.manage_search),
-                      onPressed: _globalSearch,
+          return ColoredBox(
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.55),
+            child: Column(
+              children: [
+                chatToolbar(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.sm, AppSpacing.sm),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintText: 'Search chats…',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      suffixIcon: IconButton(
+                        tooltip: 'Search messages',
+                        icon: const Icon(Icons.manage_search, size: 18),
+                        onPressed: _globalSearch,
+                      ),
                     ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _globalSearch(),
                   ),
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) => _globalSearch(),
                 ),
-              ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    for (final f in [
-                      ('all', 'Recent'),
-                      ('private', 'Direct'),
-                      ('groups', 'Groups'),
-                      ('subject', 'Subjects'),
-                      ('broadcast', 'Broadcast'),
-                      ('support', 'Support'),
-                    ])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: FilterChip(
-                          label: Text(f.$2),
-                          selected: _filter == f.$1,
-                          onSelected: (_) => setState(() => _filter = f.$1),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      for (final f in [
+                        ('all', 'Recent'),
+                        ('private', 'Direct'),
+                        ('groups', 'Groups'),
+                        ('subject', 'Subjects'),
+                        ('broadcast', 'Broadcast'),
+                        ('support', 'Support'),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: FilterChip(
+                            label: Text(f.$2, style: const TextStyle(fontSize: 12)),
+                            selected: _filter == f.$1,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (_) => setState(() => _filter = f.$1),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Expanded(
-                child: filtered.isEmpty
-                    ? const EmptyState(title: 'No chats yet', message: 'Start a conversation or open Support.')
-                    : ListView.separated(
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final c = filtered[i];
-                          final selected = _selected?.id == c.id;
-                          return ListTile(
-                            selected: selected,
-                            leading: _avatar(
-                              imageUrl: c.avatarUrl,
-                              label: c.title,
-                              fallbackIcon: c.type == 'private' ? null : _iconForType(c.type),
-                            ),
-                            title: Text(c.title.isEmpty ? c.type : c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(c.lastMessagePreview, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            trailing: c.unreadCount > 0 ? Badge(label: Text('${c.unreadCount}')) : null,
-                            onTap: () => _openConversation(c),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xs),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const EmptyState(title: 'No chats yet', message: 'Start a conversation or open Support.')
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, i) {
+                            final c = filtered[i];
+                            return chatTile(c, selected: _selected?.id == c.id);
+                          },
+                        ),
+                ),
+              ],
+            ),
           );
         },
       );
@@ -882,7 +988,24 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     Widget threadPane() {
       final conv = _selected;
       if (conv == null) {
-        return const Center(child: Text('Select a conversation'));
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.forum_outlined, size: 48, color: context.semantic.textMuted.withValues(alpha: 0.45)),
+              const SizedBox(height: 12),
+              Text(
+                'Select a chat',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Pick a conversation from the list',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.semantic.textMuted),
+              ),
+            ],
+          ),
+        );
       }
       final canReply = conv.type != 'broadcast' || conv.allowReplies || !widget.isStudent;
       final visibleMessages = _threadSearch.trim().isEmpty
@@ -903,6 +1026,14 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                IconButton(
+                  tooltip: _showThreadFilter ? 'Hide filter' : 'Filter in thread',
+                  onPressed: () => setState(() {
+                    _showThreadFilter = !_showThreadFilter;
+                    if (!_showThreadFilter) _threadSearch = '';
+                  }),
+                  icon: Icon(_showThreadFilter ? Icons.filter_list_off : Icons.filter_list),
+                ),
                 IconButton(
                   tooltip: conv.pinned ? 'Unpin' : 'Pin',
                   onPressed: () => _toggleChat(pinned: !conv.pinned),
@@ -926,17 +1057,18 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Filter in thread…',
-                isDense: true,
-                prefixIcon: Icon(Icons.filter_list, size: 18),
+          if (_showThreadFilter)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Filter in thread…',
+                  isDense: true,
+                  prefixIcon: Icon(Icons.search, size: 18),
+                ),
+                onChanged: (v) => setState(() => _threadSearch = v),
               ),
-              onChanged: (v) => setState(() => _threadSearch = v),
             ),
-          ),
           const Divider(height: 1),
           Expanded(
             child: ListView.builder(
@@ -1120,16 +1252,33 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                       icon: const Icon(Icons.more_horiz),
                     ),
                     Expanded(
-                      child: TextField(
-                        controller: _messageCtrl,
-                        onChanged: _onComposerChanged,
-                        decoration: InputDecoration(
-                          hintText: _recording ? 'Recording…' : 'Message… (@name to mention)',
-                          isDense: true,
+                      child: Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                          if (event.logicalKey != LogicalKeyboardKey.enter &&
+                              event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+                            return KeyEventResult.ignored;
+                          }
+                          // Shift+Enter keeps a newline; Enter sends.
+                          if (HardwareKeyboard.instance.isShiftPressed) {
+                            return KeyEventResult.ignored;
+                          }
+                          _send();
+                          return KeyEventResult.handled;
+                        },
+                        child: TextField(
+                          focusNode: _composerFocus,
+                          controller: _messageCtrl,
+                          onChanged: _onComposerChanged,
+                          decoration: InputDecoration(
+                            hintText: _recording ? 'Recording…' : 'Message… (Enter to send)',
+                            isDense: true,
+                          ),
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _send(),
                         ),
-                        minLines: 1,
-                        maxLines: 4,
-                        onSubmitted: (_) => _send(),
                       ),
                     ),
                     IconButton(
@@ -1152,12 +1301,13 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     }
 
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    // Conversation takes the main stage; chat list docks on the right.
     final body = wide
         ? Row(
             children: [
-              SizedBox(width: 340, child: Material(elevation: 0, child: listPane())),
-              const VerticalDivider(width: 1),
               Expanded(child: threadPane()),
+              const VerticalDivider(width: 1),
+              SizedBox(width: 340, child: listPane()),
             ],
           )
         : (_selected == null
@@ -1181,35 +1331,14 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                 ],
               ));
 
-    final actions = <Widget>[
-      if (widget.isStudent)
-        IconButton(tooltip: 'Support', onPressed: _support, icon: const Icon(Icons.support_agent)),
-      if (!widget.isStudent)
-        IconButton(
-          tooltip: 'Subject room',
-          onPressed: _createSubjectRoom,
-          icon: const Icon(Icons.menu_book_outlined),
-        ),
-      if (!widget.isStudent)
-        IconButton(
-          tooltip: 'Moderation',
-          onPressed: () => context.go('${widget.routePrefix}/messages/moderation'),
-          icon: const Icon(Icons.gavel_outlined),
-        ),
-      if (canBroadcast)
-        IconButton(tooltip: 'Broadcast', onPressed: _broadcast, icon: const Icon(Icons.campaign_outlined)),
-      IconButton(tooltip: 'New chat', onPressed: _startNewChat, icon: const Icon(Icons.edit_square)),
-    ];
-
     if (widget.isStudent) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Messages'),
+          title: const Text(''),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => context.go('${widget.routePrefix}/dashboard'),
           ),
-          actions: actions,
         ),
         body: body,
       );
@@ -1220,12 +1349,11 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
       final selected = widget.selectedRoute ?? messagesRoute;
       final selectedIndex = items.indexWhere((i) => i.route == selected);
       return AdaptiveScaffold(
-        title: 'Messages',
+        title: '',
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: selected,
         items: items,
         onDestinationSelected: (i) => context.go(items[i].route),
-        actions: actions,
         body: body,
       );
     }
@@ -1237,12 +1365,11 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     final selectedIndex = items.indexWhere((i) => selected.startsWith(i.route) || i.route.contains('/messages'));
 
     return AdaptiveScaffold(
-      title: 'Messages',
+      title: '',
       selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
       selectedRoute: selected,
       items: items,
       onDestinationSelected: (i) => context.go(items[i].route),
-      actions: actions,
       body: body,
     );
   }

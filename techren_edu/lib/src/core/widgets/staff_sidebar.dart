@@ -118,7 +118,8 @@ class _StaffSidebarState extends ConsumerState<StaffSidebar> {
               child: Scrollbar(
                 thumbVisibility: !collapsed,
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  // No left pad — active/hover pills sit flush on the left edge.
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
                   children: [
                     for (final item in mainItems) _buildItem(item, collapsed),
                   ],
@@ -129,7 +130,7 @@ class _StaffSidebarState extends ConsumerState<StaffSidebar> {
           if (bottomItems.isNotEmpty) ...[
             Divider(height: 1, color: shell.sidebarBorder),
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.xs, AppSpacing.sm, AppSpacing.sm),
+              padding: const EdgeInsets.fromLTRB(0, AppSpacing.xs, AppSpacing.sm, AppSpacing.sm),
               child: Column(
                 children: [
                   for (final item in bottomItems) _buildItem(item, collapsed),
@@ -275,6 +276,12 @@ class _SidebarTileState extends State<_SidebarTile> {
             ? shell.navPillHover
             : Colors.transparent;
 
+    // Square on the left (flush to rail), rounded on the right — active/hover pill.
+    const pillRadius = BorderRadius.only(
+      topRight: Radius.circular(12),
+      bottomRight: Radius.circular(12),
+    );
+
     final content = AnimatedContainer(
       duration: AppDurations.fast,
       curve: AppCurves.standard,
@@ -285,27 +292,18 @@ class _SidebarTileState extends State<_SidebarTile> {
       ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: pillRadius,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: pillRadius,
           hoverColor: Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (active && !widget.collapsed)
-                  Container(
-                    width: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: shell.navActiveBar,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.symmetric(
@@ -348,6 +346,15 @@ class _SidebarTileState extends State<_SidebarTile> {
                           ),
                   ),
                 ),
+                if (active && !widget.collapsed)
+                  Container(
+                    width: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: shell.navActiveBar,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
               ],
             ),
           ),
