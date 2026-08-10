@@ -129,6 +129,8 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       if (_permissionsLanguageId != null) {
         ref.invalidate(cmsSentencesLevelsProvider(_permissionsLanguageId!));
       }
+      // Locking practice also locks every class on the server.
+      ref.invalidate(cmsSentencesLessonsProvider(level.id));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -170,18 +172,11 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       }
     });
     try {
-      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+      await ref.read(homeworkApiProvider).bulkUnlockLevel(
             levelId: level.id,
             groupId: groupId,
             unlock: unlock,
           );
-      for (final lesson in lessons) {
-        await ref.read(homeworkApiProvider).toggleExamLock(
-              lessonId: lesson.id,
-              groupId: groupId,
-              unlock: unlock,
-            );
-      }
       if (_permissionsLanguageId != null) {
         ref.invalidate(cmsSentencesLevelsProvider(_permissionsLanguageId!));
       }

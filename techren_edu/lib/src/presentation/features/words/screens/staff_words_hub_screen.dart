@@ -162,6 +162,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       if (_permissionsLanguageId != null) {
         ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
       }
+      ref.invalidate(cmsLessonsProvider(level.id));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -203,18 +204,11 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       }
     });
     try {
-      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+      await ref.read(homeworkApiProvider).bulkUnlockLevel(
             levelId: level.id,
             groupId: groupId,
             unlock: unlock,
           );
-      for (final lesson in lessons) {
-        await ref.read(homeworkApiProvider).toggleExamLock(
-              lessonId: lesson.id,
-              groupId: groupId,
-              unlock: unlock,
-            );
-      }
       if (_permissionsLanguageId != null) {
         ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
       }

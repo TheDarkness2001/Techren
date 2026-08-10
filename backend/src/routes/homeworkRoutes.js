@@ -69,6 +69,16 @@ router.post(
   learningController.togglePracticeUnlock
 );
 router.post(
+  '/levels/:id/unlock-all',
+  editHomework,
+  requireOwnedGroup,
+  objectId('id'),
+  body('groupId').isMongoId(),
+  body('unlock').isBoolean(),
+  validate,
+  learningController.bulkUnlockLevel
+);
+router.post(
   '/unlock-all',
   editHomework,
   requireOwnedGroup,

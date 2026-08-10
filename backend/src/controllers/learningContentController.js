@@ -70,6 +70,17 @@ exports.togglePracticeUnlock = asyncHandler(async (req, res) => {
   } catch (e) { handle(res, e); }
 });
 
+exports.bulkUnlockLevel = asyncHandler(async (req, res) => {
+  try {
+    const item = await learningContentService.bulkUnlockLevel({
+      levelId: req.params.id,
+      groupId: req.body.groupId,
+      unlock: !!req.body.unlock,
+    });
+    sendSuccess(res, item);
+  } catch (e) { handle(res, e); }
+});
+
 exports.bulkUnlockForGroup = asyncHandler(async (req, res) => {
   try {
     const item = await learningContentService.bulkUnlockForGroup({
