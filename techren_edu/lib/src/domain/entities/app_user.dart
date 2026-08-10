@@ -76,6 +76,14 @@ class AppUser extends Equatable {
   bool canManageHomeworkFor(Map<String, bool> rolePerms) =>
       hasPermission('canManageHomework', rolePerms);
 
+  /// Teachers can edit/unlock learning content; only managers keep delete via [canManageHomeworkFor].
+  bool canEditHomeworkFor(Map<String, bool> rolePerms) {
+    if (canManageHomeworkFor(rolePerms)) return true;
+    if (hasPermission('canEditHomework', rolePerms)) return true;
+    // Default for teachers before platform settings syncs the new key.
+    return role == StaffRole.teacher && !rolePerms.containsKey('canEditHomework');
+  }
+
   factory AppUser.fromJson(Map<String, dynamic> json) {
     final userTypeRaw = json['userType'] as String? ?? 'student';
     final roleRaw = json['role'] as String?;

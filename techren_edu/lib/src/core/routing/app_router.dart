@@ -275,6 +275,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const StaffFinanceHubScreen(navItems: teacherNavItems, selectedRoute: '/teacher/staff-finance'),
       ),
       AppPageTransitions.route(path: '/teacher/profile', builder: (_, __) => const TeacherProfileScreen()),
+      // Learning for teachers (own subjects; edit/unlock; no delete).
+      ...buildSharedStaffOpsRoutes(prefix: '/teacher', navItems: teacherNavItems),
       AppPageTransitions.route(
         path: '/teacher/learning-cms',
         builder: (_, __) => const LearningCmsScreen(

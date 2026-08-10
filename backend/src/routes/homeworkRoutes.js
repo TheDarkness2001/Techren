@@ -2,14 +2,13 @@ const express = require('express');
 const homeworkController = require('../controllers/homeworkController');
 const learningController = require('../controllers/learningContentController');
 const lessonController = require('../controllers/lessonController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { editHomework, deleteHomework, requireOwnedGroup } = require('../middleware/homeworkAccess');
 const validate = require('../middleware/validate');
 const { objectId } = require('../validators/commonValidators');
 const { body } = require('express-validator');
 
 const router = express.Router();
-
-const manageHomework = checkPermission('canManageHomework');
 
 router.use(protect);
 
@@ -37,32 +36,42 @@ router.post(
   homeworkController.practiceStats
 );
 
-router.get('/words', manageHomework, homeworkController.listWords);
+router.get('/words', editHomework, homeworkController.listWords);
 router.post(
   '/words',
-  manageHomework,
+  editHomework,
   body('english').trim().notEmpty(),
   body('uzbek').trim().notEmpty(),
   body('lessonId').isMongoId(),
   validate,
   homeworkController.addWord
 );
-router.put('/words/:id', manageHomework, objectId('id'), validate, homeworkController.updateWord);
-router.delete('/words/:id', manageHomework, objectId('id'), validate, homeworkController.removeWord);
+router.put('/words/:id', editHomework, objectId('id'), validate, homeworkController.updateWord);
+router.delete('/words/:id', deleteHomework, objectId('id'), validate, homeworkController.removeWord);
 
 router.get('/languages', learningController.listLanguages);
-router.post('/languages', manageHomework, body('name').trim().notEmpty(), body('moduleType').optional().isIn(['words', 'sentences', 'listening', 'video']), validate, learningController.createLanguage);
-router.put('/languages/:id', manageHomework, objectId('id'), validate, learningController.updateLanguage);
-router.delete('/languages/:id', manageHomework, objectId('id'), validate, learningController.removeLanguage);
+router.post('/languages', editHomework, body('name').trim().notEmpty(), body('moduleType').optional().isIn(['words', 'sentences', 'listening', 'video']), validate, learningController.createLanguage);
+router.put('/languages/:id', editHomework, objectId('id'), validate, learningController.updateLanguage);
+router.delete('/languages/:id', deleteHomework, objectId('id'), validate, learningController.removeLanguage);
 
 router.get('/levels', learningController.listLevels);
-router.post('/levels', manageHomework, body('name').trim().notEmpty(), body('languageId').isMongoId(), validate, learningController.createLevel);
-router.put('/levels/:id', manageHomework, objectId('id'), validate, learningController.updateLevel);
-router.delete('/levels/:id', manageHomework, objectId('id'), validate, learningController.removeLevel);
-router.post('/levels/:id/practice-unlock', manageHomework, objectId('id'), body('groupId').isMongoId(), body('unlock').isBoolean(), validate, learningController.togglePracticeUnlock);
+router.post('/levels', editHomework, body('name').trim().notEmpty(), body('languageId').isMongoId(), validate, learningController.createLevel);
+router.put('/levels/:id', editHomework, objectId('id'), validate, learningController.updateLevel);
+router.delete('/levels/:id', deleteHomework, objectId('id'), validate, learningController.removeLevel);
+router.post(
+  '/levels/:id/practice-unlock',
+  editHomework,
+  requireOwnedGroup,
+  objectId('id'),
+  body('groupId').isMongoId(),
+  body('unlock').isBoolean(),
+  validate,
+  learningController.togglePracticeUnlock
+);
 router.post(
   '/unlock-all',
-  manageHomework,
+  editHomework,
+  requireOwnedGroup,
   body('languageId').isMongoId(),
   body('groupId').isMongoId(),
   body('unlock').isBoolean(),
@@ -73,13 +82,22 @@ router.post(
 );
 
 router.get('/lessons', lessonController.list);
-router.post('/lessons', manageHomework, body('name').trim().notEmpty(), body('levelId').isMongoId(), validate, lessonController.create);
+router.post('/lessons', editHomework, body('name').trim().notEmpty(), body('levelId').isMongoId(), validate, lessonController.create);
 router.get('/lessons/:id/exam', lessonController.getExam);
 router.post('/lessons/:id/exam', body('answers').isArray({ min: 1 }), validate, lessonController.submitExam);
-router.post('/lessons/:id/toggle-exam-lock', manageHomework, objectId('id'), body('groupId').isMongoId(), body('unlock').isBoolean(), validate, lessonController.toggleExamLock);
+router.post(
+  '/lessons/:id/toggle-exam-lock',
+  editHomework,
+  requireOwnedGroup,
+  objectId('id'),
+  body('groupId').isMongoId(),
+  body('unlock').isBoolean(),
+  validate,
+  lessonController.toggleExamLock
+);
 router.get('/lessons/:id', objectId('id'), validate, lessonController.getOne);
-router.get('/lessons/:id/student-progress', manageHomework, objectId('id'), validate, lessonController.studentProgress);
-router.put('/lessons/:id', manageHomework, objectId('id'), validate, lessonController.update);
-router.delete('/lessons/:id', manageHomework, objectId('id'), validate, lessonController.remove);
+router.get('/lessons/:id/student-progress', editHomework, objectId('id'), validate, lessonController.studentProgress);
+router.put('/lessons/:id', editHomework, objectId('id'), validate, lessonController.update);
+router.delete('/lessons/:id', deleteHomework, objectId('id'), validate, lessonController.remove);
 
 module.exports = router;

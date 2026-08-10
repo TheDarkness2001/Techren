@@ -8,6 +8,7 @@ const { analyzeSentenceAnswer } = require('../utils/sentenceValidator');
 const { normalizeText } = require('../utils/textNormalizer');
 const {
   getStudentGroupIds,
+  isExamUnlockedForStudent,
   isPracticeUnlockedForStudent,
 } = require('./examGateService');
 
@@ -191,7 +192,8 @@ const getStudentLessonTree = async (studentId) => {
           name: lesson.name,
           order: lesson.order,
           sentenceCount: countMap.get(String(lesson._id)) || 0,
-          status: lesson.order === 1 ? 'available' : 'locked',
+          // Respect teacher per-class unlocks (examUnlockedFor), not only order === 1.
+          status: isExamUnlockedForStudent(lesson, groupIds) ? 'available' : 'locked',
         })),
     }));
 };

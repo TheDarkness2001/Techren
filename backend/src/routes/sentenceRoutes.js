@@ -1,12 +1,12 @@
 const express = require('express');
 const controller = require('../controllers/sentenceController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { editHomework, deleteHomework } = require('../middleware/homeworkAccess');
 const validate = require('../middleware/validate');
 const { objectId } = require('../validators/commonValidators');
 const { body } = require('express-validator');
 
 const router = express.Router();
-const manageHomework = checkPermission('canManageHomework');
 
 router.use(protect);
 
@@ -34,14 +34,14 @@ router.get('/lessons', controller.listLessons);
 router.get('/', controller.list);
 router.post(
   '/',
-  manageHomework,
+  editHomework,
   body('english').trim().notEmpty(),
   body('uzbek').trim().notEmpty(),
   body('lessonId').isMongoId(),
   validate,
   controller.create
 );
-router.put('/:id', manageHomework, objectId('id'), validate, controller.update);
-router.delete('/:id', manageHomework, objectId('id'), validate, controller.remove);
+router.put('/:id', editHomework, objectId('id'), validate, controller.update);
+router.delete('/:id', deleteHomework, objectId('id'), validate, controller.remove);
 
 module.exports = router;

@@ -8,7 +8,9 @@ import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/learning_subject.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/learning_provider.dart';
+import '../../../providers/staff_navigation_provider.dart';
 import '../widgets/learning_subject_editor.dart';
 import '../widgets/learning_subject_widgets.dart';
 
@@ -111,7 +113,12 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
   Widget build(BuildContext context) {
     final subjectsAsync = ref.watch(learningSubjectsProvider(_query));
     final selectedIndex = widget.navItems.indexWhere((i) => widget.selectedRoute.startsWith(i.route));
-    final canManage = !widget.isStudent;
+    final user = ref.watch(authProvider).user;
+    final rolePerms = ref.watch(staffRolePermissionsProvider);
+    final canEdit = !widget.isStudent && (user?.canEditHomeworkFor(rolePerms) ?? false);
+    final canDelete = !widget.isStudent && (user?.canManageHomeworkFor(rolePerms) ?? false);
+    // Teachers open/edit modules; only managers create/remove subjects.
+    final canManageSubjects = canDelete;
 
     return AdaptiveScaffold(
       title: 'Learning',
@@ -153,7 +160,7 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
                     ],
                   ),
                 ),
-                if (canManage) ...[
+                if (canManageSubjects) ...[
                   const SizedBox(width: AppSpacing.sm),
                   FilledButton.tonalIcon(
                     onPressed: _addSubject,
@@ -201,7 +208,7 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
                         ? 'You are not enrolled in any subjects. Ask your school to add you to a group.'
                         : 'Create your first learning classroom to get started.',
                     icon: Icons.auto_stories_outlined,
-                    action: canManage
+                    action: canManageSubjects
                         ? FilledButton.icon(
                             onPressed: _addSubject,
                             icon: const Icon(Icons.add),
@@ -230,8 +237,8 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
                             child: LearningSubjectCardWidget(
                               subject: subject,
                               onContinue: () => _openSubject(subject),
-                              onEdit: canManage ? () => _editSubject(subject) : null,
-                              onDelete: canManage ? () => _deleteSubject(subject) : null,
+                              onEdit: canEdit ? () => _editSubject(subject) : null,
+                              onDelete: canDelete ? () => _deleteSubject(subject) : null,
                             ),
                           ),
                       ],

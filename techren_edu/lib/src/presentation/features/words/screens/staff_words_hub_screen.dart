@@ -6,7 +6,6 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/staff_permissions.dart';
 import '../../../../domain/entities/learning_cms.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/scheduling.dart';
@@ -47,10 +46,16 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
 
-  bool get _canManageHomework {
+  bool get _canEditHomework {
     final user = ref.read(authProvider).user;
     final rolePerms = ref.read(staffRolePermissionsProvider);
-    return user != null && canAccessStaffRoute(user, '$_prefix/words', rolePerms);
+    return user != null && user.canEditHomeworkFor(rolePerms);
+  }
+
+  bool get _canDeleteHomework {
+    final user = ref.read(authProvider).user;
+    final rolePerms = ref.read(staffRolePermissionsProvider);
+    return user != null && user.canManageHomeworkFor(rolePerms);
   }
 
   void _selectLanguage(LearningLanguage language) {
@@ -184,29 +189,41 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     }
   }
 
-  Future<void> _bulkUnlock(bool unlock, String groupId) async {
-    if (_permissionsLanguageId == null) return;
-    setState(() => _permissionsBulkBusy = true);
+  Future<void> _bulkUnlockLevel(
+    CmsLevel level,
+    bool unlock,
+    String groupId,
+    List<CmsLesson> lessons,
+  ) async {
+    setState(() {
+      _permissionsBulkBusy = true;
+      _permissionsBusyIds.add(level.id);
+      for (final lesson in lessons) {
+        _permissionsBusyIds.add(lesson.id);
+      }
+    });
     try {
-      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
-            languageId: _permissionsLanguageId!,
+      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+            levelId: level.id,
             groupId: groupId,
             unlock: unlock,
-            moduleType: 'words',
-            includeExam: true,
           );
-      ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
-      final levels = ref.read(cmsLevelsProvider(_permissionsLanguageId!)).valueOrNull ?? [];
-      for (final level in levels) {
-        ref.invalidate(cmsLessonsProvider(level.id));
+      for (final lesson in lessons) {
+        await ref.read(homeworkApiProvider).toggleExamLock(
+              lessonId: lesson.id,
+              groupId: groupId,
+              unlock: unlock,
+            );
       }
+      if (_permissionsLanguageId != null) {
+        ref.invalidate(cmsLevelsProvider(_permissionsLanguageId!));
+      }
+      ref.invalidate(cmsLessonsProvider(level.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              unlock
-                  ? 'Unlocked all word levels & exams for this group'
-                  : 'Locked all word levels & exams for this group',
+              unlock ? 'Unlocked all of ${level.name}' : 'Locked all of ${level.name}',
             ),
           ),
         );
@@ -216,7 +233,15 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
-      if (mounted) setState(() => _permissionsBulkBusy = false);
+      if (mounted) {
+        setState(() {
+          _permissionsBulkBusy = false;
+          _permissionsBusyIds.remove(level.id);
+          for (final lesson in lessons) {
+            _permissionsBusyIds.remove(lesson.id);
+          }
+        });
+      }
     }
   }
 
@@ -227,7 +252,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     final lessonsAsync = _levelId == null ? null : ref.watch(cmsLessonsProvider(_levelId!));
     final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
-    final canManage = _canManageHomework;
+    final canManage = _canEditHomework;
 
     return AdaptiveScaffold(
       title: 'Words',
@@ -311,7 +336,10 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
           onOpen: () => context.go('$_prefix/progress'),
         );
       case WordsHubTab.lessons:
-        return const ModuleContentManager(module: ContentManagerModule.words);
+        return ModuleContentManager(
+          module: ContentManagerModule.words,
+          allowDelete: _canDeleteHomework,
+        );
       case WordsHubTab.permissions:
         return groupsAsync.when(
           loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
@@ -416,7 +444,8 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                           _togglePractice(level, unlock, item.group.id),
                       onToggleExam: (lesson, unlock) =>
                           _toggleExam(lesson, unlock, item.group.id),
-                      onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
+                      onBulkUnlockLevel: (level, unlock, lessons) =>
+                          _bulkUnlockLevel(level, unlock, item.group.id, lessons),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.md),
@@ -494,7 +523,7 @@ class _WordsPermissionsLevelsLoader extends ConsumerWidget {
     required this.onBack,
     required this.onTogglePractice,
     required this.onToggleExam,
-    required this.onBulkUnlock,
+    required this.onBulkUnlockLevel,
     this.bulkBusy = false,
   });
 
@@ -504,7 +533,7 @@ class _WordsPermissionsLevelsLoader extends ConsumerWidget {
   final VoidCallback onBack;
   final Future<void> Function(CmsLevel level, bool unlock) onTogglePractice;
   final Future<void> Function(CmsLesson lesson, bool unlock) onToggleExam;
-  final Future<void> Function(bool unlock) onBulkUnlock;
+  final Future<void> Function(CmsLevel level, bool unlock, List<CmsLesson> lessons) onBulkUnlockLevel;
   final bool bulkBusy;
 
   @override
@@ -537,7 +566,11 @@ class _WordsPermissionsLevelsLoader extends ConsumerWidget {
       bulkBusy: bulkBusy,
       onTogglePractice: onTogglePractice,
       onToggleExam: onToggleExam,
-      onBulkUnlock: onBulkUnlock,
+      onBulkUnlockLevel: (level, unlock) => onBulkUnlockLevel(
+            level,
+            unlock,
+            lessonsByLevel[level.id] ?? const [],
+          ),
       onBack: onBack,
       showBackButton: false,
     );

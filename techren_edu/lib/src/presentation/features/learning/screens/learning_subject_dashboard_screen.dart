@@ -10,6 +10,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/learning_subject.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/learning_provider.dart';
+import '../../../providers/staff_navigation_provider.dart';
 import '../widgets/learning_subject_editor.dart';
 import '../widgets/learning_subject_widgets.dart';
 
@@ -172,12 +173,16 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
             final statistics = dash.modulesByCategory['statistics'] ??
                 dash.modules.where((m) => m.category == 'statistics').toList();
             final ieltsLocked = isStudent && ref.watch(authProvider).user?.ieltsAccess != true;
+            final user = ref.watch(authProvider).user;
+            final rolePerms = ref.watch(staffRolePermissionsProvider);
+            final canEdit = !isStudent && (user?.canEditHomeworkFor(rolePerms) ?? false);
+            final canDelete = !isStudent && (user?.canManageHomeworkFor(rolePerms) ?? false);
 
             return ListView(
               padding: EdgeInsets.zero,
               children: [
                 _SubjectHero(dash: dash, accent: accent),
-                if (!isStudent) ...[
+                if (canEdit) ...[
                   const SizedBox(height: AppSpacing.md),
                   Wrap(
                     spacing: AppSpacing.sm,
@@ -193,11 +198,12 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
                         icon: const Icon(Icons.widgets_outlined, size: 18),
                         label: const Text('Edit modules'),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: () => _deleteSubject(context, ref, dash),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('Remove'),
-                      ),
+                      if (canDelete)
+                        OutlinedButton.icon(
+                          onPressed: () => _deleteSubject(context, ref, dash),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Remove'),
+                        ),
                     ],
                   ),
                 ],

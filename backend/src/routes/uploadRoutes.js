@@ -1,14 +1,14 @@
 const express = require('express');
 const { body } = require('express-validator');
 const controller = require('../controllers/uploadController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { editHomework } = require('../middleware/homeworkAccess');
 const validate = require('../middleware/validate');
 const { docxUpload, imageUpload, audioUpload, ocrUpload } = require('../middleware/fileUpload');
 
 const router = express.Router();
-const manageHomework = checkPermission('canManageHomework');
 
-router.use(protect, manageHomework);
+router.use(protect, editHomework);
 
 router.post('/parse-docx', docxUpload.single('file'), controller.parseDocx);
 router.post('/parse-ocr', ocrUpload.single('image'), controller.parseOcr);

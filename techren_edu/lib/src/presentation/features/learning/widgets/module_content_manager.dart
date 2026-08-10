@@ -33,9 +33,12 @@ class ModuleContentManager extends ConsumerStatefulWidget {
   const ModuleContentManager({
     super.key,
     required this.module,
+    this.allowDelete = true,
   });
 
   final ContentManagerModule module;
+  /// Teachers may edit content but not delete.
+  final bool allowDelete;
 
   @override
   ConsumerState<ModuleContentManager> createState() => _ModuleContentManagerState();
@@ -488,14 +491,16 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                   }
                 }
               },
-              onDelete: (lang) => _confirmDelete(
-                'Delete language?',
-                'Remove "${lang.name}" and its content?',
-                () async {
-                  await ref.read(homeworkApiProvider).deleteLanguage(lang.id);
-                  if (_languageId == lang.id) _goLanguages();
-                },
-              ),
+              onDelete: widget.allowDelete
+                  ? (lang) => _confirmDelete(
+                        'Delete language?',
+                        'Remove "${lang.name}" and its content?',
+                        () async {
+                          await ref.read(homeworkApiProvider).deleteLanguage(lang.id);
+                          if (_languageId == lang.id) _goLanguages();
+                        },
+                      )
+                  : null,
             );
           case _Step.levels:
             final levelsAsync = widget.module == ContentManagerModule.sentences
@@ -541,16 +546,18 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     }
                   }
                 },
-                onDelete: (level) => _confirmDelete(
-                  'Delete level?',
-                  'Remove "${level.name}" and its lessons?',
-                  () async {
-                    await ref.read(homeworkApiProvider).deleteLevel(level.id);
-                    if (_levelId == level.id) {
-                      _goLevels(languageId: _languageId!, languageName: _languageName!);
-                    }
-                  },
-                ),
+                onDelete: widget.allowDelete
+                    ? (level) => _confirmDelete(
+                          'Delete level?',
+                          'Remove "${level.name}" and its lessons?',
+                          () async {
+                            await ref.read(homeworkApiProvider).deleteLevel(level.id);
+                            if (_levelId == level.id) {
+                              _goLevels(languageId: _languageId!, languageName: _languageName!);
+                            }
+                          },
+                        )
+                    : null,
               ),
             );
           case _Step.lessons:
@@ -598,16 +605,18 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     }
                   }
                 },
-                onDelete: (lesson) => _confirmDelete(
-                  'Delete lesson?',
-                  'Remove "${lesson.name}" and its $_pairLabelPlural?',
-                  () async {
-                    await ref.read(homeworkApiProvider).deleteLesson(lesson.id);
-                    if (_lessonId == lesson.id) {
-                      _goLessons(levelId: _levelId!, levelName: _levelName!);
-                    }
-                  },
-                ),
+                onDelete: widget.allowDelete
+                    ? (lesson) => _confirmDelete(
+                          'Delete lesson?',
+                          'Remove "${lesson.name}" and its $_pairLabelPlural?',
+                          () async {
+                            await ref.read(homeworkApiProvider).deleteLesson(lesson.id);
+                            if (_lessonId == lesson.id) {
+                              _goLessons(levelId: _levelId!, levelName: _levelName!);
+                            }
+                          },
+                        )
+                    : null,
               ),
             );
           case _Step.pairs:
@@ -639,11 +648,13 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     task: item.task,
                     imageUrl: item.imageUrl,
                   ),
-                  onDelete: (item) => _confirmDelete(
-                    'Delete $_pairLabel?',
-                    'Remove "${item.english}"?',
-                    () => ref.read(sentencesApiProvider).deleteSentence(item.id),
-                  ),
+                  onDelete: widget.allowDelete
+                      ? (item) => _confirmDelete(
+                            'Delete $_pairLabel?',
+                            'Remove "${item.english}"?',
+                            () => ref.read(sentencesApiProvider).deleteSentence(item.id),
+                          )
+                      : null,
                 ),
               );
             }
@@ -662,11 +673,13 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                 onAdd: () => _showPairDialog(),
                 onImport: _importWordFile,
                 onEdit: (item) => _showPairDialog(id: item.id, english: item.english, uzbek: item.uzbek),
-                onDelete: (item) => _confirmDelete(
-                  'Delete $_pairLabel?',
-                  'Remove "${item.english}"?',
-                  () => ref.read(homeworkApiProvider).deleteWord(item.id),
-                ),
+                onDelete: widget.allowDelete
+                    ? (item) => _confirmDelete(
+                          'Delete $_pairLabel?',
+                          'Remove "${item.english}"?',
+                          () => ref.read(homeworkApiProvider).deleteWord(item.id),
+                        )
+                    : null,
               ),
             );
         }
@@ -747,14 +760,14 @@ class _ManageTile extends StatelessWidget {
     this.subtitle,
     required this.onOpen,
     required this.onRename,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final String title;
   final String? subtitle;
   final VoidCallback onOpen;
   final VoidCallback onRename;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -768,11 +781,11 @@ class _ManageTile extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'rename') onRename();
-            if (value == 'delete') onDelete();
+            if (value == 'delete') onDelete?.call();
           },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'rename', child: Text('Rename')),
-            PopupMenuItem(value: 'delete', child: Text('Delete')),
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'rename', child: Text('Rename')),
+            if (onDelete != null) const PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
         ),
       ),
@@ -786,14 +799,14 @@ class _LanguagesStep extends StatelessWidget {
     required this.onOpen,
     required this.onAdd,
     required this.onRename,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final List<LearningLanguage> languages;
   final ValueChanged<LearningLanguage> onOpen;
   final VoidCallback onAdd;
   final ValueChanged<LearningLanguage> onRename;
-  final ValueChanged<LearningLanguage> onDelete;
+  final ValueChanged<LearningLanguage>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -814,7 +827,7 @@ class _LanguagesStep extends StatelessWidget {
               title: language.name,
               onOpen: () => onOpen(language),
               onRename: () => onRename(language),
-              onDelete: () => onDelete(language),
+              onDelete: onDelete == null ? null : () => onDelete!(language),
             ),
       ],
     );
@@ -829,7 +842,7 @@ class _LevelsStep extends StatelessWidget {
     required this.onOpen,
     required this.onAdd,
     required this.onRename,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final String languageName;
@@ -838,7 +851,7 @@ class _LevelsStep extends StatelessWidget {
   final ValueChanged<CmsLevel> onOpen;
   final VoidCallback onAdd;
   final ValueChanged<CmsLevel> onRename;
-  final ValueChanged<CmsLevel> onDelete;
+  final ValueChanged<CmsLevel>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -861,7 +874,7 @@ class _LevelsStep extends StatelessWidget {
               title: level.name,
               onOpen: () => onOpen(level),
               onRename: () => onRename(level),
-              onDelete: () => onDelete(level),
+              onDelete: onDelete == null ? null : () => onDelete!(level),
             ),
       ],
     );
@@ -876,7 +889,7 @@ class _LessonsStep extends StatelessWidget {
     required this.onOpen,
     required this.onAdd,
     required this.onRename,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final String levelName;
@@ -885,7 +898,7 @@ class _LessonsStep extends StatelessWidget {
   final ValueChanged<CmsLesson> onOpen;
   final VoidCallback onAdd;
   final ValueChanged<CmsLesson> onRename;
-  final ValueChanged<CmsLesson> onDelete;
+  final ValueChanged<CmsLesson>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -909,7 +922,7 @@ class _LessonsStep extends StatelessWidget {
               subtitle: 'Open to manage content',
               onOpen: () => onOpen(lesson),
               onRename: () => onRename(lesson),
-              onDelete: () => onDelete(lesson),
+              onDelete: onDelete == null ? null : () => onDelete!(lesson),
             ),
       ],
     );
@@ -925,7 +938,7 @@ class _PairsStep extends StatelessWidget {
     required this.onAdd,
     required this.onImport,
     required this.onEdit,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final String lessonName;
@@ -935,7 +948,7 @@ class _PairsStep extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onImport;
   final ValueChanged<_PairItem> onEdit;
-  final ValueChanged<_PairItem> onDelete;
+  final ValueChanged<_PairItem>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -990,11 +1003,12 @@ class _PairsStep extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextButton(onPressed: () => onEdit(item), child: const Text('Edit')),
-                    TextButton(
-                      onPressed: () => onDelete(item),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                      child: const Text('Delete'),
-                    ),
+                    if (onDelete != null)
+                      TextButton(
+                        onPressed: () => onDelete!(item),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                        child: const Text('Delete'),
+                      ),
                   ],
                 ),
               ),

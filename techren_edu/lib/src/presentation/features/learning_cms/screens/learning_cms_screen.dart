@@ -46,7 +46,6 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
   String? _levelId;
   String? _permissionsExpandedGroupId;
   final Set<String> _permissionsBusyIds = {};
-  bool _permissionsBulkBusy = false;
 
   Future<void> _refreshTree() async {
     ref.invalidate(cmsListeningLanguagesProvider);
@@ -86,38 +85,6 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(level.id));
-    }
-  }
-
-  Future<void> _bulkUnlock(bool unlock, String groupId) async {
-    if (_languageId == null) return;
-    setState(() => _permissionsBulkBusy = true);
-    try {
-      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
-            languageId: _languageId!,
-            groupId: groupId,
-            unlock: unlock,
-            moduleType: 'listening',
-            includeExam: false,
-          );
-      ref.invalidate(cmsListeningLevelsProvider(_languageId!));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              unlock
-                  ? 'Unlocked all BBC news levels for this group'
-                  : 'Locked all BBC news levels for this group',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _permissionsBulkBusy = false);
     }
   }
 
@@ -442,14 +409,10 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
                             levels: levels,
                             lessonsByLevel: const {},
                             busyIds: _permissionsBusyIds,
-                            bulkBusy: _permissionsBulkBusy,
                             showExamToggles: false,
-                            practiceOnlyHint:
-                                'Unlock levels for this group. Unlock all turns on every BBC news level at once.',
                             onTogglePractice: (level, unlock) =>
                                 _togglePractice(level, unlock, item.group.id),
                             onToggleExam: (_, __) async {},
-                            onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
                             onBack: () => setState(() => _permissionsExpandedGroupId = null),
                             showBackButton: false,
                           ),

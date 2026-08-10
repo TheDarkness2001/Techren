@@ -1,6 +1,7 @@
 const express = require('express');
 const controller = require('../controllers/listeningController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { editHomework, deleteHomework } = require('../middleware/homeworkAccess');
 const { upload } = require('../middleware/audioUpload');
 const validate = require('../middleware/validate');
 const { objectId } = require('../validators/commonValidators');
@@ -9,7 +10,6 @@ const { sendError } = require('../utils/apiResponse');
 const listeningService = require('../services/listeningService');
 
 const router = express.Router();
-const manageHomework = checkPermission('canManageHomework');
 
 const streamAuth = async (req, res, next) => {
   try {
@@ -44,9 +44,9 @@ router.get('/student-levels', (req, res, next) => {
 }, controller.studentLevels);
 
 router.get('/exercises', controller.list);
-router.post('/exercises', manageHomework, upload.single('audio'), controller.create);
-router.put('/exercises/:id', manageHomework, objectId('id'), upload.single('audio'), validate, controller.update);
-router.delete('/exercises/:id', manageHomework, objectId('id'), validate, controller.remove);
+router.post('/exercises', editHomework, upload.single('audio'), controller.create);
+router.put('/exercises/:id', editHomework, objectId('id'), upload.single('audio'), validate, controller.update);
+router.delete('/exercises/:id', deleteHomework, objectId('id'), validate, controller.remove);
 
 router.get('/languages', async (req, res, next) => {
   req.query.moduleType = 'listening';

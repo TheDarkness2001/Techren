@@ -16,7 +16,7 @@ const teacherNavItems = [
   NavItem(label: 'Home', icon: Icons.home_outlined, route: '/teacher/dashboard'),
   NavItem(label: 'Classes', icon: Icons.class_outlined, route: '/teacher/classes'),
   NavItem(label: 'Attendance', icon: Icons.fact_check_outlined, route: '/teacher/attendance'),
-  NavItem(label: 'Progress', icon: Icons.insights_outlined, route: '/teacher/progress'),
+  NavItem(label: 'Learning', icon: Icons.menu_book_outlined, route: '/teacher/learning'),
   NavItem(label: 'Messages', icon: Icons.chat_bubble_outline, route: '/teacher/messages'),
   NavItem(label: 'Profile', icon: Icons.person_outline, route: '/teacher/profile'),
 ];
@@ -100,13 +100,13 @@ class TeacherProfileScreen extends ConsumerWidget {
           Text(user?.email ?? '', style: TextStyle(color: Colors.grey.shade600)),
           Text('Role: ${user?.role?.name ?? ''}'),
           const SizedBox(height: AppSpacing.lg),
-          if (user != null && user.canManageHomeworkFor(rolePerms)) ...[
+          if (user != null && user.canEditHomeworkFor(rolePerms)) ...[
             ListTile(
               leading: const Icon(Icons.menu_book_outlined),
-              title: const Text('Learning CMS'),
-              subtitle: const Text('Manage words, sentences & listening'),
+              title: const Text('Learning'),
+              subtitle: const Text('Your subjects, unlocks & content'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go('/teacher/learning-cms'),
+              onTap: () => context.go('/teacher/learning'),
             ),
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),
@@ -116,6 +116,13 @@ class TeacherProfileScreen extends ConsumerWidget {
               onTap: () => context.go('/teacher/content-import'),
             ),
           ],
+          ListTile(
+            leading: const Icon(Icons.insights_outlined),
+            title: const Text('Student Progress'),
+            subtitle: const Text('Accuracy and practice stats'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/teacher/progress'),
+          ),
           ListTile(
             leading: const Icon(Icons.emoji_events_outlined),
             title: const Text('Competition'),

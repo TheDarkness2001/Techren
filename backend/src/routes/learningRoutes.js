@@ -1,6 +1,7 @@
 const express = require('express');
 const subjectController = require('../controllers/subjectController');
 const { protect, checkPermission } = require('../middleware/auth');
+const { editHomework, deleteHomework } = require('../middleware/homeworkAccess');
 const enforceBranchIsolation = require('../middleware/branchIsolation');
 const validate = require('../middleware/validate');
 const { paginationRules, objectId } = require('../validators/commonValidators');
@@ -28,7 +29,7 @@ router.post(
 );
 router.put(
   '/subjects/:id',
-  checkPermission('canManageHomework'),
+  editHomework,
   objectId('id'),
   body('name').optional().trim().notEmpty(),
   body('code').optional().trim(),
@@ -42,7 +43,7 @@ router.put(
 );
 router.delete(
   '/subjects/:id',
-  checkPermission('canManageHomework'),
+  deleteHomework,
   objectId('id'),
   validate,
   subjectController.remove

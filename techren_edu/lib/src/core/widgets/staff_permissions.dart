@@ -17,7 +17,9 @@ String? permissionKeyForStaffRoute(String route) {
       route.endsWith('/learning-cms') ||
       route.endsWith('/content-import') ||
       route.contains('/progress')) {
-    return 'canManageHomework';
+    // Teachers use canEditHomework; managers/founders use canManageHomework.
+    // Progress stays available to teachers who can edit learning for their groups.
+    return 'canEditHomework';
   }
   if (route.endsWith('/competition')) return 'canViewStudents';
   if (route.endsWith('/more')) return 'canViewPayments';
@@ -39,6 +41,9 @@ bool canAccessStaffRoute(AppUser? user, String route, Map<String, bool> rolePerm
   final key = permissionKeyForStaffRoute(route);
   if (key == '__admin_only__') return false;
   if (key == null) return true;
+  if (key == 'canEditHomework') {
+    return user.canEditHomeworkFor(rolePerms);
+  }
   return user.hasPermission(key, rolePerms);
 }
 

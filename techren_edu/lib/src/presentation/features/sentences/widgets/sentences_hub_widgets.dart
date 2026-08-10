@@ -103,18 +103,6 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class SentencesHubHeader extends StatelessWidget {
-  const SentencesHubHeader({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      'Sentences',
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-    );
-  }
-}
-
 class SentencesSubNavBar extends StatelessWidget {
   const SentencesSubNavBar({super.key, required this.label});
 
@@ -710,7 +698,7 @@ class _Meta extends StatelessWidget {
   }
 }
 
-/// Level + lesson lock toggles for one group.
+/// Level + lesson lock controls for one group.
 class SentencesLessonAccessPanel extends StatelessWidget {
   const SentencesLessonAccessPanel({
     super.key,
@@ -725,8 +713,7 @@ class SentencesLessonAccessPanel extends StatelessWidget {
     this.showBackButton = true,
     this.showExamToggles = true,
     this.bulkBusy = false,
-    this.onBulkUnlock,
-    this.practiceOnlyHint,
+    this.onBulkUnlockLevel,
   });
 
   final String groupName;
@@ -740,13 +727,10 @@ class SentencesLessonAccessPanel extends StatelessWidget {
   final bool showBackButton;
   final bool showExamToggles;
   final bool bulkBusy;
-  final Future<void> Function(bool unlock)? onBulkUnlock;
-  final String? practiceOnlyHint;
+  final Future<void> Function(CmsLevel level, bool unlock)? onBulkUnlockLevel;
 
   @override
   Widget build(BuildContext context) {
-    final allPracticeOn =
-        levels.isNotEmpty && levels.every((l) => l.isPracticeUnlockedFor(groupId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -754,49 +738,6 @@ class SentencesLessonAccessPanel extends StatelessWidget {
           SentencesBackButton(label: 'Back to Groups', onPressed: onBack),
           const SizedBox(height: AppSpacing.md),
         ],
-        Text(
-          'Unlock / lock for $groupName',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          practiceOnlyHint ??
-              (showExamToggles
-                  ? 'Practice unlocks a whole level (e.g. Blackhole 1). Exam unlocks individual classes. Use Unlock all to grant every level at once.'
-                  : 'Unlock a whole level for this group. Use Unlock all to grant every level at once.'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.semantic.textMuted),
-        ),
-        if (onBulkUnlock != null && levels.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: bulkBusy || allPracticeOn ? null : () => onBulkUnlock!(true),
-                  icon: bulkBusy
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.lock_open, size: 18),
-                  label: Text(allPracticeOn ? 'All unlocked' : 'Unlock all'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: bulkBusy || !levels.any((l) => l.isPracticeUnlockedFor(groupId))
-                      ? null
-                      : () => onBulkUnlock!(false),
-                  icon: const Icon(Icons.lock_outline, size: 18),
-                  label: const Text('Lock all'),
-                ),
-              ),
-            ],
-          ),
-        ],
-        const SizedBox(height: AppSpacing.md),
         if (levels.isEmpty)
           const EmptyState(
             title: 'No levels',
@@ -813,11 +754,60 @@ class SentencesLessonAccessPanel extends StatelessWidget {
               busyLessonIds: busyIds,
               onTogglePractice: (unlock) => onTogglePractice(level, unlock),
               onToggleExam: onToggleExam,
+              onBulkUnlockLevel: onBulkUnlockLevel == null
+                  ? null
+                  : (unlock) => onBulkUnlockLevel!(level, unlock),
               showExamToggles: showExamToggles,
             ),
             const SizedBox(height: AppSpacing.sm),
           ],
       ],
+    );
+  }
+}
+
+class _LockActionButton extends StatelessWidget {
+  const _LockActionButton({
+    required this.unlocked,
+    required this.onPressed,
+    this.labelWhenLocked = 'Unlock',
+    this.labelWhenUnlocked = 'Lock',
+    this.compact = false,
+  });
+
+  final bool unlocked;
+  final VoidCallback? onPressed;
+  final String labelWhenLocked;
+  final String labelWhenUnlocked;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = unlocked ? labelWhenUnlocked : labelWhenLocked;
+    final icon = unlocked ? Icons.lock_outline : Icons.lock_open;
+    if (unlocked) {
+      return OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: compact ? 16 : 18),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          visualDensity: compact ? VisualDensity.compact : null,
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs)
+              : null,
+        ),
+      );
+    }
+    return FilledButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: compact ? 16 : 18),
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        visualDensity: compact ? VisualDensity.compact : null,
+        padding: compact
+            ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs)
+            : null,
+      ),
     );
   }
 }
@@ -831,6 +821,7 @@ class _LevelAccessCard extends StatelessWidget {
     required this.busyLessonIds,
     required this.onTogglePractice,
     required this.onToggleExam,
+    this.onBulkUnlockLevel,
     this.showExamToggles = true,
   });
 
@@ -841,11 +832,19 @@ class _LevelAccessCard extends StatelessWidget {
   final Set<String> busyLessonIds;
   final ValueChanged<bool> onTogglePractice;
   final Future<void> Function(CmsLesson lesson, bool unlock) onToggleExam;
+  final ValueChanged<bool>? onBulkUnlockLevel;
   final bool showExamToggles;
+
+  bool get _practiceOn => level.isPracticeUnlockedFor(groupId);
+
+  bool get _allUnlocked {
+    if (!_practiceOn) return false;
+    if (!showExamToggles || lessons.isEmpty) return true;
+    return lessons.every((l) => l.isExamUnlockedFor(groupId));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final practiceOn = level.isPracticeUnlockedFor(groupId);
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -854,43 +853,101 @@ class _LevelAccessCard extends StatelessWidget {
         borderRadius: AppRadius.card,
         border: Border.all(color: context.semantic.border),
       ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SwitchListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            title: Text(level.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-              practiceOn ? 'Practice unlocked for this group' : 'Practice locked for this group',
-              style: TextStyle(color: context.semantic.textMuted, fontSize: 12),
-            ),
-            secondary: Icon(
-              practiceOn ? Icons.lock_open : Icons.lock_outline,
-              color: practiceOn ? scheme.primary : context.semantic.textMuted,
-            ),
-            value: practiceOn,
-            onChanged: busy ? null : onTogglePractice,
+          Row(
+            children: [
+              Icon(
+                _practiceOn ? Icons.lock_open : Icons.lock_outline,
+                color: _practiceOn ? scheme.primary : context.semantic.textMuted,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(level.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              if (!showExamToggles)
+                _LockActionButton(
+                  unlocked: _practiceOn,
+                  onPressed: busy ? null : () => onTogglePractice(!_practiceOn),
+                ),
+            ],
           ),
-          if (showExamToggles && lessons.isNotEmpty) const Divider(height: 1),
-          if (showExamToggles)
+          if (showExamToggles && onBulkUnlockLevel != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              width: double.infinity,
+              child: _LockActionButton(
+                unlocked: _allUnlocked,
+                labelWhenLocked: 'Unlock all ${level.name}',
+                labelWhenUnlocked: 'Lock all ${level.name}',
+                onPressed: busy ? null : () => onBulkUnlockLevel!(!_allUnlocked),
+              ),
+            ),
+          ],
+          if (showExamToggles) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _AccessRow(
+              title: 'Practice',
+              subtitle: _practiceOn ? 'Unlocked for this group' : 'Locked for this group',
+              unlocked: _practiceOn,
+              busy: busy,
+              onPressed: () => onTogglePractice(!_practiceOn),
+            ),
             for (final lesson in lessons)
-              SwitchListTile(
-                contentPadding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.md, 0),
-                dense: true,
-                title: Text(lesson.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                subtitle: Text(
-                  lesson.isExamUnlockedFor(groupId) ? 'Exam unlocked' : 'Exam locked',
+              _AccessRow(
+                title: lesson.name,
+                subtitle: lesson.isExamUnlockedFor(groupId) ? 'Exam unlocked' : 'Exam locked',
+                unlocked: lesson.isExamUnlockedFor(groupId),
+                busy: busyLessonIds.contains(lesson.id) || busy,
+                onPressed: () => onToggleExam(lesson, !lesson.isExamUnlockedFor(groupId)),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessRow extends StatelessWidget {
+  const _AccessRow({
+    required this.title,
+    required this.subtitle,
+    required this.unlocked,
+    required this.busy,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool unlocked;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(
+                  subtitle,
                   style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
                 ),
-                secondary: Icon(
-                  lesson.isExamUnlockedFor(groupId) ? Icons.quiz_outlined : Icons.quiz,
-                  size: 20,
-                  color: lesson.isExamUnlockedFor(groupId) ? scheme.primary : context.semantic.textMuted,
-                ),
-                value: lesson.isExamUnlockedFor(groupId),
-                onChanged: busyLessonIds.contains(lesson.id)
-                    ? null
-                    : (unlock) => onToggleExam(lesson, unlock),
-              ),
+              ],
+            ),
+          ),
+          _LockActionButton(
+            unlocked: unlocked,
+            compact: true,
+            onPressed: busy ? null : onPressed,
+          ),
         ],
       ),
     );

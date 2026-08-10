@@ -9,10 +9,12 @@ import '../../../../domain/entities/learning_cms.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../../domain/entities/words.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/learning_cms_provider.dart';
 import '../../../providers/progress_provider.dart';
 import '../../../providers/scheduling_provider.dart';
 import '../../../providers/sentences_provider.dart';
+import '../../../providers/staff_navigation_provider.dart';
 import '../../../providers/words_provider.dart';
 import '../../learning/widgets/module_content_manager.dart';
 import '../widgets/sentences_hub_widgets.dart';
@@ -154,29 +156,43 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
     }
   }
 
-  Future<void> _bulkUnlock(bool unlock, String groupId) async {
-    if (_permissionsLanguageId == null) return;
-    setState(() => _permissionsBulkBusy = true);
+  Future<void> _bulkUnlockLevel(
+    CmsLevel level,
+    bool unlock,
+    String groupId,
+    List<CmsLesson> lessons,
+  ) async {
+    setState(() {
+      _permissionsBulkBusy = true;
+      _permissionsBusyIds.add(level.id);
+      for (final lesson in lessons) {
+        _permissionsBusyIds.add(lesson.id);
+      }
+    });
     try {
-      await ref.read(homeworkApiProvider).bulkUnlockForGroup(
-            languageId: _permissionsLanguageId!,
+      await ref.read(homeworkApiProvider).togglePracticeUnlock(
+            levelId: level.id,
             groupId: groupId,
             unlock: unlock,
-            moduleType: 'sentences',
-            includeExam: true,
           );
-      ref.invalidate(cmsSentencesLevelsProvider(_permissionsLanguageId!));
-      final levels = ref.read(cmsSentencesLevelsProvider(_permissionsLanguageId!)).valueOrNull ?? [];
-      for (final level in levels) {
-        ref.invalidate(cmsSentencesLessonsProvider(level.id));
+      for (final lesson in lessons) {
+        await ref.read(homeworkApiProvider).toggleExamLock(
+              lessonId: lesson.id,
+              groupId: groupId,
+              unlock: unlock,
+            );
       }
+      if (_permissionsLanguageId != null) {
+        ref.invalidate(cmsSentencesLevelsProvider(_permissionsLanguageId!));
+      }
+      ref.invalidate(cmsSentencesLessonsProvider(level.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               unlock
-                  ? 'Unlocked all sentence levels & exams for this group'
-                  : 'Locked all sentence levels & exams for this group',
+                  ? 'Unlocked all of ${level.name}'
+                  : 'Locked all of ${level.name}',
             ),
           ),
         );
@@ -186,7 +202,15 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
-      if (mounted) setState(() => _permissionsBulkBusy = false);
+      if (mounted) {
+        setState(() {
+          _permissionsBulkBusy = false;
+          _permissionsBusyIds.remove(level.id);
+          for (final lesson in lessons) {
+            _permissionsBusyIds.remove(lesson.id);
+          }
+        });
+      }
     }
   }
 
@@ -226,8 +250,6 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const SentencesHubHeader(),
-            const SizedBox(height: AppSpacing.md),
             SentencesHubTabBar(
               selected: _tab,
               onSelected: (tab) => setState(() {
@@ -248,9 +270,15 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                   error: (e, _) => Text(e.toString()),
                   data: (board) => SentencesLeaderboardTable(entries: board.leaderboard),
                 ),
-              SentencesHubTab.lessons => const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: ModuleContentManager(module: ContentManagerModule.sentences),
+              SentencesHubTab.lessons => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: ModuleContentManager(
+                    module: ContentManagerModule.sentences,
+                    allowDelete: ref.watch(authProvider).user?.canManageHomeworkFor(
+                          ref.watch(staffRolePermissionsProvider),
+                        ) ??
+                        false,
+                  ),
                 ),
               SentencesHubTab.permissions => groupsAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
@@ -387,16 +415,6 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
               onPressed: _resetPermissions,
             ),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'Groups for ${_permissionsLanguageName ?? 'subject'}',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Unlock or lock sentence lessons for each group. Teachers only see their own groups; manager and founder see all.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
-            ),
-            const SizedBox(height: AppSpacing.md),
             if (relatedGroups.isEmpty)
               const EmptyState(
                 title: 'No groups for this subject',
@@ -433,7 +451,8 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                               _togglePractice(level, unlock, item.group.id),
                           onToggleExam: (lesson, unlock) =>
                               _toggleExam(lesson, unlock, item.group.id),
-                          onBulkUnlock: (unlock) => _bulkUnlock(unlock, item.group.id),
+                          onBulkUnlockLevel: (level, unlock, lessons) =>
+                              _bulkUnlockLevel(level, unlock, item.group.id, lessons),
                           showBackButton: false,
                         ),
                       ],
@@ -533,7 +552,7 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
     required this.onBack,
     required this.onTogglePractice,
     required this.onToggleExam,
-    this.onBulkUnlock,
+    this.onBulkUnlockLevel,
     this.bulkBusy = false,
     this.showBackButton = true,
   });
@@ -544,7 +563,7 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
   final VoidCallback onBack;
   final Future<void> Function(CmsLevel level, bool unlock) onTogglePractice;
   final Future<void> Function(CmsLesson lesson, bool unlock) onToggleExam;
-  final Future<void> Function(bool unlock)? onBulkUnlock;
+  final Future<void> Function(CmsLevel level, bool unlock, List<CmsLesson> lessons)? onBulkUnlockLevel;
   final bool bulkBusy;
   final bool showBackButton;
 
@@ -586,7 +605,13 @@ class _PermissionsLevelsLoader extends ConsumerWidget {
       bulkBusy: bulkBusy,
       onTogglePractice: onTogglePractice,
       onToggleExam: onToggleExam,
-      onBulkUnlock: onBulkUnlock,
+      onBulkUnlockLevel: onBulkUnlockLevel == null
+          ? null
+          : (level, unlock) => onBulkUnlockLevel!(
+                level,
+                unlock,
+                lessonsByLevel[level.id] ?? const [],
+              ),
       onBack: onBack,
       showBackButton: showBackButton,
     );

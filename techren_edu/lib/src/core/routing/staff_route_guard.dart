@@ -5,7 +5,10 @@ const staffDashboardRoute = '/admin/dashboard';
 
 String? staffRouteGuard(AppUser user, String path, Map<String, bool> rolePerms) {
   if (user.hasFullStaffAccess) return null;
-  if (!path.startsWith('/admin') && !path.startsWith('/founder')) return null;
+  if (!path.startsWith('/admin') && !path.startsWith('/founder') && !path.startsWith('/teacher')) {
+    return null;
+  }
   if (canAccessStaffRoute(user, path, rolePerms)) return null;
+  if (path.startsWith('/teacher')) return '/teacher/dashboard';
   return path.startsWith('/founder') ? '/founder/dashboard' : staffDashboardRoute;
 }
