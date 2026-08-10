@@ -95,7 +95,11 @@ class CmsLesson {
   final String type;
   final List<String> examUnlockedFor;
 
-  bool isExamUnlockedFor(String groupId) => examUnlockedFor.contains(groupId);
+  bool isExamUnlockedFor(String groupId) {
+    final gid = groupId.trim();
+    if (gid.isEmpty) return false;
+    return examUnlockedFor.any((id) => id.trim() == gid);
+  }
 
   factory CmsLesson.fromJson(Map<String, dynamic> json) => CmsLesson(
         id: json['id']?.toString() ?? '',
@@ -125,7 +129,11 @@ class CmsLevel {
   final String moduleType;
   final List<String> practiceUnlockedFor;
 
-  bool isPracticeUnlockedFor(String groupId) => practiceUnlockedFor.contains(groupId);
+  bool isPracticeUnlockedFor(String groupId) {
+    final gid = groupId.trim();
+    if (gid.isEmpty) return false;
+    return practiceUnlockedFor.any((id) => id.trim() == gid);
+  }
 
   factory CmsLevel.fromJson(Map<String, dynamic> json) => CmsLevel(
         id: json['id']?.toString() ?? '',

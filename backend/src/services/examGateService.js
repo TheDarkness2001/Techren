@@ -10,16 +10,39 @@ const isStudentInClassWindow = async (studentId) => {
   return { allowed: false, reason: 'Exam is only available during your class hours.' };
 };
 
+/**
+ * Groups that control unlocks for a student.
+ * Prefer ExamGroup.students, and also include subjectGroup from any schedule
+ * the student is enrolled in (covers out-of-sync group membership).
+ */
 const getStudentGroupIds = async (studentId) => {
-  const groups = await ExamGroup.find({ students: studentId }).select('_id');
-  return groups.map((g) => String(g._id));
+  const [groups, schedules] = await Promise.all([
+    ExamGroup.find({ students: studentId }).select('_id'),
+    ClassSchedule.find({
+      enrolledStudents: studentId,
+      subjectGroup: { $ne: null },
+    }).select('subjectGroup'),
+  ]);
+
+  const ids = new Set();
+  for (const group of groups) ids.add(String(group._id));
+  for (const schedule of schedules) {
+    if (schedule.subjectGroup) ids.add(String(schedule.subjectGroup._id || schedule.subjectGroup));
+  }
+  return [...ids];
 };
 
-const isExamUnlockedForStudent = (lesson, groupIds) =>
-  (lesson.examUnlockedFor || []).some((g) => groupIds.includes(String(g)));
+const isExamUnlockedForStudent = (lesson, groupIds) => {
+  if (!groupIds?.length) return false;
+  const unlocked = (lesson.examUnlockedFor || []).map((g) => String(g._id || g));
+  return unlocked.some((g) => groupIds.includes(g));
+};
 
-const isPracticeUnlockedForStudent = (level, groupIds) =>
-  (level.practiceUnlockedFor || []).some((g) => groupIds.includes(String(g)));
+const isPracticeUnlockedForStudent = (level, groupIds) => {
+  if (!groupIds?.length) return false;
+  const unlocked = (level.practiceUnlockedFor || []).map((g) => String(g._id || g));
+  return unlocked.some((g) => groupIds.includes(g));
+};
 
 const hasTakenExamToday = (progress) => {
   if (!progress?.lastExamDate) return false;

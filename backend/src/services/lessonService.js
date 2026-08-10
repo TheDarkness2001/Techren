@@ -22,7 +22,7 @@ const formatLesson = (lesson, extras = {}) => ({
   type: lesson.type,
   examTimeLimit: lesson.examTimeLimit,
   minPassScore: lesson.minPassScore,
-  examUnlockedFor: lesson.examUnlockedFor || [],
+  examUnlockedFor: (lesson.examUnlockedFor || []).map((g) => String(g._id || g)),
   directionMode: lesson.directionMode,
   ...extras,
 });
@@ -74,9 +74,14 @@ const removeLesson = async (id) => {
 const toggleExamLock = async (lessonId, groupId, unlock) => {
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw Object.assign(new Error('Lesson not found'), { statusCode: 404, code: 'NOT_FOUND' });
-  const ids = (lesson.examUnlockedFor || []).map(String);
-  if (unlock && !ids.includes(String(groupId))) lesson.examUnlockedFor.push(groupId);
-  else if (!unlock) lesson.examUnlockedFor = lesson.examUnlockedFor.filter((g) => String(g) !== String(groupId));
+  const gid = String(groupId);
+  const ids = (lesson.examUnlockedFor || []).map((g) => String(g._id || g));
+  if (unlock && !ids.includes(gid)) {
+    const mongoose = require('mongoose');
+    lesson.examUnlockedFor.push(new mongoose.Types.ObjectId(gid));
+  } else if (!unlock) {
+    lesson.examUnlockedFor = (lesson.examUnlockedFor || []).filter((g) => String(g._id || g) !== gid);
+  }
   await lesson.save();
   return formatLesson(lesson, { wordCount: lesson.wordIds.length });
 };
@@ -97,12 +102,19 @@ const getStudentLessonTree = async (studentId) => {
         .filter((l) => String(l.levelId) === String(level._id))
         .map((lesson) => {
           const progress = progressMap.get(String(lesson._id));
-          const status = progress?.status || (lesson.order === 1 ? 'available' : 'locked');
+          const examUnlocked = isExamUnlockedForStudent(lesson, groupIds);
+          // Prefer teacher unlock; keep passed progress visible as available.
+          const status =
+            progress?.status === 'passed'
+              ? 'passed'
+              : examUnlocked
+                ? progress?.status || 'available'
+                : 'locked';
           return {
             ...formatLesson(lesson),
             status,
             bestExamScore: progress?.bestExamScore ?? 0,
-            examUnlocked: isExamUnlockedForStudent(lesson, groupIds),
+            examUnlocked,
             practiceAttempts: progress?.practiceAttempts ?? 0,
           };
         }),

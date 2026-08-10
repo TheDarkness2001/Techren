@@ -172,7 +172,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       }
     });
     try {
-      await ref.read(homeworkApiProvider).bulkUnlockLevel(
+      final result = await ref.read(homeworkApiProvider).bulkUnlockLevel(
             levelId: level.id,
             groupId: groupId,
             unlock: unlock,
@@ -182,12 +182,14 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       }
       ref.invalidate(cmsSentencesLessonsProvider(level.id));
       if (mounted) {
+        final lessonsTotal = result['lessonsTotal'];
+        final count = lessonsTotal is int ? lessonsTotal : int.tryParse('$lessonsTotal') ?? lessons.length;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               unlock
-                  ? 'Unlocked all of ${level.name}'
-                  : 'Locked all of ${level.name}',
+                  ? 'Opened ${level.name} and $count classes'
+                  : 'Closed ${level.name} and $count classes',
             ),
           ),
         );

@@ -36,7 +36,20 @@ const listSentences = async (query) => {
   return sentences.map(formatSentence);
 };
 
-const getRandomSentence = async (query) => {
+const getRandomSentence = async (query, opts = {}) => {
+  if (query.lessonId && opts.studentId) {
+    const lesson = await Lesson.findById(query.lessonId);
+    if (!lesson) throw Object.assign(new Error('Lesson not found'), { statusCode: 404, code: 'NOT_FOUND' });
+    const groupIds = await getStudentGroupIds(opts.studentId);
+    const level = await Level.findById(lesson.levelId);
+    if (!isPracticeUnlockedForStudent(level, groupIds) || !isExamUnlockedForStudent(lesson, groupIds)) {
+      throw Object.assign(new Error('This class is locked for your group. Ask your teacher to unlock it.'), {
+        statusCode: 403,
+        code: 'LESSON_LOCKED',
+      });
+    }
+  }
+
   const filter = await buildLessonFilter(query);
   const count = await Sentence.countDocuments(filter);
   if (count === 0) {

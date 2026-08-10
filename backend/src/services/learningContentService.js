@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Language = require('../models/Language');
 const Level = require('../models/Level');
 const Lesson = require('../models/Lesson');
@@ -16,7 +17,7 @@ const formatLevel = (doc) => ({
   wordsPerClass: doc.wordsPerClass,
   examTimeLimit: doc.examTimeLimit,
   minPassScore: doc.minPassScore,
-  practiceUnlockedFor: doc.practiceUnlockedFor || [],
+  practiceUnlockedFor: (doc.practiceUnlockedFor || []).map((g) => String(g._id || g)),
   moduleType: doc.moduleType,
 });
 
@@ -78,13 +79,30 @@ const removeLevel = async (id) => {
   return formatLevel(item);
 };
 
+const toObjectId = (id) => {
+  const raw = String(id);
+  if (!mongoose.Types.ObjectId.isValid(raw)) {
+    throw Object.assign(new Error('Invalid group id'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+  return new mongoose.Types.ObjectId(raw);
+};
+
 const applyGroupUnlock = (list, groupId, unlock) => {
   const gid = String(groupId);
-  const current = (list || []).map(String);
+  const current = (list || []).map((g) => String(g._id || g));
   if (unlock) {
-    return current.includes(gid) ? list || [] : [...(list || []), groupId];
+    if (current.includes(gid)) return list || [];
+    return [...(list || []), toObjectId(gid)];
   }
-  return (list || []).filter((g) => String(g) !== gid);
+  return (list || []).filter((g) => String(g._id || g) !== gid);
+};
+
+const lessonsForLevel = async (level) => {
+  const filter = { levelId: level._id };
+  if (level.moduleType === 'words' || level.moduleType === 'sentences') {
+    filter.type = level.moduleType;
+  }
+  return Lesson.find(filter).sort({ order: 1 });
 };
 
 const togglePracticeUnlock = async (levelId, groupId, unlock) => {
@@ -95,11 +113,11 @@ const togglePracticeUnlock = async (levelId, groupId, unlock) => {
 
   // Locking practice must also lock every class under that level (no half-open Blackhole).
   if (!unlock) {
-    const lessons = await Lesson.find({ levelId: level._id });
+    const lessons = await lessonsForLevel(level);
     for (const lesson of lessons) {
       const next = applyGroupUnlock(lesson.examUnlockedFor, groupId, false);
-      const before = (lesson.examUnlockedFor || []).map(String);
-      const after = next.map(String);
+      const before = (lesson.examUnlockedFor || []).map((g) => String(g._id || g));
+      const after = next.map((g) => String(g._id || g));
       const changed =
         before.length !== after.length || before.some((id) => !after.includes(id));
       if (changed) {
@@ -129,12 +147,12 @@ const bulkUnlockLevel = async ({ levelId, groupId, unlock }) => {
   level.practiceUnlockedFor = applyGroupUnlock(level.practiceUnlockedFor, groupId, unlock);
   await level.save();
 
-  const lessons = await Lesson.find({ levelId: level._id });
+  const lessons = await lessonsForLevel(level);
   let lessonsUpdated = 0;
   for (const lesson of lessons) {
-    const before = (lesson.examUnlockedFor || []).map(String);
+    const before = (lesson.examUnlockedFor || []).map((g) => String(g._id || g));
     const next = applyGroupUnlock(lesson.examUnlockedFor, groupId, unlock);
-    const after = next.map(String);
+    const after = next.map((g) => String(g._id || g));
     const changed =
       before.length !== after.length || before.some((id) => !after.includes(id));
     if (changed) {
@@ -176,9 +194,9 @@ const bulkUnlockForGroup = async ({
   const levels = await Level.find({ languageId, moduleType });
   let levelsUpdated = 0;
   for (const level of levels) {
-    const before = (level.practiceUnlockedFor || []).map(String);
+    const before = (level.practiceUnlockedFor || []).map((g) => String(g._id || g));
     const next = applyGroupUnlock(level.practiceUnlockedFor, groupId, unlock);
-    const after = next.map(String);
+    const after = next.map((g) => String(g._id || g));
     const changed =
       before.length !== after.length || before.some((id) => !after.includes(id));
     if (changed) {
@@ -191,11 +209,14 @@ const bulkUnlockForGroup = async ({
   let lessonsUpdated = 0;
   if (includeExam && levels.length) {
     const levelIds = levels.map((l) => l._id);
-    const lessons = await Lesson.find({ levelId: { $in: levelIds } });
+    const lessons = await Lesson.find({
+      levelId: { $in: levelIds },
+      ...(moduleType === 'words' || moduleType === 'sentences' ? { type: moduleType } : {}),
+    });
     for (const lesson of lessons) {
-      const before = (lesson.examUnlockedFor || []).map(String);
+      const before = (lesson.examUnlockedFor || []).map((g) => String(g._id || g));
       const next = applyGroupUnlock(lesson.examUnlockedFor, groupId, unlock);
-      const after = next.map(String);
+      const after = next.map((g) => String(g._id || g));
       const changed =
         before.length !== after.length || before.some((id) => !after.includes(id));
       if (changed) {

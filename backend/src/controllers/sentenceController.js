@@ -8,7 +8,9 @@ const handle = (res, e) => sendError(res, e.statusCode || 500, e.code || 'SERVER
 
 exports.random = asyncHandler(async (req, res) => {
   try {
-    const data = await sentenceService.getRandomSentence(req.query);
+    const data = await sentenceService.getRandomSentence(req.query, {
+      studentId: req.userType === 'student' ? req.user._id : null,
+    });
     sendSuccess(res, data);
   } catch (e) { handle(res, e); }
 });

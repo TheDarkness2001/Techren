@@ -785,7 +785,7 @@ class _LockActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = label ?? (unlockAction ? 'Unlock' : 'Lock');
-    final icon = unlockAction ? Icons.lock_open : Icons.lock_outline;
+    final icon = unlockAction ? Icons.lock_open_rounded : Icons.lock_rounded;
     final button = unlockAction
         ? FilledButton.icon(
             onPressed: onPressed,
@@ -856,7 +856,7 @@ class _LevelAccessCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                _practiceOn ? Icons.lock_open : Icons.lock_outline,
+                _practiceOn ? Icons.check_circle_rounded : Icons.lock_rounded,
                 color: _practiceOn ? scheme.primary : context.semantic.textMuted,
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -867,8 +867,8 @@ class _LevelAccessCard extends StatelessWidget {
                     Text(level.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text(
                       _practiceOn
-                          ? 'Level unlocked for this group'
-                          : 'Level locked for this group',
+                          ? 'Open for this group'
+                          : 'Closed for this group',
                       style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
                     ),
                   ],
@@ -915,7 +915,7 @@ class _LevelAccessCard extends StatelessWidget {
             for (final lesson in lessons)
               _AccessRow(
                 title: lesson.name,
-                subtitle: lesson.isExamUnlockedFor(groupId) ? 'Exam unlocked' : 'Exam locked',
+                subtitle: lesson.isExamUnlockedFor(groupId) ? 'Class open' : 'Class closed',
                 unlocked: lesson.isExamUnlockedFor(groupId),
                 busy: busyLessonIds.contains(lesson.id) || busy,
                 onPressed: () => onToggleExam(lesson, !lesson.isExamUnlockedFor(groupId)),
@@ -949,7 +949,7 @@ class _AccessRow extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            unlocked ? Icons.lock_open : Icons.lock_outline,
+            unlocked ? Icons.check_circle_rounded : Icons.lock_rounded,
             size: 18,
             color: unlocked
                 ? Theme.of(context).colorScheme.primary
