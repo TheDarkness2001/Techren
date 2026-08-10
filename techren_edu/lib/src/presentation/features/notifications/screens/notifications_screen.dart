@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -41,12 +42,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final navItems = widget.navItems ?? studentNavItemsOf(context);
     final selectedIndex = navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final baseQuery = _baseQuery;
 
     return AdaptiveScaffold(
-      title: 'Notifications',
+      title: l10n.notifications,
       selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: navItems,
@@ -105,11 +107,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               itemLabel: 'notifications',
               initialLoadingKind: LoadingSkeletonKind.list,
               empty: ListView(
-                children: const [
-                  SizedBox(height: AppSpacing.emptyStateTop),
+                children: [
+                  const SizedBox(height: AppSpacing.emptyStateTop),
                   EmptyState(
-                    title: 'No notifications yet',
-                    message: 'Alerts about attendance, feedback, and payments appear here.',
+                    title: l10n.noNotificationsYet,
+                    message: 'Alerts about attendance, feedback, messages, and payments appear here.',
                     icon: Icons.notifications_none_outlined,
                   ),
                 ],
@@ -138,7 +140,19 @@ class _NotificationTile extends ConsumerWidget {
     if (eventType.contains('attendance')) return Icons.fact_check_outlined;
     if (eventType.contains('payment')) return Icons.payments_outlined;
     if (eventType.contains('exam')) return Icons.quiz_outlined;
+    if (eventType.contains('chat') || eventType.contains('message')) {
+      return Icons.chat_bubble_outline;
+    }
     return Icons.notifications_outlined;
+  }
+
+  String _routeFor(AppNotification n) {
+    final type = n.eventType.toLowerCase();
+    if (type.contains('chat') || type.contains('message')) return '/student/messages';
+    if (type.contains('feedback')) return '/student/feedback';
+    if (type.contains('attendance')) return '/student/schedule';
+    if (type.contains('payment')) return '/student/payments';
+    return '/student/notifications';
   }
 
   @override
@@ -153,6 +167,11 @@ class _NotificationTile extends ConsumerWidget {
           await ref.read(notificationApiProvider).markRead(notification.id);
           invalidateNotificationState(ref);
           ref.invalidate(notificationPageProvider((page: 1, search: '')));
+        }
+        if (!context.mounted) return;
+        final route = _routeFor(notification);
+        if (route != '/student/notifications') {
+          context.go(route);
         }
       },
       trailing: notification.isRead

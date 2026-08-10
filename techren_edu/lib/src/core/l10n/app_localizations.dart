@@ -110,9 +110,9 @@ class AppLocalizations {
 
   // —— Student navigation ——
   String get navHome => _t(en: 'Home', ru: 'Главная', uz: 'Bosh sahifa');
-  String get navLearn => _t(en: 'Learn', ru: 'Учиться', uz: 'O\'rganish');
+  String get navLearn => _t(en: 'Learn', ru: 'Учёба', uz: 'O\'rganish');
   String get navSchedule => _t(en: 'Schedule', ru: 'Расписание', uz: 'Jadval');
-  String get navProgress => _t(en: 'Progress', ru: 'Прогресс', uz: 'Progress');
+  String get navProgress => _t(en: 'Progress', ru: 'Прогресс', uz: 'Taraqqiyot');
   String get navProfile => _t(en: 'Profile', ru: 'Профиль', uz: 'Profil');
   String get mySchedule => _t(en: 'My Schedule', ru: 'Моё расписание', uz: 'Mening jadvalim');
   String get xpAchievements => _t(en: 'XP & Achievements', ru: 'XP и достижения', uz: 'XP va yutuqlar');
@@ -125,6 +125,25 @@ class AppLocalizations {
   String get competitionSubtitle => _t(en: 'Penalties & presentation scores', ru: 'Штрафы и оценки выступлений', uz: 'Jarimalar va taqdimot ballari');
   String get gamificationSubtitle => _t(en: 'Level, streak, leaderboard', ru: 'Уровень, серия, рейтинг', uz: 'Daraja, seriya, reyting');
   String get accountInactive => _t(en: 'Account inactive. Contact administration.', ru: 'Аккаунт неактивен. Обратитесь в администрацию.', uz: 'Hisob faol emas. Ma\'muriyatga murojaat qiling.');
+
+  // —— Student home ——
+  String get latestAnnouncements => _t(en: 'Latest announcements', ru: 'Последние объявления', uz: 'So\'nggi e\'lonlar');
+  String get noPostsYet => _t(en: 'No posts yet. Check back soon.', ru: 'Пока нет записей. Загляните позже.', uz: 'Hozircha postlar yo\'q. Tez orada qaytib keling.');
+  String get latestFeedback => _t(en: 'Latest feedback', ru: 'Последние отзывы', uz: 'So\'nggi fikrlar');
+  String get viewAll => _t(en: 'View all', ru: 'Все', uz: 'Hammasi');
+  String get accountStatus => _t(en: 'Account status', ru: 'Статус аккаунта', uz: 'Hisob holati');
+  String get examReady => _t(en: 'Exam ready', ru: 'Готов к экзамену', uz: 'Imtihonga tayyor');
+  String get yesLabel => _t(en: 'Yes', ru: 'Да', uz: 'Ha');
+  String get noLabel => _t(en: 'No', ru: 'Нет', uz: 'Yo\'q');
+  String get classLabel => _t(en: 'Class', ru: 'Класс', uz: 'Sinf');
+  String get statusActive => _t(en: 'active', ru: 'активен', uz: 'faol');
+  String get statusInactive => _t(en: 'inactive', ru: 'неактивен', uz: 'nofaol');
+  String get homeworkScore => _t(en: 'Homework', ru: 'Домашнее', uz: 'Uy vazifa');
+  String get behaviorScore => _t(en: 'Behavior', ru: 'Поведение', uz: 'Xulq');
+  String get participationScore => _t(en: 'Participation', ru: 'Участие', uz: 'Faollik');
+  String get notifications => _t(en: 'Notifications', ru: 'Уведомления', uz: 'Bildirishnomalar');
+  String get noNotificationsYet => _t(en: 'No notifications yet', ru: 'Уведомлений пока нет', uz: 'Hali bildirishnomalar yo\'q');
+  String get loadingDashboard => _t(en: 'Loading dashboard...', ru: 'Загрузка главной...', uz: 'Bosh sahifa yuklanmoqda...');
 
   String roleLabelFor({required bool isFounder, required bool isAdmin, required bool isManager, required bool isTeacher}) {
     if (isFounder) return roleFounder;

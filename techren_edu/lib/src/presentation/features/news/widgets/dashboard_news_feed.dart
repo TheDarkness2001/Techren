@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -32,8 +33,9 @@ class _DashboardNewsFeedState extends ConsumerState<DashboardNewsFeed> {
   }
 
   String get _emptyTitle {
+    final l10n = context.l10n;
     final user = ref.read(authProvider).user;
-    if (user?.isStudent == true) return 'Latest announcements';
+    if (user?.isStudent == true) return l10n.latestAnnouncements;
     if (user?.isManager == true || user?.isAdmin == true || user?.isFounder == true) {
       return 'Management announcements';
     }
@@ -103,16 +105,19 @@ class _DashboardNewsFeedState extends ConsumerState<DashboardNewsFeed> {
                 padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                 child: EmptyState(
                   title: _emptyTitle,
-                  message: 'No posts yet. Check back soon.',
+                  message: context.l10n.noPostsYet,
                   icon: Icons.newspaper_outlined,
                 ),
               );
             }
 
+            final user = ref.read(authProvider).user;
+            final feedTitle = user?.isStudent == true ? context.l10n.latestAnnouncements : 'Campus News';
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Campus News', style: Theme.of(context).textTheme.titleLarge),
+                Text(feedTitle, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                   controller: _searchCtrl,

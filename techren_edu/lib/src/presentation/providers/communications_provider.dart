@@ -4,6 +4,7 @@ import '../../core/network/communications_socket.dart';
 import '../../data/datasources/remote/communications_api.dart';
 import '../../domain/entities/communication.dart';
 import 'auth_provider.dart';
+import 'notification_provider.dart';
 
 final communicationsApiProvider = Provider<CommunicationsApi>((ref) {
   return CommunicationsApi(ref.watch(dioClientProvider));
@@ -82,6 +83,8 @@ final communicationsRealtimeProvider = Provider<void>((ref) {
         body: preview,
         avatarUrl: message.senderProfileImage,
       );
+      // Bell badge: in-app notification is created server-side for chat_message.
+      ref.invalidate(unreadNotificationCountProvider);
     });
   });
 });

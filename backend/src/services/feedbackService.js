@@ -175,7 +175,10 @@ const update = async (req, id, data) => {
     notes: data.notes ?? feedback.notes,
   });
   await feedback.save();
-  return format(await feedback.populate(['student', 'classSchedule', 'teacher']));
+  const formatted = format(await feedback.populate(['student', 'classSchedule', 'teacher']));
+  const { emit } = require('../utils/notificationWorker');
+  emit('feedback:created', formatted);
+  return formatted;
 };
 
 const addParentComment = async (req, id, comment) => {

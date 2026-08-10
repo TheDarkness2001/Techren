@@ -9,16 +9,16 @@ const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const logger = require('../config/logger');
 
 const formatNotification = (doc) => ({
-  id: doc._id,
-  userId: doc.userId,
+  id: String(doc._id || doc.id || ''),
+  userId: doc.userId != null ? String(doc.userId) : '',
   userType: doc.userType,
-  studentId: doc.studentId,
+  studentId: doc.studentId != null ? String(doc.studentId) : null,
   title: doc.title,
   body: doc.body,
   eventType: doc.eventType,
   channel: doc.channel,
   date: doc.date,
-  data: doc.data,
+  data: doc.data || {},
   readAt: doc.readAt,
   pushStatus: doc.pushStatus,
   createdAt: doc.createdAt,

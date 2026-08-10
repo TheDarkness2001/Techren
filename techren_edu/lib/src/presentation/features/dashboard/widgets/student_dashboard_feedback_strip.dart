@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -15,6 +16,7 @@ class StudentDashboardFeedbackStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final async = ref.watch(
       feedbackListProvider((studentId: null, page: 1, search: '')),
     );
@@ -30,13 +32,13 @@ class StudentDashboardFeedbackStrip extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DashboardSection(
-              title: 'Latest feedback',
+              title: l10n.latestFeedback,
               trailing: TextButton(
                 onPressed: () => context.go('/student/feedback'),
-                child: const Text('View all'),
+                child: Text(l10n.viewAll),
               ),
               child: SizedBox(
-                height: 108,
+                height: 132,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: items.length,
@@ -60,6 +62,7 @@ class _FeedbackMiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final semantic = context.semantic;
     final theme = Theme.of(context);
     final teacher = entry.teacherName?.trim();
@@ -71,7 +74,7 @@ class _FeedbackMiniCard extends StatelessWidget {
         borderRadius: AppRadius.card,
         onTap: () => context.go('/student/feedback'),
         child: Container(
-          width: 168,
+          width: 220,
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             borderRadius: AppRadius.card,
@@ -81,7 +84,7 @@ class _FeedbackMiniCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                entry.className.isEmpty ? 'Class' : entry.className,
+                entry.className.isEmpty ? l10n.classLabel : entry.className,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -97,13 +100,13 @@ class _FeedbackMiniCard extends StatelessWidget {
                 style: theme.textTheme.labelSmall?.copyWith(color: semantic.textMuted),
               ),
               const Spacer(),
-              Row(
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
                 children: [
-                  _ScoreChip(label: 'H', value: entry.homework),
-                  const SizedBox(width: 4),
-                  _ScoreChip(label: 'B', value: entry.behavior),
-                  const SizedBox(width: 4),
-                  _ScoreChip(label: 'P', value: entry.participation),
+                  _ScoreChip(label: l10n.homeworkScore, value: entry.homework),
+                  _ScoreChip(label: l10n.behaviorScore, value: entry.behavior),
+                  _ScoreChip(label: l10n.participationScore, value: entry.participation),
                 ],
               ),
             ],
@@ -131,7 +134,7 @@ class _ScoreChip extends StatelessWidget {
         border: Border.all(color: semantic.border),
       ),
       child: Text(
-        '$label$value',
+        '$label $value%',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],

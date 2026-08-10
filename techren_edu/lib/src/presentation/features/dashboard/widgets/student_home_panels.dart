@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/appearance_controls.dart';
 import '../../../../core/widgets/person_avatar.dart';
@@ -69,7 +70,7 @@ class _StudentHomePanelsState extends ConsumerState<StudentHomePanels> {
           title: 'Leaderboard',
           trailing: TextButton(
             onPressed: () => context.go(_viewAllRoute(_tab)),
-            child: const Text('View all'),
+            child: Text(context.l10n.viewAll),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

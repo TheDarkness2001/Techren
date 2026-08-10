@@ -35,7 +35,7 @@ class AppNotification {
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       userId: (json['userId'] ?? '').toString(),
       userType: json['userType'] as String? ?? 'student',
       studentId: json['studentId']?.toString(),
@@ -43,8 +43,8 @@ class AppNotification {
       body: json['body'] as String? ?? '',
       eventType: json['eventType'] as String? ?? '',
       channel: json['channel'] as String? ?? 'in_app',
-      date: json['date'] as String? ?? '',
-      data: json['data'] as Map<String, dynamic>?,
+      date: json['date']?.toString() ?? '',
+      data: json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : null,
       readAt: json['readAt'] != null ? DateTime.tryParse(json['readAt'].toString()) : null,
       pushStatus: json['pushStatus'] as String?,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,

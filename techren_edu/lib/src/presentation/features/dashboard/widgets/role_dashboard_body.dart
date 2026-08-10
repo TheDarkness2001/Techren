@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-
-
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -40,8 +39,9 @@ class RoleDashboardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     return dashboardAsync.when(
-      loading: () => const LoadingState(message: 'Loading dashboard...', kind: LoadingSkeletonKind.dashboard),
+      loading: () => LoadingState(message: l10n.loadingDashboard, kind: LoadingSkeletonKind.dashboard),
       error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.invalidate(dashboardProvider)),
       data: (data) => RefreshIndicator(
         onRefresh: () async {
@@ -59,7 +59,7 @@ class RoleDashboardBody extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             const DashboardNewsFeed(),
             if (data.role == 'student') const StudentDashboardFeedbackStrip(),
-            DashboardStatRow(children: _statsForRole(data)),
+            DashboardStatRow(children: _statsForRole(context, data)),
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),
               RoleDashboardShortcuts(role: data.role),
@@ -94,7 +94,7 @@ class RoleDashboardBody extends ConsumerWidget {
                 title: 'Recent branches',
                 trailing: TextButton(
                   onPressed: () => context.go('/founder/branches'),
-                  child: const Text('View all'),
+                  child: Text(context.l10n.viewAll),
                 ),
                 child: Column(
                   children: [
@@ -152,10 +152,9 @@ class RoleDashboardBody extends ConsumerWidget {
 
 
 
-  List<Widget> _statsForRole(DashboardData data) {
-    final semantic = AppSemanticColors.light;
-
-
+  List<Widget> _statsForRole(BuildContext context, DashboardData data) {
+    final semantic = context.semantic;
+    final l10n = context.l10n;
 
     switch (data.role) {
       case 'founder':
@@ -206,15 +205,17 @@ class RoleDashboardBody extends ConsumerWidget {
         ];
       case 'student':
         final eligible = data.profile?.examEligibility == true;
+        final rawStatus = (data.profile?.status ?? 'active').toLowerCase();
+        final statusLabel = rawStatus == 'inactive' ? l10n.statusInactive : l10n.statusActive;
         return [
           DashboardStatCard(
-            label: 'Account status',
-            value: data.profile?.status ?? 'active',
+            label: l10n.accountStatus,
+            value: statusLabel,
             icon: Icons.person_outline,
           ),
           DashboardStatCard(
-            label: 'Exam ready',
-            value: eligible ? 'Yes' : 'No',
+            label: l10n.examReady,
+            value: eligible ? l10n.yesLabel : l10n.noLabel,
             icon: Icons.fact_check_outlined,
             accentColor: eligible ? semantic.success : semantic.warning,
           ),

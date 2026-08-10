@@ -25,7 +25,7 @@ class StudentInAppToastOverlay extends ConsumerStatefulWidget {
 class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOverlay>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _seenKey = 'student_in_app_toast_seen_ids';
-  static const _pollInterval = Duration(seconds: 20);
+  static const _pollInterval = Duration(seconds: 12);
   static const _displayDuration = Duration(seconds: 6);
 
   Timer? _pollTimer;
@@ -105,6 +105,9 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
           return aAt.compareTo(bAt);
         });
 
+      // Keep the bell badge in sync whenever we poll.
+      ref.invalidate(unreadNotificationCountProvider);
+
       if (fresh.isEmpty) return;
       _queue.addAll(fresh);
       if (_current == null) {
@@ -121,6 +124,8 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
     return type.contains('attendance') ||
         type.contains('feedback') ||
         type.contains('payment') ||
+        type.contains('chat') ||
+        type.contains('message') ||
         kind == 'attendance' ||
         kind == 'daily_feedback' ||
         kind == 'payment';
@@ -158,8 +163,17 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
       invalidateNotificationState(ref);
     } catch (_) {}
     if (!mounted) return;
-    ref.read(routerProvider).go('/student/notifications');
+    ref.read(routerProvider).go(_routeFor(note));
     await _dismissCurrent();
+  }
+
+  String _routeFor(AppNotification n) {
+    final type = n.eventType.toLowerCase();
+    if (type.contains('chat') || type.contains('message')) return '/student/messages';
+    if (type.contains('feedback')) return '/student/feedback';
+    if (type.contains('attendance')) return '/student/schedule';
+    if (type.contains('payment')) return '/student/payments';
+    return '/student/notifications';
   }
 
   IconData _iconFor(AppNotification n) {
@@ -167,6 +181,7 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
     if (type.contains('payment')) return Icons.payments_outlined;
     if (type.contains('attendance')) return Icons.fact_check_outlined;
     if (type.contains('feedback')) return Icons.rate_review_outlined;
+    if (type.contains('chat') || type.contains('message')) return Icons.chat_bubble_outline;
     return Icons.notifications_active_outlined;
   }
 
