@@ -55,6 +55,19 @@ class StudentDashboardFeedbackStrip extends ConsumerWidget {
   }
 }
 
+String _formatFeedbackHomeDate(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return '';
+  final parsed = DateTime.tryParse(trimmed);
+  if (parsed == null) return trimmed;
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${weekdays[parsed.weekday - 1]}, ${months[parsed.month - 1]} ${parsed.day}';
+}
+
 class _FeedbackMiniCard extends StatelessWidget {
   const _FeedbackMiniCard({required this.entry});
 
@@ -66,6 +79,7 @@ class _FeedbackMiniCard extends StatelessWidget {
     final semantic = context.semantic;
     final theme = Theme.of(context);
     final teacher = entry.teacherName?.trim();
+    final dateLabel = _formatFeedbackHomeDate(entry.date);
 
     return Material(
       color: semantic.surfaceContainer,
@@ -83,22 +97,39 @@ class _FeedbackMiniCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                entry.className.isEmpty ? l10n.classLabel : entry.className,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.className.isEmpty ? l10n.classLabel : entry.className,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  if (dateLabel.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Icon(Icons.calendar_today_outlined, size: 12, color: semantic.textMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      dateLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: semantic.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                [
-                  entry.date,
-                  if (teacher != null && teacher.isNotEmpty) teacher,
-                ].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(color: semantic.textMuted),
-              ),
+              if (teacher != null && teacher.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  teacher,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(color: semantic.textMuted),
+                ),
+              ],
               const Spacer(),
               Wrap(
                 spacing: 4,

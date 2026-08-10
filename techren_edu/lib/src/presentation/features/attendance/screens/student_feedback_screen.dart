@@ -27,6 +27,19 @@ class StudentFeedbackScreen extends ConsumerStatefulWidget {
   ConsumerState<StudentFeedbackScreen> createState() => _StudentFeedbackScreenState();
 }
 
+String _formatStudentFeedbackDate(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return '—';
+  final parsed = DateTime.tryParse(trimmed);
+  if (parsed == null) return trimmed;
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${weekdays[parsed.weekday - 1]}, ${months[parsed.month - 1]} ${parsed.day}, ${parsed.year}';
+}
+
 class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
   String _search = '';
   final _searchController = TextEditingController();
@@ -100,10 +113,11 @@ class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
                 itemCount: items.length,
                 itemBuilder: (_, i) {
                   final f = items[i];
+                  final dateLabel = _formatStudentFeedbackDate(f.date);
                   return AppAdminRowCard(
                     title: f.className,
                     subtitle:
-                        '${f.date}\nHomework ${f.homework}% · Behavior ${f.behavior}% · Participation ${f.participation}%'
+                        '$dateLabel\nHomework ${f.homework}% · Behavior ${f.behavior}% · Participation ${f.participation}%'
                         '${f.isExamDay ? '\nExam: ${f.examPercentage ?? 0}%' : ''}'
                         '${f.parentComments != null ? '\nParent: ${f.parentComments}' : ''}',
                     icon: Icons.rate_review_outlined,

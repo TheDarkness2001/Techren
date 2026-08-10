@@ -207,7 +207,7 @@ class FeedbackEntry extends Equatable {
         id: json['id']?.toString() ?? '',
         studentName: json['studentName'] as String? ?? '',
         className: json['className'] as String? ?? '',
-        date: json['date'] as String? ?? '',
+        date: json['date']?.toString() ?? '',
         teacherName: json['teacherName'] as String?,
         homework: json['homework'] as int? ?? 0,
         behavior: json['behavior'] as int? ?? 0,
