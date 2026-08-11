@@ -33,6 +33,25 @@ class TypingApi {
     return TypingStartPayload.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  /// Extra continuous text for an in-progress session (does not reset the test).
+  Future<TypingPrompt> moreText({
+    required String subjectId,
+    required String mode,
+    required String difficulty,
+    required int durationSec,
+    bool isDaily = false,
+  }) async {
+    final response = await _client.dio.post('/typing/more', data: {
+      'subjectId': subjectId,
+      'mode': mode,
+      'difficulty': difficulty,
+      'durationSec': durationSec,
+      'isDaily': isDaily,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TypingPrompt.fromJson(data['prompt'] as Map<String, dynamic>? ?? data);
+  }
+
   Future<TypingResultCard> finish({
     required String subjectId,
     required String mode,

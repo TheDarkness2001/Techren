@@ -29,6 +29,17 @@ router.post(
 );
 
 router.post(
+  '/more',
+  body('subjectId').isMongoId(),
+  body('mode').optional().isIn(['english', 'uzbek', 'programming', 'code']),
+  body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'expert']),
+  body('durationSec').optional().isInt({ min: 0, max: 300 }).toInt(),
+  body('isDaily').optional().isBoolean().toBoolean(),
+  validate,
+  controller.more
+);
+
+router.post(
   '/finish',
   body('subjectId').isMongoId(),
   body('mode').optional().isIn(['english', 'uzbek', 'programming', 'code']),

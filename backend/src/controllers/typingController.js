@@ -23,6 +23,15 @@ exports.start = asyncHandler(async (req, res) => {
   }
 });
 
+exports.more = asyncHandler(async (req, res) => {
+  try {
+    const data = await typingService.moreText(req, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 exports.finish = asyncHandler(async (req, res) => {
   try {
     const data = await typingService.finish(req, req.body);

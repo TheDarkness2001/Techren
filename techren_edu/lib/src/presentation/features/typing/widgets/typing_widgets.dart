@@ -201,14 +201,21 @@ Future<void> showTypingResultSheet({
   required VoidCallback onRetry,
   required VoidCallback onLeaderboard,
   required VoidCallback onContinue,
+  int? correctChars,
+  int? incorrectChars,
+  int? durationSec,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: const Color(0xFF12151C),
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
       final improved = result.improvementVsLast;
+      final correct = correctChars ?? result.correctChars;
+      final incorrect = incorrectChars ?? result.incorrectChars;
+      final duration = durationSec;
       return Padding(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -220,12 +227,67 @@ Future<void> showTypingResultSheet({
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Test complete', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              'TEST COMPLETE',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+            ),
+            if (result.isPersonalBest || result.dailyComplete) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                children: [
+                  if (result.isPersonalBest)
+                    _BadgePill(label: 'PERSONAL BEST', color: scheme.primary),
+                  if (result.dailyComplete)
+                    _BadgePill(label: 'DAILY COMPLETE', color: context.semantic.success),
+                ],
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  result.wpm.toStringAsFixed(0),
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w800,
+                    color: scheme.primary,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'WPM',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: context.semantic.textMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${result.accuracy.toStringAsFixed(0)}% ACCURACY',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               improved >= 0
                   ? '+${improved.toStringAsFixed(1)} WPM vs last test'
                   : '${improved.toStringAsFixed(1)} WPM vs last test',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: improved >= 0 ? context.semantic.success : context.semantic.danger,
                 fontWeight: FontWeight.w600,
@@ -233,18 +295,18 @@ Future<void> showTypingResultSheet({
             ),
             const SizedBox(height: AppSpacing.md),
             Wrap(
+              alignment: WrapAlignment.center,
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                _ResultChip(label: 'WPM', value: result.wpm.toStringAsFixed(0)),
-                _ResultChip(label: 'Raw', value: result.rawWpm.toStringAsFixed(0)),
-                _ResultChip(label: 'Accuracy', value: '${result.accuracy.toStringAsFixed(1)}%'),
+                _ResultChip(label: 'Correct', value: '$correct'),
+                _ResultChip(label: 'Incorrect', value: '$incorrect'),
+                _ResultChip(label: 'Characters', value: '${result.totalChars}'),
+                _ResultChip(label: 'Words', value: '${result.correctWords}'),
+                if (duration != null) _ResultChip(label: 'Duration', value: '${duration}s'),
                 _ResultChip(label: 'XP', value: '+${result.xpEarned}'),
                 _ResultChip(label: 'Level', value: '${result.level}'),
                 _ResultChip(label: 'Streak', value: '${result.currentStreak}d'),
-                _ResultChip(label: 'Correct words', value: '${result.correctWords}'),
-                _ResultChip(label: 'Wrong words', value: '${result.wrongWords}'),
-                _ResultChip(label: 'Mistakes', value: '${result.mistakes}'),
               ],
             ),
             if (result.xpReasons.isNotEmpty) ...[
@@ -257,12 +319,13 @@ Future<void> showTypingResultSheet({
             ],
             const SizedBox(height: AppSpacing.lg),
             Wrap(
+              alignment: WrapAlignment.center,
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
                 FilledButton(onPressed: onRetry, child: const Text('Retry')),
                 FilledButton.tonal(onPressed: onLeaderboard, child: const Text('Leaderboard')),
-                OutlinedButton(onPressed: onContinue, child: const Text('Continue practice')),
+                OutlinedButton(onPressed: onContinue, child: const Text('Continue')),
               ],
             ),
           ],
@@ -270,6 +333,34 @@ Future<void> showTypingResultSheet({
       );
     },
   );
+}
+
+class _BadgePill extends StatelessWidget {
+  const _BadgePill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          color: color,
+        ),
+      ),
+    );
+  }
 }
 
 class _ResultChip extends StatelessWidget {

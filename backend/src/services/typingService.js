@@ -8,7 +8,50 @@ const { awardXp, XP_REWARDS, getOrCreateProfile, formatProfile, getLevelInfo } =
 const { ensureSubjectLearningFields, isItTypingSubject } = require('../utils/learningModules');
 
 const ALLOWED_DURATIONS = new Set([15, 30, 60, 120, 300, 0]);
-const WORD_TARGET = 80;
+
+/** Aggressive buffer: ~2× test duration at ~150 WPM ⇒ plenty of text. */
+const wordCountForDuration = (durationSec) => {
+  const sec = Number(durationSec);
+  if (!sec || sec <= 0) return 800; // unlimited
+  const bufferSec = Math.max(sec * 2, 45);
+  return Math.max(120, Math.ceil((150 / 60) * bufferSec));
+};
+
+const FALLBACK_PROGRAMMING = [
+  'Python', 'JavaScript', 'React', 'Flutter', 'Node', 'Express', 'MongoDB', 'database', 'backend',
+  'frontend', 'function', 'variable', 'object', 'array', 'async', 'await', 'promise', 'component',
+  'state', 'props', 'API', 'server', 'service', 'compile', 'deploy', 'Docker', 'Git', 'repository',
+  'interface', 'inheritance', 'class', 'method', 'constructor', 'module', 'package', 'framework',
+  'runtime', 'typescript', 'hook', 'middleware', 'controller', 'schema', 'query', 'router', 'model',
+  'algorithm', 'boolean', 'string', 'const', 'return', 'import', 'export', 'debug', 'terminal',
+  'linux', 'github', 'commit', 'branch', 'merge', 'request', 'response', 'endpoint', 'developer',
+];
+
+const FALLBACK_ENGLISH = [
+  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'it', 'for', 'not', 'on', 'with', 'he',
+  'as', 'you', 'do', 'at', 'this', 'but', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an',
+  'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about',
+  'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'just', 'know', 'take',
+  'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then',
+  'now', 'look', 'only', 'come', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how',
+  'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give',
+];
+
+const FALLBACK_UZBEK = [
+  'salom', 'dunyo', 'kitob', 'maktab', 'oquvchi', 'oqituvchi', 'dars', 'imtihon', 'bilim', 'til',
+  'yozuv', 'oquv', 'tezlik', 'aniqlik', 'mashq', 'kundalik', 'vazifa', 'natija', 'yutuq', 'harakat',
+  'kompyuter', 'dastur', 'tizim', 'loyiha', 'ish', 'vaqt', 'soz', 'jumla', 'matn', 'klaviatura',
+];
+
+const normalizeCodeText = (code) =>
+  String(code || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '  ')
+    .split('\n')
+    .map((line) => line.replace(/\s+$/g, ''))
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 
 const bad = (message, statusCode = 400, code = 'BAD_REQUEST') =>
   Object.assign(new Error(message), { statusCode, code });
@@ -68,22 +111,37 @@ const pickWords = (pools, count, seed) => {
   return out.slice(0, count);
 };
 
-const buildPrompt = async ({ mode, difficulty, isDaily }) => {
+const buildPrompt = async ({ mode, difficulty, isDaily, durationSec = 60, wordCount }) => {
   const day = utcDateString();
-  const seed = hashSeed(`${day}:${mode}:${difficulty}:${isDaily ? 'daily' : 'practice'}`);
+  const seed = hashSeed(`${day}:${mode}:${difficulty}:${isDaily ? 'daily' : 'practice'}:${Date.now() % 100000}`);
+  const count = wordCount || wordCountForDuration(isDaily ? 60 : durationSec);
 
   if (mode === 'code') {
     const snippets = await TypingContent.find({ kind: 'code', published: true }).lean();
     if (!snippets.length) throw bad('No code snippets seeded yet', 404, 'NOT_FOUND');
-    const pick = snippets[seed % snippets.length];
+    const shuffled = shuffleWithSeed(snippets, seed);
+    const parts = [];
+    const words = [];
+    // Keep concatenating until we have enough characters (~5 chars/word target).
+    const charTarget = count * 5;
+    let i = 0;
+    while (parts.join(' ').length < charTarget && i < shuffled.length * 8) {
+      const pick = shuffled[i % shuffled.length];
+      const text = normalizeCodeText(pick.code);
+      if (text) {
+        parts.push(text);
+        words.push(...text.split(/\s+/).filter(Boolean));
+      }
+      i += 1;
+    }
     return {
-      contentId: String(pick._id),
+      contentId: shuffled[0] ? String(shuffled[0]._id) : null,
       mode: 'code',
-      difficulty: pick.difficulty || 'medium',
-      language: pick.language || 'javascript',
-      title: pick.title,
-      text: pick.code || '',
-      words: [],
+      difficulty: shuffled[0]?.difficulty || 'medium',
+      language: shuffled[0]?.language || 'javascript',
+      title: shuffled[0]?.title || 'Code',
+      text: parts.join(' '),
+      words,
     };
   }
 
@@ -97,18 +155,46 @@ const buildPrompt = async ({ mode, difficulty, isDaily }) => {
   if (!pools.length) {
     pools = await TypingContent.find({ kind, published: true }).lean();
   }
-  if (!pools.length) throw bad(`No ${kind} word lists seeded yet`, 404, 'NOT_FOUND');
 
-  const words = pickWords(pools, WORD_TARGET, seed);
+  let flat = pools.flatMap((p) => p.words || []).filter(Boolean);
+  if (!flat.length) {
+    if (kind === 'programming') flat = FALLBACK_PROGRAMMING;
+    else if (kind === 'uzbek') flat = FALLBACK_UZBEK;
+    else flat = FALLBACK_ENGLISH;
+  }
+
+  const words = pickWords([{ words: flat }], count, seed);
   return {
     contentId: pools[0] ? String(pools[0]._id) : null,
     mode: kind,
     difficulty: diff,
     language: null,
-    title: isDaily ? 'Daily Challenge' : pools[0].title,
+    title: isDaily ? 'Daily Challenge' : (pools[0]?.title || kind),
     text: words.join(' '),
     words,
   };
+};
+
+/** Extra batch for continuous typing — does not create/reset a session. */
+const moreText = async (req, body = {}) => {
+  const subjectId = body.subjectId || req.query.subjectId;
+  await assertTypingSubject(subjectId);
+  const mode = ['english', 'uzbek', 'programming', 'code'].includes(body.mode) ? body.mode : 'programming';
+  const difficulty = ['easy', 'medium', 'hard', 'expert'].includes(body.difficulty)
+    ? body.difficulty
+    : 'medium';
+  const durationSec = ALLOWED_DURATIONS.has(Number(body.durationSec))
+    ? Number(body.durationSec)
+    : 60;
+  const isDaily = body.isDaily === true;
+  const prompt = await buildPrompt({
+    mode: isDaily ? 'programming' : mode,
+    difficulty: isDaily ? 'medium' : difficulty,
+    isDaily,
+    durationSec: isDaily ? 60 : durationSec,
+    wordCount: Math.max(80, Math.floor(wordCountForDuration(isDaily ? 60 : durationSec) / 2)),
+  });
+  return { prompt };
 };
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -202,6 +288,7 @@ const start = async (req, body = {}) => {
     mode: isDaily ? 'programming' : mode,
     difficulty: isDaily ? 'medium' : difficulty,
     isDaily,
+    durationSec: isDaily ? 60 : unlimited ? 0 : durationSec,
   });
 
   return {
@@ -258,6 +345,8 @@ const finish = async (req, body = {}) => {
         mode,
         difficulty,
         isDaily,
+        isPersonalBest: false,
+        dailyComplete: false,
         improvementVsLast: 0,
         previousWpm: 0,
       },
@@ -283,10 +372,12 @@ const finish = async (req, body = {}) => {
 
   const stats = await getOrCreateStats(studentId, subjectId);
   const previousWpm = stats.lastWpm || 0;
+  const previousBestWpm = stats.bestWpm || 0;
+  const isPersonalBest = metrics.wpm > previousBestWpm && metrics.wpm > 0;
   const { xp, reasons } = computeXp({
     accuracy: metrics.accuracy,
     wpm: metrics.wpm,
-    bestWpm: stats.bestWpm || 0,
+    bestWpm: previousBestWpm,
     isDaily,
   });
 
@@ -357,6 +448,8 @@ const finish = async (req, body = {}) => {
       mode,
       difficulty,
       isDaily,
+      isPersonalBest,
+      dailyComplete: isDaily,
       improvementVsLast: improvement,
       previousWpm,
     },
@@ -554,7 +647,12 @@ const daily = async (req, query = {}) => {
     const stats = await getOrCreateStats(req.user._id, subjectId);
     dailyDone = (stats.dailyCompletions || []).includes(utcDateString());
   }
-  const prompt = await buildPrompt({ mode: 'programming', difficulty: 'medium', isDaily: true });
+  const prompt = await buildPrompt({
+    mode: 'programming',
+    difficulty: 'medium',
+    isDaily: true,
+    durationSec: 60,
+  });
   return {
     date: utcDateString(),
     durationSec: 60,
@@ -619,6 +717,7 @@ const listContent = async (query = {}) => {
 
 module.exports = {
   start,
+  moreText,
   finish,
   dashboard,
   leaderboard,
@@ -627,5 +726,6 @@ module.exports = {
   listContent,
   isItTypingSubject,
   assertTypingSubject,
+  wordCountForDuration,
   typingLevelFromXp,
 };

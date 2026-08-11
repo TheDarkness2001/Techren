@@ -150,6 +150,10 @@ class TypingResultCard {
     this.previousWpm = 0,
     this.mode = 'programming',
     this.isDaily = false,
+    this.isPersonalBest = false,
+    this.dailyComplete = false,
+    this.correctChars = 0,
+    this.incorrectChars = 0,
     this.level = 1,
     this.totalXp = 0,
     this.currentStreak = 0,
@@ -169,19 +173,25 @@ class TypingResultCard {
   final double previousWpm;
   final String mode;
   final bool isDaily;
+  final bool isPersonalBest;
+  final bool dailyComplete;
+  final int correctChars;
+  final int incorrectChars;
   final int level;
   final int totalXp;
   final int currentStreak;
 
   factory TypingResultCard.fromJson(Map<String, dynamic> json) {
     final result = json['result'] as Map<String, dynamic>? ?? json;
+    final reasons = (result['xpReasons'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+    final isDaily = result['isDaily'] == true;
     return TypingResultCard(
       id: result['id']?.toString() ?? '',
       wpm: (result['wpm'] as num?)?.toDouble() ?? 0,
       rawWpm: (result['rawWpm'] as num?)?.toDouble() ?? 0,
       accuracy: (result['accuracy'] as num?)?.toDouble() ?? 0,
       xpEarned: (result['xpEarned'] as num?)?.toInt() ?? 0,
-      xpReasons: (result['xpReasons'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      xpReasons: reasons,
       correctWords: (result['correctWords'] as num?)?.toInt() ?? 0,
       wrongWords: (result['wrongWords'] as num?)?.toInt() ?? 0,
       totalChars: (result['totalChars'] as num?)?.toInt() ?? 0,
@@ -189,7 +199,12 @@ class TypingResultCard {
       improvementVsLast: (result['improvementVsLast'] as num?)?.toDouble() ?? 0,
       previousWpm: (result['previousWpm'] as num?)?.toDouble() ?? 0,
       mode: result['mode'] as String? ?? 'programming',
-      isDaily: result['isDaily'] == true,
+      isDaily: isDaily,
+      isPersonalBest: result['isPersonalBest'] == true ||
+          reasons.any((r) => r.toLowerCase().contains('new wpm record')),
+      dailyComplete: result['dailyComplete'] == true || isDaily,
+      correctChars: (result['correctChars'] as num?)?.toInt() ?? 0,
+      incorrectChars: (result['incorrectChars'] as num?)?.toInt() ?? 0,
       level: (json['level'] as num?)?.toInt() ?? 1,
       totalXp: (json['totalXp'] as num?)?.toInt() ?? 0,
       currentStreak: (json['currentStreak'] as num?)?.toInt() ?? 0,
