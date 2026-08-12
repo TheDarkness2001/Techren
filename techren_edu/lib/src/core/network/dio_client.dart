@@ -125,10 +125,19 @@ class DioClient {
     final data = error.response?.data;
     if (data is Map && data['error'] is Map) {
       final err = data['error'] as Map;
-      return AppException(
-        err['message']?.toString() ?? 'Request failed',
-        code: err['code']?.toString(),
-      );
+      var message = err['message']?.toString() ?? 'Request failed';
+      // express-validator details: [{ msg, path, ... }]
+      final details = err['details'];
+      if (details is List && details.isNotEmpty) {
+        final first = details.first;
+        if (first is Map) {
+          final detailMsg = first['msg'] ?? first['message'];
+          if (detailMsg != null && detailMsg.toString().trim().isNotEmpty) {
+            message = detailMsg.toString();
+          }
+        }
+      }
+      return AppException(message, code: err['code']?.toString());
     }
 
     switch (error.type) {

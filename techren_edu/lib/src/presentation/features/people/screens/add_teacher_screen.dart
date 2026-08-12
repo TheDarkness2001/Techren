@@ -62,9 +62,9 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
     final name = _name.text.trim();
     final email = _email.text.trim();
     final password = _password.text;
-    if (name.isEmpty || email.isEmpty || password.length < 6) {
+    if (name.isEmpty || email.isEmpty || password.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name, email, and password (min 6 chars) are required')),
+        const SnackBar(content: Text('Name, email, and password (min 8 chars) are required')),
       );
       return;
     }

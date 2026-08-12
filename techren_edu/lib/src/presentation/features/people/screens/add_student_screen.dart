@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,9 +100,9 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     final name = _name.text.trim();
     final email = _email.text.trim();
     final password = _password.text;
-    if (name.isEmpty || email.isEmpty || password.length < 6) {
+    if (name.isEmpty || email.isEmpty || password.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name, email, and password (min 6 chars) are required')),
+        const SnackBar(content: Text('Name, email, and password (min 8 chars) are required')),
       );
       return;
     }
@@ -185,6 +186,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         SnackBar(content: Text('Student ${created.displayId ?? created.name} created')),
       );
       context.go('${widget.prefix}/people/students');
+    } on DioException catch (e) {
+      if (mounted) {
+        final msg = ref.read(dioClientProvider).mapError(e).message;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -386,7 +392,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Student logs in with email + this password. Min 6 characters.',
+                  'Student logs in with email + this password. Min 8 characters.',
                   style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
                 ),
               ],
