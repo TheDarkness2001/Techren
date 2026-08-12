@@ -38,3 +38,7 @@ void invalidateNotificationState(WidgetRef ref) {
 final parentNotificationSettingsProvider = FutureProvider.autoDispose.family<ParentNotificationSettings, String>((ref, studentId) async {
   return ref.watch(notificationApiProvider).getParentSettings(studentId);
 });
+
+final studentNotificationSettingsProvider = FutureProvider.autoDispose<StudentNotificationSettings>((ref) async {
+  return ref.watch(notificationApiProvider).getMySettings();
+});

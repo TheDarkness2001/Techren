@@ -9,6 +9,7 @@ import '../../domain/entities/notification.dart';
 import '../../presentation/providers/auth_provider.dart';
 import '../../presentation/providers/finance_provider.dart';
 import '../../presentation/providers/notification_provider.dart';
+import '../push/push_providers.dart';
 import '../routing/app_router.dart';
 import '../theme/app_spacing.dart';
 
@@ -172,11 +173,11 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
   bool _isPopupWorthy(AppNotification n) {
     final type = n.eventType.toLowerCase();
     final kind = (n.data?['kind'] as String?)?.toLowerCase() ?? '';
+    // Chat uses ChatMessageToastOverlay + FCM; skip here to avoid double toast.
+    if (type.contains('chat') || type.contains('message')) return false;
     return type.contains('attendance') ||
         type.contains('feedback') ||
         type.contains('payment') ||
-        type.contains('chat') ||
-        type.contains('message') ||
         kind == 'attendance' ||
         kind == 'daily_feedback' ||
         kind == 'payment';
@@ -189,6 +190,7 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
     }
     final next = _queue.removeAt(0);
     _seenIds.add(next.id);
+    claimPushDedupId(ref, next.id);
     unawaited(_persistSeen());
     setState(() => _current = next);
     await _anim.forward(from: 0);

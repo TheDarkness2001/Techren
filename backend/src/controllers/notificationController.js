@@ -30,3 +30,54 @@ exports.markAllRead = asyncHandler(async (req, res) => {
     handle(res, e);
   }
 });
+
+exports.registerDeviceToken = asyncHandler(async (req, res) => {
+  try {
+    const data = await notificationService.registerDeviceTokenForActor(req, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.refreshDeviceToken = asyncHandler(async (req, res) => {
+  try {
+    const data = await notificationService.refreshDeviceTokenForActor(req, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.removeDeviceToken = asyncHandler(async (req, res) => {
+  try {
+    const data = await notificationService.removeDeviceTokenForActor(req, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.getMySettings = asyncHandler(async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return sendError(res, 403, 'FORBIDDEN', 'Students only');
+    }
+    const data = await notificationService.getStudentSettings(req.user._id);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.updateMySettings = asyncHandler(async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return sendError(res, 403, 'FORBIDDEN', 'Students only');
+    }
+    const data = await notificationService.updateStudentSettings(req.user._id, req.body);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/communications_socket.dart';
+import '../../core/push/push_providers.dart';
 import '../../data/datasources/remote/communications_api.dart';
 import '../../domain/entities/communication.dart';
 import 'auth_provider.dart';
@@ -77,11 +78,14 @@ final communicationsRealtimeProvider = Provider<void>((ref) {
       final message = ChatMessage.fromJson(Map<String, dynamic>.from(rawMessage));
       if (message.senderId == me.id) return;
 
+      // Share dedup key with FCM so socket + push don't double-toast.
+      if (!claimPushDedupId(ref, message.id)) return;
+
       final preview = message.body.trim().isNotEmpty
           ? message.body.trim()
           : (message.attachments.isNotEmpty ? 'Attachment' : 'New message');
       ref.read(chatToastEventProvider.notifier).state = ChatToastEvent(
-        id: '${message.id}_${DateTime.now().millisecondsSinceEpoch}',
+        id: message.id,
         conversationId: conversationId,
         title: message.displayFirstName,
         body: preview,

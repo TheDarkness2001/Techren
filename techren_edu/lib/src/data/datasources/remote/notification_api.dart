@@ -26,8 +26,49 @@ class NotificationApi {
     return response.data['data']['updated'] as int? ?? 0;
   }
 
+  /// Legacy student-only endpoint (still upserts DeviceToken server-side).
   Future<void> registerFcmToken(String studentId, String token) async {
     await _client.dio.post('/students/$studentId/fcm-token', data: {'token': token});
+  }
+
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+    String deviceId = '',
+  }) async {
+    await _client.dio.post('/notifications/device-token', data: {
+      'token': token,
+      'platform': platform,
+      if (deviceId.isNotEmpty) 'deviceId': deviceId,
+    });
+  }
+
+  Future<void> refreshDeviceToken({
+    required String token,
+    required String previousToken,
+    required String platform,
+    String deviceId = '',
+  }) async {
+    await _client.dio.put('/notifications/device-token', data: {
+      'token': token,
+      'previousToken': previousToken,
+      'platform': platform,
+      if (deviceId.isNotEmpty) 'deviceId': deviceId,
+    });
+  }
+
+  Future<void> removeDeviceToken(String token) async {
+    await _client.dio.delete('/notifications/device-token', data: {'token': token});
+  }
+
+  Future<StudentNotificationSettings> getMySettings() async {
+    final response = await _client.dio.get('/notifications/settings/me');
+    return StudentNotificationSettings.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<StudentNotificationSettings> updateMySettings(StudentNotificationSettings settings) async {
+    final response = await _client.dio.put('/notifications/settings/me', data: settings.toJson());
+    return StudentNotificationSettings.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
   Future<ParentNotificationSettings> getParentSettings(String studentId) async {

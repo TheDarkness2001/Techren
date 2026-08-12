@@ -20,10 +20,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "uz.techren.techren_edu"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         // record (IELTS speaking) requires API 23+.
         minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
@@ -34,8 +31,6 @@ android {
     buildTypes {
         release {
             // Internal / sideload builds: debug signing (see docs/NATIVE-INSTALL.md).
-            // For production distribution, create a release keystore and point
-            // signingConfig at signingConfigs.release — never commit keystores.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -43,4 +38,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Apply only when you add android/app/google-services.json from Firebase Console.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

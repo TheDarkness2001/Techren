@@ -145,6 +145,13 @@ class NotificationChannels {
   }
 
   Map<String, dynamic> toJson() => {'push': push, 'inApp': inApp};
+
+  NotificationChannels copyWith({bool? push, bool? inApp}) {
+    return NotificationChannels(
+      push: push ?? this.push,
+      inApp: inApp ?? this.inApp,
+    );
+  }
 }
 
 class NotificationEvents {
@@ -153,12 +160,16 @@ class NotificationEvents {
     required this.attendance,
     required this.payment,
     required this.exam,
+    this.messages = true,
+    this.news = true,
   });
 
   final bool feedback;
   final bool attendance;
   final bool payment;
   final bool exam;
+  final bool messages;
+  final bool news;
 
   factory NotificationEvents.fromJson(Map<String, dynamic> json) {
     return NotificationEvents(
@@ -166,6 +177,8 @@ class NotificationEvents {
       attendance: json['attendance'] as bool? ?? true,
       payment: json['payment'] as bool? ?? true,
       exam: json['exam'] as bool? ?? true,
+      messages: json['messages'] as bool? ?? true,
+      news: json['news'] as bool? ?? true,
     );
   }
 
@@ -174,5 +187,67 @@ class NotificationEvents {
         'attendance': attendance,
         'payment': payment,
         'exam': exam,
+        'messages': messages,
+        'news': news,
       };
+
+  NotificationEvents copyWith({
+    bool? feedback,
+    bool? attendance,
+    bool? payment,
+    bool? exam,
+    bool? messages,
+    bool? news,
+  }) {
+    return NotificationEvents(
+      feedback: feedback ?? this.feedback,
+      attendance: attendance ?? this.attendance,
+      payment: payment ?? this.payment,
+      exam: exam ?? this.exam,
+      messages: messages ?? this.messages,
+      news: news ?? this.news,
+    );
+  }
+}
+
+/// Student category prefs for OS push (payment + lock always push server-side).
+class StudentNotificationSettings {
+  const StudentNotificationSettings({
+    required this.studentId,
+    required this.channels,
+    required this.events,
+    this.alwaysPush = const ['payment', 'payment_lock'],
+  });
+
+  final String studentId;
+  final NotificationChannels channels;
+  final NotificationEvents events;
+  final List<String> alwaysPush;
+
+  factory StudentNotificationSettings.fromJson(Map<String, dynamic> json) {
+    return StudentNotificationSettings(
+      studentId: (json['studentId'] ?? '').toString(),
+      channels: NotificationChannels.fromJson(json['channels'] as Map<String, dynamic>? ?? {}),
+      events: NotificationEvents.fromJson(json['events'] as Map<String, dynamic>? ?? {}),
+      alwaysPush: (json['alwaysPush'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          const ['payment', 'payment_lock'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'channels': channels.toJson(),
+        'events': events.toJson(),
+      };
+
+  StudentNotificationSettings copyWith({
+    NotificationChannels? channels,
+    NotificationEvents? events,
+  }) {
+    return StudentNotificationSettings(
+      studentId: studentId,
+      channels: channels ?? this.channels,
+      events: events ?? this.events,
+      alwaysPush: alwaysPush,
+    );
+  }
 }

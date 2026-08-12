@@ -203,6 +203,13 @@ class StudentProfileScreen extends ConsumerWidget {
           const AppearanceControls(),
           const SizedBox(height: AppSpacing.lg),
           ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('Notification settings'),
+            subtitle: const Text('Choose which alerts can push when the app is closed'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/student/notification-settings'),
+          ),
+          ListTile(
             leading: const Icon(Icons.rate_review_outlined),
             title: Text(l10n.teacherFeedback),
             subtitle: Text(l10n.commentsAfterClass),

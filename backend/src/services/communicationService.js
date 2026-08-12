@@ -408,7 +408,9 @@ const notifyParticipants = async (conversation, message, sender) => {
           senderType: sender.userType,
           senderFirstName: senderProfile?.firstName || '',
           senderProfileImage: senderProfile?.profileImage || null,
+          screen: 'messages',
         },
+        push: true,
       });
     } catch (_) {
       /* non-fatal */

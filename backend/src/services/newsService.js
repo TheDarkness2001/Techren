@@ -765,8 +765,9 @@ const notifyAudience = async (post) => {
           title,
           body,
           eventType: 'news_published',
-          data,
+          data: { ...data, screen: 'news' },
           branchId: s.branchId,
+          push: true,
         });
       } catch (_) {
         /* non-fatal */
@@ -780,8 +781,9 @@ const notifyAudience = async (post) => {
           title,
           body,
           eventType: 'news_published',
-          data,
+          data: { ...data, screen: 'news' },
           branchId: t.branchId,
+          push: true,
         });
       } catch (_) {
         /* non-fatal */

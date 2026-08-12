@@ -49,6 +49,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   Future<void>? _bootstrapFuture;
 
+  /// Set by push bootstrap so FCM token can be deactivated while JWT is still valid.
+  Future<void> Function()? beforeLogoutHook;
+
   /// Idempotent — safe to call from [main] and SplashScreen.
   Future<void> bootstrap() {
     return _bootstrapFuture ??= _doBootstrap();
@@ -80,6 +83,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await _runBeforeLogoutHook();
     await _repository.logout();
     _clearSessionState();
   }
@@ -87,12 +91,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logoutDueToTaskLeave() async {
     if (state.status != AuthStatus.authenticated) return;
     _ref.read(taskIntegrityProvider.notifier).endTask();
+    await _runBeforeLogoutHook();
     await _repository.logout(
       reason: 'Signed out because you left the app during a learning task.',
     );
     _clearSessionState(
       message: 'Signed out because you left the app during a learning task.',
     );
+  }
+
+  Future<void> _runBeforeLogoutHook() async {
+    final hook = beforeLogoutHook;
+    if (hook == null) return;
+    try {
+      await hook();
+    } catch (_) {}
   }
 
   Future<void> onAppResumed() async {
@@ -103,11 +116,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final now = DateTime.now().toUtc();
 
     if (started != null && now.difference(started) > SessionPolicy.maxSessionAge) {
+      await _runBeforeLogoutHook();
       await _repository.logout(reason: 'Your session expired. Please sign in again.');
       _clearSessionState(message: 'Your session expired. Please sign in again.');
       return;
     }
     if (backgrounded != null && now.difference(backgrounded) > SessionPolicy.maxIdleAge) {
+      await _runBeforeLogoutHook();
       await _repository.logout(reason: 'Signed out after being idle. Please sign in again.');
       _clearSessionState(message: 'Signed out after being idle. Please sign in again.');
       return;

@@ -31,7 +31,21 @@
 | `FRONTEND_URL` | Prod CORS | Allowed origin when `NODE_ENV=production` |
 | `JWT_REFRESH_SECRET` | Yes (prod) | Distinct from `JWT_SECRET`, 32+ chars |
 | `UPLOADS_DIR` | Railway volume | e.g. `/data/uploads` |
-| `FIREBASE_*` | Push only | FCM credentials (optional) |
+| `FIREBASE_PROJECT_ID` | Push (FCM) | Firebase project id |
+| `FIREBASE_CLIENT_EMAIL` | Push (FCM) | Service account client email |
+| `FIREBASE_PRIVATE_KEY` | Push (FCM) | Service account private key (`\n` escaped) |
+
+### Firebase / OS push (optional until configs are live)
+
+1. Create a Firebase project and add **Android** (`uz.techren.techren_edu`) + **iOS** apps.
+2. Download configs (do **not** commit secrets):
+   - Android → `techren_edu/android/app/google-services.json`
+   - iOS → `techren_edu/ios/Runner/GoogleService-Info.plist`
+3. For iOS, upload an APNs key in Firebase Console → Project settings → Cloud Messaging.
+4. On Railway, set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` (from a Firebase service account JSON). Private key newlines must be preserved (use `\n` in the env value).
+5. Rebuild the Flutter app after placing native config files. Without them, the app still runs; FCM init is skipped safely.
+
+App registers device tokens via `POST /api/v1/notifications/device-token` after login. See [docs/FCM-PUSH.md](./FCM-PUSH.md).
 
 For Railway (new TechRen service, leave SMS/PWA alone), see [09-RAILWAY.md](./09-RAILWAY.md) and `backend/.env.railway.example`.
 

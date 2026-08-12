@@ -9,7 +9,6 @@ const initFirebase = () => {
   }
 
   try {
-    // Optional dependency: only loaded when credentials are present.
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
     const admin = require('firebase-admin');
     if (admin.apps.length === 0) {
@@ -31,30 +30,74 @@ const initFirebase = () => {
   return messaging;
 };
 
+/**
+ * Send FCM multicast. Returns invalidTokens for pruning.
+ */
 const sendPush = async ({ tokens, title, body, data = {} }) => {
   if (!tokens?.length) {
-    return { sent: 0, failed: 0, status: 'skipped', reason: 'no_tokens' };
+    return { sent: 0, failed: 0, status: 'skipped', reason: 'no_tokens', invalidTokens: [] };
+  }
+
+  const unique = [...new Set(tokens.filter(Boolean))];
+  if (!unique.length) {
+    return { sent: 0, failed: 0, status: 'skipped', reason: 'no_tokens', invalidTokens: [] };
   }
 
   if (!messaging) {
-    logger.info(`FCM stub → ${tokens.length} token(s): ${title} — ${body}`);
-    return { sent: tokens.length, failed: 0, status: 'stub' };
+    logger.info(`FCM stub → ${unique.length} token(s): ${title} — ${body}`);
+    return { sent: unique.length, failed: 0, status: 'stub', invalidTokens: [] };
   }
 
   try {
     const response = await messaging.sendEachForMulticast({
-      tokens,
+      tokens: unique,
       notification: { title, body },
       data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'techren_notifications',
+          priority: 'high',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            contentAvailable: true,
+          },
+        },
+      },
     });
+
+    const invalidTokens = [];
+    response.responses.forEach((res, idx) => {
+      if (res.success) return;
+      const code = res.error?.code || '';
+      if (
+        code.includes('registration-token-not-registered') ||
+        code.includes('invalid-registration-token') ||
+        code === 'messaging/invalid-argument'
+      ) {
+        invalidTokens.push(unique[idx]);
+      }
+    });
+
     return {
       sent: response.successCount,
       failed: response.failureCount,
       status: response.failureCount ? 'partial' : 'sent',
+      invalidTokens,
     };
   } catch (error) {
     logger.error(`FCM send failed: ${error.message}`);
-    return { sent: 0, failed: tokens.length, status: 'failed', reason: error.message };
+    return {
+      sent: 0,
+      failed: unique.length,
+      status: 'failed',
+      reason: error.message,
+      invalidTokens: [],
+    };
   }
 };
 

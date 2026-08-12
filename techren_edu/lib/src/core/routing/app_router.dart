@@ -21,6 +21,7 @@ import '../../presentation/features/competition/screens/competition_hub_screen.d
 import '../../presentation/features/competition/screens/student_competition_screen.dart';
 import '../../presentation/features/staff_finance/screens/staff_finance_hub_screen.dart';
 import '../../presentation/features/notifications/screens/notifications_screen.dart';
+import '../../presentation/features/notifications/screens/student_notification_settings_screen.dart';
 import '../../presentation/features/gamification/screens/gamification_hub_screen.dart';
 import '../../presentation/shells/parent_shell.dart';
 import '../../presentation/features/wallet/screens/wallet_screen.dart';
@@ -242,6 +243,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const StudentCompetitionScreen(selectedRoute: '/student/competition'),
       ),
       AppPageTransitions.route(path: '/student/profile', builder: (_, __) => const StudentProfileScreen()),
+      AppPageTransitions.route(
+        path: '/student/notification-settings',
+        builder: (_, __) => const StudentNotificationSettingsScreen(),
+      ),
       AppPageTransitions.route(
         path: '/student/notifications',
         builder: (_, __) => const NotificationsScreen(selectedRoute: '/student/notifications'),

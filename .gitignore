@@ -1,13 +1,8 @@
-# Environment / secrets
-.env
-.env.*
-!.env.example
-!.env.railway.example
-!.env.docker.example
-**/.env
-!**/.env.example
-!**/.env.railway.example
-!**/.env.docker.example
+# Firebase client configs (download from Console — do not commit)
+techren_edu/android/app/google-services.json
+techren_edu/ios/Runner/GoogleService-Info.plist
+**/GoogleService-Info.plist
+**/google-services.json
 
 # Dependencies & build
 node_modules/

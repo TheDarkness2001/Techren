@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/core/l10n/app_localizations.dart';
+import 'src/core/push/push_notification_service.dart';
 import 'src/core/routing/app_router.dart';
 import 'src/core/theme/app_theme.dart';
 import 'src/core/widgets/app_scroll_behavior.dart';
@@ -19,30 +20,32 @@ class TechRenApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    return SessionLifecycleGuard(
-      child: MaterialApp.router(
-        title: 'TechRen EDU',
-        debugShowCheckedModeBanner: false,
-        scrollBehavior: const AppScrollBehavior(),
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
-        themeMode: themeMode,
-        locale: locale,
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        routerConfig: router,
-        builder: (context, child) {
-          return ChatMessageToastOverlay(
-            child: StudentInAppToastOverlay(
-              child: child ?? const SizedBox.shrink(),
-            ),
-          );
-        },
+    return PushNotificationBootstrap(
+      child: SessionLifecycleGuard(
+        child: MaterialApp.router(
+          title: 'TechRen EDU',
+          debugShowCheckedModeBanner: false,
+          scrollBehavior: const AppScrollBehavior(),
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: themeMode,
+          locale: locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          routerConfig: router,
+          builder: (context, child) {
+            return ChatMessageToastOverlay(
+              child: StudentInAppToastOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

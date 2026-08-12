@@ -20,6 +20,7 @@
 | 8 | [UI/UX Wireframes & Screen Hierarchy](./07-UI-WIREFRAMES.md) | ✅ Complete |
 | 8.1 | [Deployment Guide](./08-DEPLOYMENT.md) | ✅ Complete |
 | 8.2 | [Railway (alongside SMS / PWA)](./09-RAILWAY.md) | ✅ Complete |
+| 8.3 | [FCM OS Push](./FCM-PUSH.md) | ✅ Complete |
 | 9 | Module implementation (one at a time) | ✅ Complete |
 | 9.1 | Foundation — backend + Flutter shell | ✅ Complete |
 | 9.2 | Identity & Branches — CRUD, dashboards | ✅ Complete |

@@ -60,6 +60,7 @@ Optional:
 |----------|--------|
 | `UPLOADS_DIR` | e.g. `/data/uploads` if you mount a Volume at `/data` |
 | `JWT_ACCESS_EXPIRE` / `JWT_REFRESH_EXPIRE` | Defaults `15m` / `7d` |
+| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | FCM OS push — see [FCM-PUSH.md](./FCM-PUSH.md) |
 
 Redeploy after saving variables.
 

@@ -37,6 +37,8 @@ module.exports = {
   Snapshot: require('./Snapshot'),
   NotificationLog: require('./NotificationLog'),
   ParentNotificationSettings: require('./ParentNotificationSettings'),
+  StudentNotificationSettings: require('./StudentNotificationSettings'),
+  DeviceToken: require('./DeviceToken'),
   StudentGamification: require('./StudentGamification'),
   Achievement: require('./Achievement'),
   StudentAchievement: require('./StudentAchievement'),

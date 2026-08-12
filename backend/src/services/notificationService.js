@@ -1,10 +1,12 @@
 const NotificationLog = require('../models/NotificationLog');
 const ParentNotificationSettings = require('../models/ParentNotificationSettings');
+const StudentNotificationSettings = require('../models/StudentNotificationSettings');
 const Student = require('../models/Student');
 const Teacher = require('../models/Teacher');
+const Parent = require('../models/Parent');
 const { getTashkentParts } = require('../utils/classWindow');
 const { toMinutes } = require('../utils/timeUtils');
-const { sendPush } = require('../config/firebase');
+const fcmService = require('./fcmService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const logger = require('../config/logger');
 
@@ -37,6 +39,8 @@ const formatSettings = (doc) => {
       attendance: o.events?.attendance !== false,
       payment: o.events?.payment !== false,
       exam: o.events?.exam !== false,
+      messages: o.events?.messages !== false,
+      news: o.events?.news !== false,
     },
     quietHoursStart: o.quietHoursStart || '22:00',
     quietHoursEnd: o.quietHoursEnd || '08:00',
@@ -59,7 +63,82 @@ const eventEnabledKey = (eventType) => {
   if (raw.startsWith('attendance')) return 'attendance';
   if (raw.startsWith('payment')) return 'payment';
   if (raw.startsWith('exam')) return 'exam';
+  if (raw.startsWith('chat') || raw.startsWith('message')) return 'messages';
+  if (raw.startsWith('news') || raw.startsWith('announcement')) return 'news';
   return raw.split('_')[0];
+};
+
+const screenForEvent = (eventType, data = {}) => {
+  if (data.screen) return String(data.screen);
+  const key = eventEnabledKey(eventType);
+  const map = {
+    payment: 'payments',
+    feedback: 'feedback',
+    attendance: 'schedule',
+    messages: 'messages',
+    news: 'news',
+    exam: 'exams',
+  };
+  return map[key] || 'notifications';
+};
+
+const formatStudentSettings = (doc) => {
+  const o = doc && typeof doc.toObject === 'function' ? doc.toObject() : doc || {};
+  return {
+    studentId: String(o.studentId || ''),
+    channels: {
+      push: o.channels?.push !== false,
+      inApp: o.channels?.inApp !== false,
+    },
+    events: {
+      feedback: o.events?.feedback !== false,
+      attendance: o.events?.attendance !== false,
+      payment: o.events?.payment !== false,
+      messages: o.events?.messages !== false,
+      news: o.events?.news !== false,
+      exam: o.events?.exam !== false,
+    },
+    // Critical: payment reminders + lock cannot be silenced for OS push.
+    alwaysPush: ['payment', 'payment_lock'],
+  };
+};
+
+const getStudentSettings = async (studentId) => {
+  let settings = await StudentNotificationSettings.findOne({ studentId });
+  if (!settings) {
+    try {
+      settings = await StudentNotificationSettings.create({ studentId });
+    } catch (error) {
+      if (error.code === 11000) {
+        settings = await StudentNotificationSettings.findOne({ studentId });
+      } else throw error;
+    }
+  }
+  return formatStudentSettings(settings);
+};
+
+const updateStudentSettings = async (studentId, data = {}) => {
+  const settings = await StudentNotificationSettings.findOneAndUpdate(
+    { studentId },
+    {
+      $set: {
+        ...(data.channels ? { channels: data.channels } : {}),
+        ...(data.events ? { events: data.events } : {}),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  return formatStudentSettings(settings);
+};
+
+/** Whether student opted out of non-critical push. Payment/lock always allowed. */
+const studentAllowsPush = async (studentId, eventType) => {
+  const key = eventEnabledKey(eventType);
+  if (key === 'payment' || String(eventType).includes('lock')) return true;
+  const settings = await getStudentSettings(studentId);
+  if (!settings.channels.push) return false;
+  if (settings.events[key] === false) return false;
+  return true;
 };
 
 const getParentSettings = async (studentId) => {
@@ -102,7 +181,7 @@ const updateParentSettings = async (studentId, data) => {
   return formatSettings(settings);
 };
 
-const registerFcmToken = async (studentId, token) => {
+const registerFcmToken = async (studentId, token, meta = {}) => {
   if (!token || token.length < 10) {
     throw Object.assign(new Error('Valid FCM token is required'), { statusCode: 400, code: 'BAD_REQUEST' });
   }
@@ -110,11 +189,54 @@ const registerFcmToken = async (studentId, token) => {
   if (!student) {
     throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
+  await fcmService.upsertDeviceToken({
+    userId: studentId,
+    userType: 'student',
+    token,
+    platform: meta.platform || 'unknown',
+    deviceId: meta.deviceId || '',
+  });
   const tokens = new Set(student.fcmTokens || []);
   tokens.add(token);
   student.fcmTokens = [...tokens];
   await student.save();
   return { registered: true, tokenCount: student.fcmTokens.length };
+};
+
+const registerDeviceTokenForActor = async (req, body = {}) => {
+  const userType =
+    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  return fcmService.upsertDeviceToken({
+    userId: req.user._id,
+    userType,
+    token: body.token,
+    platform: body.platform || 'unknown',
+    deviceId: body.deviceId || '',
+    previousToken: body.previousToken,
+  });
+};
+
+const refreshDeviceTokenForActor = async (req, body = {}) => {
+  const userType =
+    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  return fcmService.upsertDeviceToken({
+    userId: req.user._id,
+    userType,
+    token: body.token,
+    platform: body.platform || 'unknown',
+    deviceId: body.deviceId || '',
+    previousToken: body.previousToken || body.oldToken,
+  });
+};
+
+const removeDeviceTokenForActor = async (req, body = {}) => {
+  const userType =
+    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  return fcmService.removeDeviceToken({
+    userId: req.user._id,
+    userType,
+    token: body.token,
+  });
 };
 
 const listForUser = async (req) => {
@@ -201,10 +323,12 @@ const createInAppNotification = async ({
   dedupe = false,
   date,
   allowInactive = false,
+  push = false,
+  forcePush = false,
 }) => {
   if (studentId && !allowInactive) {
     const student = await Student.findById(studentId).select('status');
-    if (student && student.status === 'inactive') {
+    if (student && student.status === 'inactive' && !String(eventType).includes('lock')) {
       return null;
     }
   }
@@ -219,7 +343,21 @@ const createInAppNotification = async ({
       date: dateKey,
       channel: 'in_app',
     });
-    if (existing) return formatNotification(existing.toObject());
+    if (existing) {
+      if (push || forcePush) {
+        await maybePushToRecipient({
+          userId,
+          userType,
+          studentId,
+          title,
+          body,
+          eventType,
+          data: { ...(data || {}), notificationId: String(existing._id) },
+          forcePush,
+        });
+      }
+      return formatNotification(existing.toObject());
+    }
   }
 
   const notification = await NotificationLog.create({
@@ -235,7 +373,75 @@ const createInAppNotification = async ({
     branchId,
     pushStatus: 'skipped',
   });
-  return formatNotification(notification.toObject());
+
+  const formatted = formatNotification(notification.toObject());
+
+  if (push || forcePush) {
+    const pushResult = await maybePushToRecipient({
+      userId,
+      userType,
+      studentId,
+      title,
+      body,
+      eventType,
+      data: { ...(data || {}), notificationId: formatted.id },
+      forcePush,
+    });
+    if (pushResult?.status) {
+      notification.pushStatus =
+        pushResult.status === 'sent' || pushResult.status === 'stub'
+          ? pushResult.status === 'stub'
+            ? 'stub'
+            : 'sent'
+          : 'skipped';
+      await notification.save();
+      formatted.pushStatus = notification.pushStatus;
+    }
+  }
+
+  return formatted;
+};
+
+const maybePushToRecipient = async ({
+  userId,
+  userType,
+  studentId,
+  title,
+  body,
+  eventType,
+  data = {},
+  forcePush = false,
+}) => {
+  try {
+    const type = userType === 'student' ? 'student' : userType === 'parent' ? 'parent' : 'teacher';
+    if (type === 'student' && !forcePush) {
+      const ok = await studentAllowsPush(userId, eventType);
+      if (!ok) return { status: 'skipped', reason: 'student_prefs' };
+    }
+
+    const payloadData = {
+      eventType: String(eventType || ''),
+      screen: screenForEvent(eventType, data),
+      notificationId: data.notificationId != null ? String(data.notificationId) : '',
+      messageId: data.messageId != null ? String(data.messageId) : '',
+      studentId: studentId != null ? String(studentId) : '',
+      conversationId: data.conversationId != null ? String(data.conversationId) : '',
+      feedbackId: data.feedbackId != null ? String(data.feedbackId) : '',
+      postId: data.postId != null ? String(data.postId) : '',
+      kind: data.kind != null ? String(data.kind) : '',
+    };
+
+    return fcmService.sendToUser({
+      userId,
+      userType: type,
+      title,
+      body,
+      data: payloadData,
+    });
+  } catch (error) {
+    logger.warn(`maybePushToRecipient failed: ${error.message}`);
+    return { status: 'failed', reason: error.message };
+  }
 };
 
 const formatMoney = (amount) => {
@@ -251,9 +457,9 @@ const monthLabel = (month, year) => {
   return `${names[Math.max(0, Math.min(11, month - 1))] || month} ${year}`;
 };
 
-const sendParentPush = async ({ student, title, body, eventType, data }) => {
-  if (!student || student.status === 'inactive') {
-    return { status: 'skipped', reason: 'inactive' };
+const sendParentPush = async ({ student, title, body, eventType, data, skipQuietHours = false }) => {
+  if (!student) {
+    return { status: 'skipped', reason: 'no_student' };
   }
 
   const settingsDoc = await getParentSettings(student._id);
@@ -262,20 +468,30 @@ const sendParentPush = async ({ student, title, body, eventType, data }) => {
   if (!settings.channels.push || !settings.events[eventKey]) {
     return { status: 'skipped', reason: 'disabled' };
   }
-  if (isQuietHours(settings)) {
+  if (!skipQuietHours && isQuietHours(settings)) {
     return { status: 'skipped', reason: 'quiet_hours' };
   }
 
   const parts = getTashkentParts();
-  const dedupKey = { studentId: student._id, eventType, date: parts.dateString, channel: 'push' };
+  const dedupKey = {
+    studentId: student._id,
+    eventType: `parent_${eventType}`,
+    date: parts.dateString,
+    channel: 'push',
+  };
   const existing = await NotificationLog.findOne(dedupKey);
   if (existing) return { status: 'skipped', reason: 'dedup' };
 
-  const pushResult = await sendPush({
-    tokens: student.fcmTokens || [],
+  const pushResult = await fcmService.sendToParentsOfStudent({
+    studentId: student._id,
     title,
     body,
-    data: { eventType, studentId: String(student._id), ...(data || {}) },
+    data: {
+      eventType: String(eventType),
+      screen: screenForEvent(eventType, data),
+      studentId: String(student._id),
+      ...(data || {}),
+    },
   });
 
   await NotificationLog.create({
@@ -284,12 +500,17 @@ const sendParentPush = async ({ student, title, body, eventType, data }) => {
     studentId: student._id,
     title,
     body,
-    eventType,
+    eventType: `parent_${eventType}`,
     channel: 'push',
     date: parts.dateString,
     data: data || {},
     branchId: student.branchId,
-    pushStatus: pushResult.status === 'stub' ? 'stub' : pushResult.status === 'sent' ? 'sent' : 'skipped',
+    pushStatus:
+      pushResult.status === 'stub'
+        ? 'stub'
+        : pushResult.sent > 0
+          ? 'sent'
+          : 'skipped',
   });
 
   return pushResult;
@@ -320,8 +541,10 @@ const notifyFeedbackSubmitted = async (feedback) => {
         feedbackId: String(feedback.id || feedback._id),
         className,
         kind: 'daily_feedback',
+        screen: 'feedback',
       },
       branchId: student.branchId,
+      push: true,
     });
 
     await sendParentPush({
@@ -329,7 +552,7 @@ const notifyFeedbackSubmitted = async (feedback) => {
       title: 'Daily feedback update',
       body: `${student.name} received daily feedback for ${className}`,
       eventType: 'feedback_submitted',
-      data: { feedbackId: String(feedback.id || feedback._id) },
+      data: { feedbackId: String(feedback.id || feedback._id), screen: 'feedback' },
     });
   } catch (error) {
     logger.warn(`notifyFeedbackSubmitted failed: ${error.message}`);
@@ -358,8 +581,10 @@ const notifyAttendanceMarked = async ({ studentId, status, className, date, bran
         className: lesson,
         date,
         kind: 'attendance',
+        screen: 'schedule',
       },
       branchId: branchId || student.branchId,
+      push: true,
     });
 
     await sendParentPush({
@@ -367,7 +592,7 @@ const notifyAttendanceMarked = async ({ studentId, status, className, date, bran
       title: 'Attendance update',
       body: `${student.name} was marked ${statusLabel} for ${lesson}`,
       eventType: 'attendance_marked',
-      data: { status, className: lesson, date },
+      data: { status, className: lesson, date, screen: 'schedule' },
     });
   } catch (error) {
     logger.warn(`notifyAttendanceMarked failed: ${error.message}`);
@@ -464,38 +689,30 @@ const runPaymentDueReminders = async (forcedSlot = null) => {
         year,
         amountRemaining: dues.amountRemaining,
         courses: dues.courses,
+        screen: 'payments',
       },
       branchId: student.branchId,
       dedupe: true,
       date: parts.dateString,
+      forcePush: true, // payment reminders always push
     });
 
-    // Push to student device tokens (when FCM configured) + parent push settings.
     try {
-      const fresh = await Student.findById(student._id).select('fcmTokens status branchId name');
-      if (fresh) {
-        await sendPush({
-          tokens: fresh.fcmTokens || [],
-          title,
-          body,
-          data: {
-            eventType,
-            kind: 'payment',
-            studentId: String(fresh._id),
-            month: String(month),
-            year: String(year),
-          },
-        });
-        await sendParentPush({
-          student: fresh,
-          title,
-          body,
-          eventType: 'payment_due',
-          data: { kind: 'payment', month, year, amountRemaining: dues.amountRemaining },
-        });
-      }
+      await sendParentPush({
+        student,
+        title,
+        body,
+        eventType: 'payment_due',
+        data: {
+          kind: 'payment',
+          month,
+          year,
+          amountRemaining: dues.amountRemaining,
+          screen: 'payments',
+        },
+      });
     } catch (pushErr) {
-      logger.warn(`payment reminder push failed for ${student._id}: ${pushErr.message}`);
+      logger.warn(`payment reminder parent push failed for ${student._id}: ${pushErr.message}`);
     }
     sent += 1;
   }
@@ -572,32 +789,29 @@ const runPaymentLockSweep = async () => {
         month,
         year,
         amountRemaining: dues.amountRemaining,
+        screen: 'payments',
       },
       branchId: student.branchId,
       dedupe: true,
       date: parts.dateString,
       allowInactive: true,
+      forcePush: true,
     });
 
     student.status = 'inactive';
     await student.save();
 
     try {
-      await sendPush({
-        tokens: student.fcmTokens || [],
-        title,
-        body,
-        data: { eventType: 'payment_lock', kind: 'payment', studentId: String(student._id) },
-      });
       await sendParentPush({
         student,
         title,
         body,
         eventType: 'payment_due',
-        data: { kind: 'payment', locked: true },
+        data: { kind: 'payment', locked: true, screen: 'payments' },
+        skipQuietHours: true,
       });
     } catch (pushErr) {
-      logger.warn(`payment lock push failed for ${student._id}: ${pushErr.message}`);
+      logger.warn(`payment lock parent push failed for ${student._id}: ${pushErr.message}`);
     }
 
     locked += 1;
@@ -611,13 +825,20 @@ module.exports = {
   formatSettings,
   getParentSettings,
   updateParentSettings,
+  getStudentSettings,
+  updateStudentSettings,
   registerFcmToken,
+  registerDeviceTokenForActor,
+  refreshDeviceTokenForActor,
+  removeDeviceTokenForActor,
   listForUser,
   markRead,
   markAllRead,
   createInAppNotification,
+  maybePushToRecipient,
   notifyFeedbackSubmitted,
   notifyAttendanceMarked,
   runPaymentDueReminders,
   runPaymentLockSweep,
+  screenForEvent,
 };
