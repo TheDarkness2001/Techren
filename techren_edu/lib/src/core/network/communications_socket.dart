@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -11,6 +13,7 @@ class CommunicationsSocket {
 
   final SecureStorageService _storage;
   io.Socket? _socket;
+  Timer? _pingTimer;
 
   bool get isConnected => _socket?.connected == true;
 
@@ -22,7 +25,7 @@ class CommunicationsSocket {
     final api = Uri.parse(ApiConstants.baseUrl);
     final origin = '${api.scheme}://${api.host}${api.hasPort ? ':${api.port}' : ''}';
 
-    _socket?.dispose();
+    disconnect();
     _socket = io.io(
       origin,
       io.OptionBuilder()
@@ -35,6 +38,11 @@ class CommunicationsSocket {
 
     _socket!.onConnect((_) {
       if (kDebugMode) debugPrint('Communications socket connected');
+      _startPresencePing();
+    });
+    _socket!.onDisconnect((_) {
+      _pingTimer?.cancel();
+      _pingTimer = null;
     });
     _socket!.onConnectError((e) {
       if (kDebugMode) debugPrint('Communications socket error: $e');
@@ -78,7 +86,22 @@ class CommunicationsSocket {
   }
 
   void disconnect() {
-    _socket?.dispose();
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    final socket = _socket;
     _socket = null;
+    if (socket != null) {
+      socket.disconnect();
+      socket.dispose();
+    }
+  }
+
+  void _startPresencePing() {
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (_socket?.connected == true) {
+        _socket!.emit('presence-ping');
+      }
+    });
   }
 }

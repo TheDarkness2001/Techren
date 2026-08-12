@@ -29,6 +29,13 @@ const start = async () => {
   );
 
   await connectDB();
+  try {
+    const communicationService = require('./services/communicationService');
+    const cleared = await communicationService.resetAllPresenceOffline();
+    logger.info(`Presence reset on boot: ${cleared.updated} users marked offline`);
+  } catch (e) {
+    logger.warn(`Presence boot reset skipped: ${e.message}`);
+  }
   await initDefaults();
   await ensureDevAccounts();
   try {

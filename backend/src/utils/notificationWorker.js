@@ -24,6 +24,9 @@ const register = () => {
     notificationService.runPaymentDueReminders().catch((error) => {
       logger.warn(`payment due reminder job failed: ${error.message}`);
     });
+    notificationService.runPaymentLockSweep().catch((error) => {
+      logger.warn(`payment lock sweep failed: ${error.message}`);
+    });
     try {
       const communicationService = require('../services/communicationService');
       communicationService.flushScheduledMessages().catch((error) => {

@@ -9,6 +9,13 @@ const communicationService = require('../services/communicationService');
 const pollService = require('../services/pollService');
 const logger = require('../config/logger');
 
+/** Live Socket.IO instance — used to validate presence against real connections. */
+let ioInstance = null;
+
+const getIo = () => ioInstance;
+
+const isSocketAlive = (socketId) => Boolean(ioInstance?.sockets?.sockets?.has(socketId));
+
 const attachSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
@@ -17,6 +24,7 @@ const attachSocket = (httpServer) => {
     },
     path: '/socket.io',
   });
+  ioInstance = io;
 
   communicationService.setSocketEmitter(({ conversationId, event, payload, participants }) => {
     if (conversationId) {
@@ -78,6 +86,17 @@ const attachSocket = (httpServer) => {
     } catch (e) {
       logger.warn(`Presence online failed: ${e.message}`);
     }
+
+    // Client heartbeat — keeps presence honest while the tab/app is actually open.
+    socket.on('presence-ping', async () => {
+      try {
+        await communicationService.setPresence(socket.userId, socket.userType, {
+          socketId: socket.id,
+        });
+      } catch (_) {
+        /* ignore */
+      }
+    });
 
     socket.on('join-room', async (conversationId, ack) => {
       try {
@@ -154,8 +173,15 @@ const attachSocket = (httpServer) => {
     });
   });
 
+  // Periodically drop ghost socket IDs left by crashes / hard kills.
+  setInterval(() => {
+    communicationService.reconcileStalePresence(isSocketAlive).catch((e) => {
+      logger.warn(`Presence reconcile failed: ${e.message}`);
+    });
+  }, 60 * 1000);
+
   logger.info('Socket.io attached for communications and polls');
   return io;
 };
 
-module.exports = { attachSocket };
+module.exports = { attachSocket, getIo, isSocketAlive };

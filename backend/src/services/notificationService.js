@@ -200,8 +200,9 @@ const createInAppNotification = async ({
   branchId,
   dedupe = false,
   date,
+  allowInactive = false,
 }) => {
-  if (studentId) {
+  if (studentId && !allowInactive) {
     const student = await Student.findById(studentId).select('status');
     if (student && student.status === 'inactive') {
       return null;
@@ -468,6 +469,34 @@ const runPaymentDueReminders = async (forcedSlot = null) => {
       dedupe: true,
       date: parts.dateString,
     });
+
+    // Push to student device tokens (when FCM configured) + parent push settings.
+    try {
+      const fresh = await Student.findById(student._id).select('fcmTokens status branchId name');
+      if (fresh) {
+        await sendPush({
+          tokens: fresh.fcmTokens || [],
+          title,
+          body,
+          data: {
+            eventType,
+            kind: 'payment',
+            studentId: String(fresh._id),
+            month: String(month),
+            year: String(year),
+          },
+        });
+        await sendParentPush({
+          student: fresh,
+          title,
+          body,
+          eventType: 'payment_due',
+          data: { kind: 'payment', month, year, amountRemaining: dues.amountRemaining },
+        });
+      }
+    } catch (pushErr) {
+      logger.warn(`payment reminder push failed for ${student._id}: ${pushErr.message}`);
+    }
     sent += 1;
   }
 
@@ -475,6 +504,107 @@ const runPaymentDueReminders = async (forcedSlot = null) => {
     `payment due reminders slot=${eventType} day=${day} sent=${sent} skippedPaid=${skippedPaid} dedup=${skippedDedup}`
   );
   return { sent, skippedPaid, skippedDedup, eventType, day };
+};
+
+/**
+ * After the 1–10 payment window, auto-lock unpaid active students so the app
+ * blocks learning until staff reactivates / payment is cleared.
+ */
+const runPaymentLockSweep = async () => {
+  const parts = getTashkentParts();
+  const [yearStr, monthStr, dayStr] = parts.dateString.split('-');
+  const day = Number(dayStr);
+  const month = Number(monthStr);
+  const year = Number(yearStr);
+
+  if (day < 11) {
+    return { skipped: true, reason: 'inside_grace_window' };
+  }
+
+  // Run once per day in the morning slot window.
+  const hour = Number(parts.time.slice(0, 2));
+  const minute = Number(parts.time.slice(3, 5));
+  if (hour !== 9 || minute > 7) {
+    return { skipped: true, reason: 'outside_lock_slot' };
+  }
+
+  const { buildDuesByStudent } = require('./paymentService');
+  const students = await Student.find({ status: 'active' }).select('_id name branchId fcmTokens');
+  if (!students.length) return { locked: 0 };
+
+  const duesMap = await buildDuesByStudent({
+    studentIds: students.map((s) => s._id),
+    month,
+    year,
+  });
+
+  let locked = 0;
+  for (const student of students) {
+    const dues = duesMap.get(String(student._id));
+    if (!dues || !dues.courses.length) continue;
+    if (dues.overallStatus === 'paid' || dues.amountRemaining <= 0) continue;
+
+    const already = await NotificationLog.findOne({
+      studentId: student._id,
+      eventType: 'payment_lock',
+      date: parts.dateString,
+      channel: 'in_app',
+    });
+    if (already) continue;
+
+    const amountText = formatMoney(dues.amountRemaining);
+    const period = monthLabel(month, year);
+    const title = 'App locked — payment required';
+    const body =
+      `Your TechRen account was locked because payment for ${period} is still unpaid (${amountText}). ` +
+      `Pay at the office or contact administration to restore access.`;
+
+    await createInAppNotification({
+      userId: student._id,
+      userType: 'student',
+      studentId: student._id,
+      title,
+      body,
+      eventType: 'payment_lock',
+      data: {
+        kind: 'payment',
+        locked: true,
+        month,
+        year,
+        amountRemaining: dues.amountRemaining,
+      },
+      branchId: student.branchId,
+      dedupe: true,
+      date: parts.dateString,
+      allowInactive: true,
+    });
+
+    student.status = 'inactive';
+    await student.save();
+
+    try {
+      await sendPush({
+        tokens: student.fcmTokens || [],
+        title,
+        body,
+        data: { eventType: 'payment_lock', kind: 'payment', studentId: String(student._id) },
+      });
+      await sendParentPush({
+        student,
+        title,
+        body,
+        eventType: 'payment_due',
+        data: { kind: 'payment', locked: true },
+      });
+    } catch (pushErr) {
+      logger.warn(`payment lock push failed for ${student._id}: ${pushErr.message}`);
+    }
+
+    locked += 1;
+  }
+
+  logger.info(`payment lock sweep day=${day} locked=${locked}`);
+  return { locked, day, month, year };
 };
 
 module.exports = {
@@ -489,4 +619,5 @@ module.exports = {
   notifyFeedbackSubmitted,
   notifyAttendanceMarked,
   runPaymentDueReminders,
+  runPaymentLockSweep,
 };

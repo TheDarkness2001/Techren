@@ -7,20 +7,8 @@ const { findSettingsDocument } = require('../services/settingsService');
 const INACTIVE_STUDENT_PREFIXES = [
   '/auth',
   '/payments',
-  '/exams',
-  '/feedback',
-  '/homework',
-  '/sentences',
-  '/listening',
-  '/video-lessons',
-  '/penalties',
-  '/presentations',
   '/notifications',
-  '/gamification',
-  '/wallet',
-  '/quizzes',
-  '/learning',
-  '/typing',
+  '/communications',
 ];
 
 const protect = async (req, res, next) => {

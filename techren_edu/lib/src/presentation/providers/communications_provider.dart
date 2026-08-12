@@ -44,8 +44,12 @@ class ChatToastEvent {
   final String? avatarUrl;
 }
 
+/// Bumped when the app resumes so the realtime socket rebinds handlers after disconnect.
+final communicationsSocketEpochProvider = StateProvider<int>((ref) => 0);
+
 /// Keep socket connected while authenticated so unread badges + chat toasts stay live.
 final communicationsRealtimeProvider = Provider<void>((ref) {
+  ref.watch(communicationsSocketEpochProvider);
   final auth = ref.watch(authProvider);
   final socket = ref.watch(communicationsSocketProvider);
   if (auth.user == null) {

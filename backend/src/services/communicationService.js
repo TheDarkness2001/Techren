@@ -1082,13 +1082,75 @@ const setPresence = async (userId, userType, { status, socketId, removeSocket })
   };
 };
 
+/** Clear all presence on server boot — in-memory sockets are gone after restart. */
+const resetAllPresenceOffline = async () => {
+  const result = await UserPresence.updateMany(
+    {},
+    { $set: { status: 'offline', socketIds: [], lastSeenAt: new Date() } }
+  );
+  return { updated: result.modifiedCount || 0 };
+};
+
+/** Drop socket IDs that are no longer connected to this process. */
+const reconcileStalePresence = async (isAliveFn) => {
+  if (typeof isAliveFn !== 'function') return { cleaned: 0 };
+  const docs = await UserPresence.find({ status: 'online' }).limit(500);
+  let cleaned = 0;
+  for (const doc of docs) {
+    const live = (doc.socketIds || []).filter((id) => isAliveFn(id));
+    if (live.length === (doc.socketIds || []).length) continue;
+    doc.socketIds = live;
+    if (live.length === 0) {
+      doc.status = 'offline';
+      doc.lastSeenAt = new Date();
+    }
+    await doc.save();
+    cleaned += 1;
+  }
+  return { cleaned };
+};
+
 const getPresence = async (userId, userType) => {
   const doc = await UserPresence.findOne({ userId, userType });
+  if (!doc) {
+    return {
+      userId: String(userId),
+      userType,
+      status: 'offline',
+      lastSeenAt: null,
+    };
+  }
+
+  // Validate against live sockets when available (prevents false "online").
+  try {
+    const { isSocketAlive } = require('../realtime/socket');
+    const ids = doc.socketIds || [];
+    if (ids.length) {
+      const live = ids.filter((id) => isSocketAlive(id));
+      if (live.length !== ids.length) {
+        doc.socketIds = live;
+        if (live.length === 0) {
+          doc.status = 'offline';
+          doc.lastSeenAt = new Date();
+        } else {
+          doc.status = 'online';
+        }
+        await doc.save();
+      }
+    } else if (doc.status === 'online') {
+      doc.status = 'offline';
+      doc.lastSeenAt = new Date();
+      await doc.save();
+    }
+  } catch (_) {
+    /* socket module may not be ready during early boot */
+  }
+
   return {
     userId: String(userId),
     userType,
-    status: doc?.status || 'offline',
-    lastSeenAt: doc?.lastSeenAt || null,
+    status: doc.status || 'offline',
+    lastSeenAt: doc.lastSeenAt || null,
   };
 };
 
@@ -1296,6 +1358,8 @@ module.exports = {
   directory,
   setPresence,
   getPresence,
+  resetAllPresenceOffline,
+  reconcileStalePresence,
   unreadTotal,
   flushScheduledMessages,
   moderationInbox,

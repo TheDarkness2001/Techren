@@ -9,6 +9,9 @@ const _learningRoutePrefixes = [
   '/student/sentences',
   '/student/listening',
   '/student/video',
+  '/student/typing',
+  '/student/competition',
+  '/student/wallet',
 ];
 
 bool isRouteBlockedForInactiveStudent(String path) {

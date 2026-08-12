@@ -46,6 +46,15 @@ class FinanceApi {
     return _parsePaginated(response.data as Map<String, dynamic>, PaymentEntry.fromJson);
   }
 
+  Future<StudentDues> getMyDues({int? month, int? year}) async {
+    final now = DateTime.now();
+    final response = await _client.dio.get('/payments/my-dues', queryParameters: {
+      'month': month ?? now.month,
+      'year': year ?? now.year,
+    });
+    return StudentDues.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<PaymentEntry> createPayment(Map<String, dynamic> payload) async {
     final response = await _client.dio.post('/payments', data: payload);
     return PaymentEntry.fromJson(response.data['data'] as Map<String, dynamic>);

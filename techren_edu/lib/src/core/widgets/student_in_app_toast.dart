@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/notification.dart';
 import '../../presentation/providers/auth_provider.dart';
+import '../../presentation/providers/finance_provider.dart';
 import '../../presentation/providers/notification_provider.dart';
 import '../routing/app_router.dart';
 import '../theme/app_spacing.dart';
@@ -25,8 +26,9 @@ class StudentInAppToastOverlay extends ConsumerStatefulWidget {
 class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOverlay>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _seenKey = 'student_in_app_toast_seen_ids';
+  static const _duesToastDayKey = 'student_dues_toast_day';
   static const _pollInterval = Duration(seconds: 12);
-  static const _displayDuration = Duration(seconds: 6);
+  static const _displayDuration = Duration(seconds: 7);
 
   Timer? _pollTimer;
   Timer? _hideTimer;
@@ -89,6 +91,8 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
   Future<void> _poll() async {
     if (!mounted || !_isStudent) return;
     try {
+      await _maybeEnqueueDuesToast();
+
       final inbox = await ref.read(notificationApiProvider).getNotifications(
             page: 1,
             unreadOnly: true,
@@ -115,6 +119,53 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
       }
     } catch (_) {
       // Ignore transient network errors while polling.
+    }
+  }
+
+  /// Show a Telegram-style payment popup when dues remain unpaid (once per day).
+  Future<void> _maybeEnqueueDuesToast() async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.userType != UserType.student) return;
+
+    final now = DateTime.now();
+    final dayKey = '${now.year}-${now.month}-${now.day}:${user.id}';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_duesToastDayKey) == dayKey) return;
+
+    // Only nag during the 1–10 payment window (or if already locked).
+    final day = now.day;
+    if (day > 10 && !user.isInactiveStudent) return;
+
+    final dues = await ref.read(financeApiProvider).getMyDues();
+    if (dues.isPaid || dues.amountRemaining <= 0) {
+      await prefs.setString(_duesToastDayKey, dayKey);
+      return;
+    }
+
+    final syntheticId = 'dues-$dayKey';
+    if (_seenIds.contains(syntheticId) || _queue.any((q) => q.id == syntheticId)) return;
+
+    final amount = dues.amountRemaining.round().toString();
+    final note = AppNotification(
+      id: syntheticId,
+      userId: user.id,
+      userType: 'student',
+      studentId: user.id,
+      title: user.isInactiveStudent ? 'App locked — payment required' : 'Payment due',
+      body: user.isInactiveStudent
+          ? 'Your account is locked until the unpaid balance ($amount UZS) is cleared. Open Payments or contact administration.'
+          : 'You still owe $amount UZS this month. Please pay by the 10th or the app will be locked.',
+      eventType: 'payment_due',
+      channel: 'in_app',
+      date: dayKey.split(':').first,
+      data: {'kind': 'payment', 'amountRemaining': dues.amountRemaining},
+      createdAt: now,
+    );
+
+    await prefs.setString(_duesToastDayKey, dayKey);
+    _queue.add(note);
+    if (_current == null) {
+      _showNext();
     }
   }
 
@@ -158,10 +209,12 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
   Future<void> _onTap() async {
     final note = _current;
     if (note == null) return;
-    try {
-      await ref.read(notificationApiProvider).markRead(note.id);
-      invalidateNotificationState(ref);
-    } catch (_) {}
+    if (!note.id.startsWith('dues-')) {
+      try {
+        await ref.read(notificationApiProvider).markRead(note.id);
+        invalidateNotificationState(ref);
+      } catch (_) {}
+    }
     if (!mounted) return;
     ref.read(routerProvider).go(_routeFor(note));
     await _dismissCurrent();

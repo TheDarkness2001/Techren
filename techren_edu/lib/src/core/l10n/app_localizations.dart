@@ -124,7 +124,11 @@ class AppLocalizations {
   String get walletSubtitle => _t(en: 'Balance, top-up & history', ru: 'Баланс, пополнение и история', uz: 'Balans, to\'ldirish va tarix');
   String get competitionSubtitle => _t(en: 'Penalties & presentation scores', ru: 'Штрафы и оценки выступлений', uz: 'Jarimalar va taqdimot ballari');
   String get gamificationSubtitle => _t(en: 'Level, streak, leaderboard', ru: 'Уровень, серия, рейтинг', uz: 'Daraja, seriya, reyting');
-  String get accountInactive => _t(en: 'Account inactive. Contact administration.', ru: 'Аккаунт неактивен. Обратитесь в администрацию.', uz: 'Hisob faol emas. Ma\'muriyatga murojaat qiling.');
+  String get accountInactive => _t(
+        en: 'Account locked — payment required. Open Payments or contact administration.',
+        ru: 'Аккаунт заблокирован — требуется оплата. Откройте Платежи или обратитесь в администрацию.',
+        uz: 'Hisob bloklangan — to\'lov talab qilinadi. To\'lovlar bo\'limiga o\'ting yoki ma\'muriyatga murojaat qiling.',
+      );
 
   // —— Student home ——
   String get latestAnnouncements => _t(en: 'Latest announcements', ru: 'Последние объявления', uz: 'So\'nggi e\'lonlar');

@@ -142,11 +142,11 @@ final studentExamsProvider = FutureProvider.autoDispose<List<ExamEntry>>((ref) a
 
 
 final studentPaymentsProvider = FutureProvider.autoDispose<List<PaymentEntry>>((ref) async {
-
   final result = await ref.watch(financeApiProvider).getPayments();
-
   return result.items;
-
 });
 
+final studentMyDuesProvider = FutureProvider.autoDispose<StudentDues>((ref) async {
+  return ref.watch(financeApiProvider).getMyDues();
+});
 

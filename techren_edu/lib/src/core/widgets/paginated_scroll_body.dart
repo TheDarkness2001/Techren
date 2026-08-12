@@ -180,9 +180,17 @@ class _PaginatedScrollBodyState<T, Q> extends ConsumerState<PaginatedScrollBody<
           ..clear()
           ..addAll(result.items);
         _lastMergedPage = 1;
+        _page = 1;
       } else if (result.page > _lastMergedPage) {
         _items.addAll(result.items);
         _lastMergedPage = result.page;
+      } else if (result.page > 0 && result.page <= _lastMergedPage) {
+        // Same page re-fetched after invalidate — replace that slice so edits stick.
+        final start = (result.page - 1) * result.limit;
+        if (start >= 0 && start <= _items.length) {
+          final end = (start + result.items.length).clamp(0, _items.length);
+          _items.replaceRange(start, end, result.items);
+        }
       }
       _total = result.total;
       _hasMore = result.hasMore;

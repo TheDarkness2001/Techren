@@ -171,6 +171,38 @@ class PaymentCourseStatus {
       );
 }
 
+/// Current-month dues for the logged-in student (`GET /payments/my-dues`).
+class StudentDues {
+  const StudentDues({
+    required this.month,
+    required this.year,
+    required this.courses,
+    required this.overallStatus,
+    required this.amountRemaining,
+    required this.isPaid,
+  });
+
+  final int month;
+  final int year;
+  final List<PaymentCourseStatus> courses;
+  final String overallStatus;
+  final double amountRemaining;
+  final bool isPaid;
+
+  factory StudentDues.fromJson(Map<String, dynamic> json) => StudentDues(
+        month: (json['month'] as num?)?.toInt() ?? DateTime.now().month,
+        year: (json['year'] as num?)?.toInt() ?? DateTime.now().year,
+        courses: (json['courses'] as List<dynamic>? ?? [])
+            .map((e) => PaymentCourseStatus.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        overallStatus: json['overallStatus'] as String? ?? 'paid',
+        amountRemaining: (json['amountRemaining'] as num?)?.toDouble() ?? 0,
+        isPaid: json['isPaid'] == true ||
+            json['overallStatus'] == 'paid' ||
+            ((json['amountRemaining'] as num?)?.toDouble() ?? 0) <= 0,
+      );
+}
+
 class PaymentRosterRow {
   const PaymentRosterRow({
     required this.id,

@@ -44,6 +44,9 @@ class PeopleScreen extends ConsumerStatefulWidget {
 class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   final _searchController = TextEditingController();
   PageMeta _meta = const PageMeta();
+  /// Bumped on Refresh / status changes so [PaginatedScrollBody] clears its
+  /// accumulated pages and reloads from page 1 (otherwise page N refresh is a no-op).
+  int _listEpoch = 0;
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
   bool get _isTeachers => widget.mode == PeopleListMode.teachers;
@@ -55,6 +58,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   }
 
   void _refresh() {
+    setState(() => _listEpoch++);
     if (_isTeachers) {
       ref.invalidate(teachersProvider);
     } else {
@@ -132,7 +136,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     final canManage = _canManageStudents(ref);
     final listQuery = meta.copyWith(page: 1);
     final queryCacheKey =
-        '${widget.mode}|${listQuery.limit}|${listQuery.search ?? ''}|${listQuery.status ?? ''}|${listQuery.branchId ?? ''}';
+        '${widget.mode}|${listQuery.limit}|${listQuery.search ?? ''}|${listQuery.status ?? ''}|${listQuery.branchId ?? ''}|$_listEpoch';
 
     final totalQuery = _countQuery(listQuery, clearStatus: true);
     final activeQuery = _countQuery(listQuery, status: 'active');

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../presentation/providers/auth_provider.dart';
+import '../../presentation/providers/communications_provider.dart';
 import '../../presentation/providers/task_integrity_provider.dart';
 
 /// Watches app lifecycle for idle timeout and task anti-cheat logout.
@@ -34,8 +35,12 @@ class _SessionLifecycleGuardState extends ConsumerState<SessionLifecycleGuard>
     switch (state) {
       case AppLifecycleState.resumed:
         auth.onAppResumed();
+        // Rebind chat socket + handlers after background disconnect.
+        ref.read(communicationsSocketEpochProvider.notifier).state++;
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
+        // Mark offline when leaving the app (Telegram-like presence).
+        ref.read(communicationsSocketProvider).disconnect();
         if (ref.read(taskIntegrityProvider)) {
           auth.logoutDueToTaskLeave();
         } else {
