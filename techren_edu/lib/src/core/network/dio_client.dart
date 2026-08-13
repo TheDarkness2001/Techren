@@ -140,6 +140,20 @@ class DioClient {
       return AppException(message, code: err['code']?.toString());
     }
 
+    final status = error.response?.statusCode;
+    if (status == 404) {
+      return AppException(
+        'Cannot reach the TechRen API (404). Install the latest app update or check the server URL.',
+        code: 'NOT_FOUND',
+      );
+    }
+    if (status == 401 || status == 403) {
+      return AppException('Invalid email or password.', code: 'UNAUTHORIZED');
+    }
+    if (status != null && status >= 500) {
+      return AppException('Server error. Please try again in a moment.', code: 'SERVER');
+    }
+
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -148,7 +162,8 @@ class DioClient {
       case DioExceptionType.connectionError:
         return AppException('Cannot reach the server. Check that the API is running.', code: 'CONNECTION');
       default:
-        return AppException(error.message ?? 'Network error', code: 'NETWORK');
+        // Never surface raw DioException dumps on login / UI.
+        return AppException('Network error. Please try again.', code: 'NETWORK');
     }
   }
 }
