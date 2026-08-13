@@ -62,7 +62,6 @@ final communicationsRealtimeProvider = Provider<void>((ref) {
     await socket.connect();
     socket.off('notification');
     socket.on('notification', (data) {
-      ref.read(communicationsUnreadTickProvider.notifier).state++;
       if (data is! Map) return;
       final map = Map<String, dynamic>.from(data);
       if (map['type']?.toString() != 'chat_message') return;
@@ -71,7 +70,11 @@ final communicationsRealtimeProvider = Provider<void>((ref) {
       if (conversationId.isEmpty) return;
 
       final activeId = ref.read(activeChatConversationIdProvider);
+      // Already viewing this thread — do not bump the global unread badge.
       if (activeId != null && activeId == conversationId) return;
+
+      // Refresh chat unread badge from the server.
+      ref.read(communicationsUnreadTickProvider.notifier).state++;
 
       final rawMessage = map['message'];
       if (rawMessage is! Map) return;

@@ -310,10 +310,8 @@ const listConversations = async (req) => {
       conversationId: doc._id,
       createdAt: { $gt: since },
       deletedAt: null,
-      $or: [
-        { senderId: { $ne: userId } },
-        { senderType: { $ne: userType } },
-      ],
+      // Messages not sent by this viewer (match both id + type).
+      $nor: [{ senderId: userId, senderType: userType }],
     });
     const formatted = formatConversation(doc, { userId, userType, unreadCount });
     const peer = await resolvePrivatePeer(doc, { userId, userType });
@@ -340,6 +338,7 @@ const getConversation = async (req, id) => {
     conversationId: doc._id,
     createdAt: { $gt: since },
     deletedAt: null,
+    $nor: [{ senderId: userId, senderType: userType }],
   });
   const formatted = formatConversation(doc, { userId, userType, unreadCount });
   const peer = await resolvePrivatePeer(doc, { userId, userType });
@@ -389,6 +388,7 @@ const notifyParticipants = async (conversation, message, sender) => {
     firstNameOf(senderProfile?.name) ||
     conversation.title ||
     'New message';
+  const body = preview || 'New message';
   for (const p of conversation.participants || []) {
     if (p.leftAt) continue;
     if (String(p.userId) === String(sender.userId) && p.userType === sender.userType) continue;
@@ -399,7 +399,7 @@ const notifyParticipants = async (conversation, message, sender) => {
         userType: p.userType,
         studentId: p.userType === 'student' ? p.userId : undefined,
         title,
-        body: preview,
+        body,
         eventType: 'chat_message',
         data: {
           conversationId: String(conversation._id),
@@ -409,6 +409,8 @@ const notifyParticipants = async (conversation, message, sender) => {
           senderFirstName: senderProfile?.firstName || '',
           senderProfileImage: senderProfile?.profileImage || null,
           screen: 'messages',
+          title,
+          body,
         },
         push: true,
       });
@@ -566,14 +568,18 @@ const markRead = async (req, conversationId) => {
   if (!isParticipant(conv, userId, userType)) throw forbidden('Not a participant');
 
   const p = getParticipant(conv, userId, userType);
-  if (p) p.lastReadAt = new Date();
+  if (p) {
+    // Always clear through the latest message (avoids clock/race leaving a sticky unread).
+    const latestMs = Math.max(Date.now(), conv.lastMessageAt ? new Date(conv.lastMessageAt).getTime() : 0);
+    p.lastReadAt = new Date(latestMs + 1);
+  }
   await conv.save();
 
   await Message.updateMany(
     {
       conversationId,
       status: { $in: ['sent', 'delivered'] },
-      $or: [{ senderId: { $ne: userId } }, { senderType: { $ne: userType } }],
+      $nor: [{ senderId: userId, senderType: userType }],
     },
     { $set: { status: 'seen' } }
   );

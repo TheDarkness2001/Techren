@@ -69,6 +69,9 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initSocket();
       _consumePendingConversation();
+      // Refresh badge when opening Messages (clears sticky unread from races).
+      ref.invalidate(communicationsUnreadProvider);
+      ref.invalidate(conversationsProvider);
     });
   }
 
@@ -228,7 +231,14 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
         _liveMessages = [..._liveMessages, msg];
       }
     });
-    ref.read(communicationsApiProvider).markRead(msg.conversationId);
+    unawaited(() async {
+      try {
+        await ref.read(communicationsApiProvider).markRead(msg.conversationId);
+      } catch (_) {}
+      if (!mounted) return;
+      ref.invalidate(conversationsProvider);
+      ref.invalidate(communicationsUnreadProvider);
+    }());
   }
 
   void _onTyping(dynamic data) {

@@ -43,28 +43,42 @@ const sendPush = async ({ tokens, title, body, data = {} }) => {
     return { sent: 0, failed: 0, status: 'skipped', reason: 'no_tokens', invalidTokens: [] };
   }
 
+  const safeTitle = String(title || 'TechRen').trim() || 'TechRen';
+  const safeBody = String(body || 'New notification').trim() || 'New notification';
+
   if (!messaging) {
-    logger.info(`FCM stub → ${unique.length} token(s): ${title} — ${body}`);
+    logger.info(`FCM stub → ${unique.length} token(s): ${safeTitle} — ${safeBody}`);
     return { sent: unique.length, failed: 0, status: 'stub', invalidTokens: [] };
   }
 
   try {
     const response = await messaging.sendEachForMulticast({
       tokens: unique,
-      notification: { title, body },
-      data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+      notification: { title: safeTitle, body: safeBody },
+      data: Object.fromEntries(
+        Object.entries({
+          ...data,
+          title: safeTitle,
+          body: safeBody,
+        }).map(([k, v]) => [k, String(v ?? '')])
+      ),
       android: {
         priority: 'high',
         notification: {
+          title: safeTitle,
+          body: safeBody,
           channelId: 'techren_notifications',
           priority: 'high',
+          defaultSound: true,
+          // Ensure tray shows text even if the launcher collapses the card.
+          visibility: 'public',
         },
       },
       apns: {
         payload: {
           aps: {
+            alert: { title: safeTitle, body: safeBody },
             sound: 'default',
-            contentAvailable: true,
           },
         },
       },
