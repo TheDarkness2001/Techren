@@ -15,24 +15,37 @@ import '../../presentation/providers/auth_provider.dart';
 import '../../presentation/providers/communications_provider.dart';
 import '../../presentation/providers/notification_provider.dart';
 import '../routing/app_router.dart';
+import 'push_chat_actions.dart';
 import 'push_providers.dart';
 
 export 'push_providers.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
   } catch (_) {
-    /* config missing */
+    return;
   }
+
+  final data = message.data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  if (!isChatPushData(data)) return;
+
+  final title = (data['title']?.isNotEmpty == true)
+      ? data['title']!
+      : (message.notification?.title ?? 'TechRen');
+  final body = (data['body']?.isNotEmpty == true)
+      ? data['body']!
+      : (message.notification?.body ?? 'New message');
+
+  await showChatPushNotification(title: title, body: body, data: data);
 }
 
 class PushNotificationService {
   PushNotificationService(this._ref);
 
   final Ref _ref;
-  final _local = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   bool _firebaseReady = false;
   String? _currentToken;
@@ -63,34 +76,15 @@ class PushNotificationService {
     }
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
-    await _local.initialize(
-      const InitializationSettings(android: androidInit, iOS: iosInit),
-      onDidReceiveNotificationResponse: (response) {
-        final payload = response.payload;
-        if (payload == null || payload.isEmpty) return;
-        try {
-          final map = jsonDecode(payload) as Map<String, dynamic>;
-          _handleDataNavigation(map.map((k, v) => MapEntry(k, v?.toString() ?? '')));
-        } catch (_) {}
-      },
-    );
-
-    const channel = AndroidNotificationChannel(
-      'techren_notifications',
-      'TechRen Notifications',
-      description: 'Payments, messages, feedback, attendance, and news',
-      importance: Importance.high,
-    );
-    await _local
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    await ensureChatNotificationsReady();
+    onChatNotificationTap = (data) {
+      _handleDataNavigation(data);
+    };
 
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission(alert: true, badge: true, sound: true);
     if (!kIsWeb && Platform.isIOS) {
+      // Prefer local/chat presentation for action buttons; avoid double banners.
       await messaging.setForegroundNotificationPresentationOptions(
         alert: false,
         badge: true,
@@ -197,16 +191,14 @@ class PushNotificationService {
 
     _ref.invalidate(unreadNotificationCountProvider);
 
-    final eventType = (data['eventType'] ?? '').toLowerCase();
-    final screen = (data['screen'] ?? '').toLowerCase();
-
-    // Chat: socket toast handles foreground; skip OS banner.
-    if (eventType.contains('chat') ||
-        eventType.contains('message') ||
-        screen == 'messages' ||
-        screen == 'chat') {
+    // Chat while open: in-app toast / socket handles it.
+    if (isChatPushData(data)) {
+      _ref.invalidate(communicationsUnreadProvider);
       return;
     }
+
+    final eventType = (data['eventType'] ?? '').toLowerCase();
+    final screen = (data['screen'] ?? '').toLowerCase();
 
     // Payment / feedback / attendance: in-app toast poller shows one toast.
     if (eventType.contains('payment') ||
@@ -223,13 +215,14 @@ class PushNotificationService {
     final body = message.notification?.body ?? data['body'] ?? '';
     if (body.isEmpty && message.notification == null) return;
 
-    await _local.show(
+    await ensureChatNotificationsReady();
+    await localNotificationsPlugin.show(
       dedupId.hashCode,
       title,
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          'techren_notifications',
+          kDefaultChannelId,
           'TechRen Notifications',
           channelDescription: 'Payments, messages, feedback, attendance, and news',
           importance: Importance.high,
@@ -297,7 +290,6 @@ class PushNotificationService {
         }
         router.go('$prefix/messages');
       case 'news':
-        // Students have no dedicated news route yet — open inbox.
         router.go(user.isStudent ? '/student/notifications' : '$prefix/news');
       case 'exams':
         router.go(user.isStudent ? '/student/exams' : '$prefix/exams');
@@ -321,6 +313,7 @@ class PushNotificationService {
       data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
 
   void dispose() {
+    onChatNotificationTap = null;
     _tokenSub?.cancel();
     _fgSub?.cancel();
     _openSub?.cancel();

@@ -25,6 +25,7 @@ class AddStudentScreen extends ConsumerStatefulWidget {
 }
 
 class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
@@ -36,6 +37,14 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _address = TextEditingController();
   final _medical = TextEditingController();
 
+  final _nameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _branchFocus = FocusNode();
+  final _parentNameFocus = FocusNode();
+  final _parentUsernameFocus = FocusNode();
+  final _parentPasswordFocus = FocusNode();
+
   DateTime? _dob;
   String _gender = '';
   String _bloodGroup = '';
@@ -45,6 +54,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   bool _obscure = true;
   bool _obscureParentPassword = true;
   bool _saving = false;
+  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
 
   final List<({TextEditingController subject, TextEditingController amount})> _fees = [
     (subject: TextEditingController(), amount: TextEditingController()),
@@ -65,11 +75,51 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     _parentPassword.dispose();
     _address.dispose();
     _medical.dispose();
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _branchFocus.dispose();
+    _parentNameFocus.dispose();
+    _parentUsernameFocus.dispose();
+    _parentPasswordFocus.dispose();
     for (final row in _fees) {
       row.subject.dispose();
       row.amount.dispose();
     }
     super.dispose();
+  }
+
+  bool get _parentPortalStarted =>
+      _parentUsername.text.trim().isNotEmpty ||
+      _parentPassword.text.isNotEmpty ||
+      _parentName.text.trim().isNotEmpty;
+
+  void _focusFirstInvalid() {
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    final password = _password.text;
+    final user = ref.read(authProvider).user;
+    final needsBranch = user?.isFounder == true && (_branchId == null || _branchId!.isEmpty);
+
+    FocusNode? target;
+    if (name.isEmpty) {
+      target = _nameFocus;
+    } else if (email.isEmpty || !email.contains('@')) {
+      target = _emailFocus;
+    } else if (needsBranch) {
+      target = _branchFocus;
+    } else if (password.length < 8) {
+      target = _passwordFocus;
+    } else if (_parentPortalStarted) {
+      if (_parentName.text.trim().isEmpty) {
+        target = _parentNameFocus;
+      } else if (_parentUsername.text.trim().isEmpty) {
+        target = _parentUsernameFocus;
+      } else if (_parentPassword.text.length < 4) {
+        target = _parentPasswordFocus;
+      }
+    }
+    target?.requestFocus();
   }
 
   Future<void> _pickPhoto() async {
@@ -97,15 +147,17 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   }
 
   Future<void> _save() async {
+    final form = _formKey.currentState;
+    if (form == null) return;
+    setState(() => _autovalidateMode = AutovalidateMode.onUserInteraction);
+    if (!form.validate()) {
+      _focusFirstInvalid();
+      return;
+    }
+
     final name = _name.text.trim();
     final email = _email.text.trim();
     final password = _password.text;
-    if (name.isEmpty || email.isEmpty || password.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name, email, and password (min 8 chars) are required')),
-      );
-      return;
-    }
 
     final fees = <SubjectFee>[];
     for (final row in _fees) {
@@ -122,29 +174,13 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         ? (_branchId ?? (branchFilter == 'all' ? null : branchFilter))
         : user?.branchId;
 
-    if (user?.isFounder == true && (branchId == null || branchId.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a branch')),
-      );
-      return;
-    }
-
     setState(() => _saving = true);
     try {
       final api = ref.read(identityApiProvider);
       final parentUsername = _parentUsername.text.trim();
       final parentPassword = _parentPassword.text;
       Map<String, dynamic>? parentAccount;
-      if (parentUsername.isNotEmpty || parentPassword.isNotEmpty || _parentName.text.trim().isNotEmpty) {
-        if (parentUsername.isEmpty || parentPassword.length < 4 || _parentName.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Parent portal needs name, username, and password (min 4 chars)'),
-            ),
-          );
-          setState(() => _saving = false);
-          return;
-        }
+      if (_parentPortalStarted) {
         parentAccount = {
           'name': _parentName.text.trim(),
           'username': parentUsername,
@@ -224,28 +260,47 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: AppSpacing.pagePadding,
-        children: [
+      body: Form(
+        key: _formKey,
+        autovalidateMode: _autovalidateMode,
+        child: ListView(
+          padding: AppSpacing.pagePadding,
+          children: [
           PeopleFormSection(
             title: 'Name Actions',
             child: Column(
               children: [
                 PeopleFormRow(
-                  left: TextField(
+                  left: TextFormField(
                     controller: _name,
+                    focusNode: _nameFocus,
                     decoration: const InputDecoration(labelText: 'Full name *'),
                     textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Full name is required';
+                      return null;
+                    },
                   ),
-                  right: TextField(
+                  right: TextFormField(
                     controller: _email,
+                    focusNode: _emailFocus,
                     decoration: const InputDecoration(labelText: 'Email *'),
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      final value = v?.trim() ?? '';
+                      if (value.isEmpty) return 'Email is required';
+                      if (!value.contains('@') || !value.contains('.')) {
+                        return 'Enter a valid email';
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 PeopleFormRow(
-                  left: TextField(
+                  left: TextFormField(
                     controller: _phone,
                     decoration: const InputDecoration(labelText: 'Phone'),
                     keyboardType: TextInputType.phone,
@@ -256,12 +311,17 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                           error: (e, _) => Text(e.toString()),
                           data: (page) => DropdownButtonFormField<String>(
                             value: _branchId,
+                            focusNode: _branchFocus,
                             decoration: const InputDecoration(labelText: 'Branch *'),
                             items: [
                               for (final b in page.items)
                                 DropdownMenuItem(value: b.id, child: Text(b.name)),
                             ],
                             onChanged: (v) => setState(() => _branchId = v),
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Select a branch';
+                              return null;
+                            },
                           ),
                         )
                       : DropdownButtonFormField<String>(
@@ -379,21 +439,23 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
             title: 'Student Credentials',
             child: Column(
               children: [
-                TextField(
+                TextFormField(
                   controller: _password,
+                  focusNode: _passwordFocus,
                   obscureText: _obscure,
                   decoration: InputDecoration(
                     labelText: 'Student password *',
+                    helperText: 'Student logs in with email + this password. Min 8 characters.',
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Student logs in with email + this password. Min 8 characters.',
-                  style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Password is required';
+                    if (v.length < 8) return 'Password must be at least 8 characters';
+                    return null;
+                  },
                 ),
               ],
             ),
@@ -415,11 +477,20 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 PeopleFormRow(
-                  left: TextField(
+                  left: TextFormField(
                     controller: _parentName,
+                    focusNode: _parentNameFocus,
                     decoration: const InputDecoration(labelText: 'Parent name'),
+                    onChanged: (_) {
+                      if (_autovalidateMode != AutovalidateMode.disabled) setState(() {});
+                    },
+                    validator: (v) {
+                      if (!_parentPortalStarted) return null;
+                      if (v == null || v.trim().isEmpty) return 'Parent name is required';
+                      return null;
+                    },
                   ),
-                  right: TextField(
+                  right: TextFormField(
                     controller: _parentPhone,
                     decoration: const InputDecoration(labelText: 'Parent phone'),
                     keyboardType: TextInputType.phone,
@@ -427,16 +498,29 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 PeopleFormRow(
-                  left: TextField(
+                  left: TextFormField(
                     controller: _parentUsername,
+                    focusNode: _parentUsernameFocus,
                     decoration: const InputDecoration(
                       labelText: 'Parent username',
                       hintText: 'e.g. madina_mom',
                     ),
+                    onChanged: (_) {
+                      if (_autovalidateMode != AutovalidateMode.disabled) setState(() {});
+                    },
+                    validator: (v) {
+                      if (!_parentPortalStarted) return null;
+                      if (v == null || v.trim().isEmpty) return 'Parent username is required';
+                      return null;
+                    },
                   ),
-                  right: TextField(
+                  right: TextFormField(
                     controller: _parentPassword,
+                    focusNode: _parentPasswordFocus,
                     obscureText: _obscureParentPassword,
+                    onChanged: (_) {
+                      if (_autovalidateMode != AutovalidateMode.disabled) setState(() {});
+                    },
                     decoration: InputDecoration(
                       labelText: 'Parent password',
                       suffixIcon: IconButton(
@@ -446,6 +530,12 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                         onPressed: () => setState(() => _obscureParentPassword = !_obscureParentPassword),
                       ),
                     ),
+                    validator: (v) {
+                      if (!_parentPortalStarted) return null;
+                      if (v == null || v.isEmpty) return 'Parent password is required';
+                      if (v.length < 4) return 'Min 4 characters';
+                      return null;
+                    },
                   ),
                 ),
               ],
@@ -529,6 +619,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           ),
           if (subjectsAsync.isLoading) const LinearProgressIndicator(),
         ],
+        ),
       ),
     );
   }

@@ -40,6 +40,8 @@ Both paths are gitignored. Optional: run FlutterFire CLI to generate `lib/fireba
 
 Default FCM channel id: `techren_notifications` (TechRen Notifications). Matches backend `android.notification.channelId`.
 
+Chat uses channel `techren_chat` with **Reply** and **Mark as read** actions. Chat pushes are **data-only on Android** so the app can attach those actions (native FCM tray banners cannot). iOS still gets an APNs alert with category `CHAT_MESSAGE`.
+
 ## Deep links
 
 FCM `data` includes string fields: `eventType`, `notificationId`, `screen`, `conversationId`, etc. Tap opens the matching route after session restore. Foreground: in-app toasts for payment/feedback/attendance/chat; shared `notificationId` / `messageId` dedup avoids triple-fire with Socket.IO.

@@ -30,8 +30,21 @@ const initFirebase = () => {
   return messaging;
 };
 
+const isChatPayload = (data = {}) => {
+  const eventType = String(data.eventType || '').toLowerCase();
+  const screen = String(data.screen || '').toLowerCase();
+  return (
+    eventType.includes('chat') ||
+    eventType.includes('message') ||
+    screen === 'messages' ||
+    screen === 'chat' ||
+    String(data.actions || '') === 'chat'
+  );
+};
+
 /**
  * Send FCM multicast. Returns invalidTokens for pruning.
+ * Chat: Android is data-only so the app can attach Reply / Mark as read actions.
  */
 const sendPush = async ({ tokens, title, body, data = {} }) => {
   if (!tokens?.length) {
@@ -45,6 +58,7 @@ const sendPush = async ({ tokens, title, body, data = {} }) => {
 
   const safeTitle = String(title || 'TechRen').trim() || 'TechRen';
   const safeBody = String(body || 'New notification').trim() || 'New notification';
+  const chat = isChatPayload(data);
 
   if (!messaging) {
     logger.info(`FCM stub → ${unique.length} token(s): ${safeTitle} — ${safeBody}`);
@@ -52,37 +66,49 @@ const sendPush = async ({ tokens, title, body, data = {} }) => {
   }
 
   try {
-    const response = await messaging.sendEachForMulticast({
+    const payloadData = Object.fromEntries(
+      Object.entries({
+        ...data,
+        title: safeTitle,
+        body: safeBody,
+        ...(chat ? { actions: 'chat' } : {}),
+      }).map(([k, v]) => [k, String(v ?? '')])
+    );
+
+    /** @type {import('firebase-admin/messaging').MulticastMessage} */
+    const message = {
       tokens: unique,
-      notification: { title: safeTitle, body: safeBody },
-      data: Object.fromEntries(
-        Object.entries({
-          ...data,
-          title: safeTitle,
-          body: safeBody,
-        }).map(([k, v]) => [k, String(v ?? '')])
-      ),
+      data: payloadData,
       android: {
         priority: 'high',
-        notification: {
-          title: safeTitle,
-          body: safeBody,
-          channelId: 'techren_notifications',
-          priority: 'high',
-          defaultSound: true,
-          // Ensure tray shows text even if the launcher collapses the card.
-          visibility: 'public',
-        },
       },
       apns: {
         payload: {
           aps: {
             alert: { title: safeTitle, body: safeBody },
             sound: 'default',
+            ...(chat ? { category: 'CHAT_MESSAGE' } : {}),
           },
         },
       },
-    });
+    };
+
+    if (chat) {
+      // Data-only on Android so flutter_local_notifications can show Reply / Mark as read.
+      // iOS still gets APNs alert above.
+    } else {
+      message.notification = { title: safeTitle, body: safeBody };
+      message.android.notification = {
+        title: safeTitle,
+        body: safeBody,
+        channelId: 'techren_notifications',
+        priority: 'high',
+        defaultSound: true,
+        visibility: 'public',
+      };
+    }
+
+    const response = await messaging.sendEachForMulticast(message);
 
     const invalidTokens = [];
     response.responses.forEach((res, idx) => {

@@ -409,6 +409,7 @@ const notifyParticipants = async (conversation, message, sender) => {
           senderFirstName: senderProfile?.firstName || '',
           senderProfileImage: senderProfile?.profileImage || null,
           screen: 'messages',
+          actions: 'chat',
           title,
           body,
         },

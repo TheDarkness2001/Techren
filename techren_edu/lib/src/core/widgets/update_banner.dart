@@ -7,9 +7,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../update/app_updater.dart';
 
-/// Shown on dashboards when a newer native build is published.
-/// Tap Update → download inside the app → install over the current app (no uninstall,
-/// no Downloads folder). Android shows one system "Update" confirmation (required by OS).
+/// Shown on login and dashboards when a newer native build is published.
+/// Works before sign-in (status.json is public). Tap Update → download inside the app
+/// → install over the current app. Android shows one system "Update" confirmation.
 class UpdateBanner extends ConsumerStatefulWidget {
   const UpdateBanner({super.key});
 

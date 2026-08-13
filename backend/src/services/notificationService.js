@@ -419,6 +419,12 @@ const maybePushToRecipient = async ({
       if (!ok) return { status: 'skipped', reason: 'student_prefs' };
     }
 
+    const isChat =
+      String(eventType || '').toLowerCase().includes('chat') ||
+      String(eventType || '').toLowerCase().includes('message') ||
+      String(data.screen || '').toLowerCase() === 'messages' ||
+      String(data.actions || '') === 'chat';
+
     const payloadData = {
       eventType: String(eventType || ''),
       screen: screenForEvent(eventType, data),
@@ -429,6 +435,9 @@ const maybePushToRecipient = async ({
       feedbackId: data.feedbackId != null ? String(data.feedbackId) : '',
       postId: data.postId != null ? String(data.postId) : '',
       kind: data.kind != null ? String(data.kind) : '',
+      ...(isChat || data.actions != null ? { actions: String(data.actions || 'chat') } : {}),
+      ...(data.title != null ? { title: String(data.title) } : {}),
+      ...(data.body != null ? { body: String(data.body) } : {}),
     };
 
     return fcmService.sendToUser({

@@ -119,8 +119,43 @@ Future<String?> _markedInstalledVersion() async {
   }
 }
 
+/// Known production hosts for status.json (first reachable wins).
+/// Lets older builds with a wrong/dead API_BASE_URL still discover updates.
+List<Uri> _statusJsonCandidates(Uri primaryOrigin) {
+  final seen = <String>{};
+  final list = <Uri>[];
+  void add(Uri u) {
+    final key = u.toString();
+    if (seen.add(key)) list.add(u);
+  }
+
+  add(primaryOrigin.resolve('/downloads/status.json'));
+  add(Uri.parse('https://techren.up.railway.app/downloads/status.json'));
+  return list;
+}
+
+Future<Map<String, dynamic>?> _fetchStatusJson(Dio dio, List<Uri> urls) async {
+  for (final url in urls) {
+    try {
+      final response = await dio.getUri<dynamic>(
+        url,
+        options: Options(
+          headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+          validateStatus: (code) => code != null && code >= 200 && code < 300,
+        ),
+      );
+      final data = response.data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+    } catch (_) {
+      // try next host
+    }
+  }
+  return null;
+}
+
 /// Resolves to update info when the server has a newer build, otherwise null.
 /// Never throws — a failed check silently means "no update".
+/// Safe to call before login (no auth).
 final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
   // The web build always serves the latest version, no installer to update.
   if (kIsWeb) return null;
@@ -133,16 +168,8 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
       receiveTimeout: const Duration(seconds: 5),
       headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
     ));
-    final response = await dio.getUri<dynamic>(
-      origin.resolve('/downloads/status.json'),
-      options: Options(
-        headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
-      ),
-    );
-    final data = response.data;
-    final map = data is Map
-        ? Map<String, dynamic>.from(data)
-        : throw const FormatException('status.json is not an object');
+    final map = await _fetchStatusJson(dio, _statusJsonCandidates(origin));
+    if (map == null) return null;
     final latestRaw = map['version']?.toString();
     if (latestRaw == null || latestRaw.trim().isEmpty) return null;
     final latest = normalizeVersion(latestRaw);
@@ -165,7 +192,7 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     // the app at Railway /downloads/*.apk — those files are not deployed there.
     return AppUpdateInfo(
       latestVersion: latest,
-      downloadSiteUrl: origin,
+      downloadSiteUrl: Uri.parse('https://techren.up.railway.app'),
       androidApkUrl: _uriOrFallback(
         map['androidUrl'] ?? map['androidApkUrl'],
         _githubAndroidApk,
@@ -187,7 +214,6 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     return null;
   }
 });
-
 /// Compares dotted versions ("1.2.3", build suffix after "+" ignored).
 /// Returns >0 when [a] is newer than [b].
 @visibleForTesting

@@ -9,6 +9,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/appearance_controls.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/update_banner.dart';
+import '../../../providers/app_update_provider.dart';
 import '../../../providers/auth_provider.dart';
 
 /// Split login layout — brand story panel on wide screens (Phase D polish).
@@ -98,6 +100,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildForm({required double maxWidth}) {
     final l10n = context.l10n;
+    // Kick off update check as soon as login is shown (no auth required).
+    ref.watch(appUpdateProvider);
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
@@ -108,6 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            const UpdateBanner(),
             const BrandHeader(),
             const SizedBox(height: AppSpacing.xl),
             AppFormColumn(
