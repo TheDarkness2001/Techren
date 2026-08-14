@@ -37,6 +37,8 @@ export default function Founder() {
   );
 
   slidesLenRef.current = slides.length;
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
   const slide = slides[slideIndex] ?? slides[0];
 
   const onPhaseRef = useRef(() => {});
@@ -55,6 +57,9 @@ export default function Founder() {
     }
   };
 
+  const getSlideRef = useRef(() => slides[0]);
+  getSlideRef.current = () => slidesRef.current[indexRef.current] ?? slidesRef.current[0];
+
   const bootScene = useCallback(() => {
     if (!canvasRef.current || sceneRef.current) return undefined;
     const accent =
@@ -66,6 +71,7 @@ export default function Founder() {
         color: accent,
         reducedMotion: prefersReducedMotion(),
         onPhase: (phase) => onPhaseRef.current(phase),
+        getSlide: () => getSlideRef.current(),
       });
     });
     return () => {
@@ -108,29 +114,19 @@ export default function Founder() {
     >
       <div className="about-bg" aria-hidden="true">
         <div className="about-canvas" ref={canvasRef} />
-        <div className="about-bg-veil" />
+        <div className="about-bg-veil about-bg-veil-soft" />
       </div>
 
-      <div className="container about-foreground" aria-hidden={!panelOpen}>
+      <div className="container about-foreground about-foreground-caption" aria-hidden={!panelOpen}>
         <div className="about-panel" key={slide.id}>
           <p className="section-kicker">{slide.kicker}</p>
           <h2 id="about-title">{slide.title}</h2>
           <p className="about-lead">{slide.lead}</p>
-
-          {slide.kind === 'academy' ? (
-            <ul className="about-points">
-              {slide.points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          ) : (
-            <>
-              <p className="about-course-topics">{slide.topics.join(' · ')}</p>
-              <a className="about-course-link" href={slide.href}>
-                Explore {slide.title}
-              </a>
-            </>
-          )}
+          {slide.kind === 'course' ? (
+            <a className="about-course-link" href={slide.href}>
+              Explore {slide.title}
+            </a>
+          ) : null}
         </div>
 
         <div className="about-slide-dots" role="tablist" aria-label="About slides">
@@ -145,12 +141,14 @@ export default function Founder() {
                 indexRef.current = i;
                 setSlideIndex(i);
                 setPanelOpen(true);
+                sceneRef.current?.setSlide?.();
               }}
             >
               <span className="sr-only">{item.title}</span>
             </button>
           ))}
         </div>
+        <p className="about-hint">Click a cube to recolor it</p>
       </div>
     </section>
   );

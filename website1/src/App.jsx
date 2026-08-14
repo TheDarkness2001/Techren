@@ -5,7 +5,7 @@ import CustomCursor from './components/CustomCursor';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Founder from './components/Founder';
-import Programming from './components/Programming';
+import Programs from './components/Programs';
 import Projects from './components/Projects';
 import English from './components/English';
 import TechRenApp from './components/TechRenApp';
@@ -39,7 +39,7 @@ function Page() {
       <main id="main">
         <Hero start={ready} />
         <Founder />
-        <Programming />
+        <Programs />
         <Projects />
         <English />
         <TechRenApp />
