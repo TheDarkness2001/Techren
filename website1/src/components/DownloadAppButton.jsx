@@ -38,7 +38,7 @@ function platformLabel(platform) {
 export default function DownloadAppButton({
   className = 'btn btn-primary magnetic',
   label = 'Download App',
-  showPlatformHint = true,
+  showPlatformHint = false,
 }) {
   const [platform, setPlatform] = useState('other');
   const [urls, setUrls] = useState(DEFAULTS);
