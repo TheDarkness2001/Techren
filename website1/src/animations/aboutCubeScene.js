@@ -2,15 +2,21 @@ import * as THREE from 'three';
 import { animate, createTimer, stagger, utils } from 'animejs4';
 import { getInstances } from 'animejs4/adapters/three';
 
+const OPEN_MS = 2800;
+const CLOSE_MS = 2800;
+const HOLD_MS = 900;
+const GAP_MS = 700;
+
 /**
- * Smooth InstancedMesh cube field (anime.js Three adapter style).
- * Returns { destroy, replay }.
+ * Smooth InstancedMesh cube field.
+ * Calls options.onPhase('open' | 'close' | 'advance') in sync with expand/contract.
  */
 export function createAboutCubeScene(container, options = {}) {
   if (!container) return { destroy() {}, replay() {} };
 
   const colorHex = options.color || '#5ce1b8';
   const reduced = options.reducedMotion === true;
+  const onPhase = typeof options.onPhase === 'function' ? options.onPhase : () => {};
 
   const { clientWidth: width, clientHeight: height } = container;
   const w = Math.max(width, 320);
@@ -52,10 +58,24 @@ export function createAboutCubeScene(container, options = {}) {
   scene.add(mesh);
 
   const animations = [];
+  const timeouts = [];
   let timer = null;
   let instances = null;
+  let bases = [];
+  let stopped = false;
+
+  const trackTimeout = (fn, ms) => {
+    const id = window.setTimeout(fn, ms);
+    timeouts.push(id);
+    return id;
+  };
+
+  const clearTimeouts = () => {
+    while (timeouts.length) window.clearTimeout(timeouts.pop());
+  };
 
   const stopAnims = () => {
+    clearTimeouts();
     animations.splice(0).forEach((a) => {
       try {
         a.pause();
@@ -66,7 +86,50 @@ export function createAboutCubeScene(container, options = {}) {
     });
   };
 
+  const staggerDelay = () =>
+    stagger([0, 500], { grid: true, from: 'center', reversed: true, ease: 'in(3)' });
+
+  const playExpand = () => {
+    if (stopped || !instances) return;
+    onPhase('open');
+    const a = animate(instances, {
+      x: (_, i) => bases[i].x * 10,
+      y: (_, i) => bases[i].y * 10,
+      z: (_, i) => bases[i].z * 10,
+      duration: OPEN_MS,
+      delay: staggerDelay(),
+      ease: 'inOutExpo',
+      onComplete: () => {
+        if (stopped) return;
+        trackTimeout(playContract, HOLD_MS);
+      },
+    });
+    animations.push(a);
+  };
+
+  const playContract = () => {
+    if (stopped || !instances) return;
+    onPhase('close');
+    trackTimeout(() => {
+      if (!stopped) onPhase('advance');
+    }, 420);
+    const a = animate(instances, {
+      x: (_, i) => bases[i].x,
+      y: (_, i) => bases[i].y,
+      z: (_, i) => bases[i].z,
+      duration: CLOSE_MS,
+      delay: staggerDelay(),
+      ease: 'inOutExpo',
+      onComplete: () => {
+        if (stopped) return;
+        trackTimeout(playExpand, GAP_MS);
+      },
+    });
+    animations.push(a);
+  };
+
   const layoutAndAnimate = () => {
+    stopped = false;
     stopAnims();
     instances = getInstances(mesh);
 
@@ -76,15 +139,18 @@ export function createAboutCubeScene(container, options = {}) {
       z: stagger([-spread, spread], { grid: [gridSize, gridSize, gridSize], axis: 'z' }),
     });
 
+    bases = instances.map((inst) => ({ x: inst.x, y: inst.y, z: inst.z }));
+
     if (reduced) {
+      onPhase('open');
       renderer.render(scene, camera);
       return;
     }
 
     animations.push(
       animate(mesh, {
-        rotateY: { to: 360, duration: 9000 },
-        rotateX: { to: 360, duration: 12000 },
+        rotateY: { to: 360, duration: 18000 },
+        rotateX: { to: 360, duration: 24000 },
         loop: true,
         ease: 'inOutQuad',
       }),
@@ -92,28 +158,16 @@ export function createAboutCubeScene(container, options = {}) {
 
     animations.push(
       animate(pointLight, {
-        intensity: [30, 0],
-        duration: 2500,
+        intensity: [22, 2],
+        duration: 4000,
         loop: true,
-        loopDelay: 500,
+        loopDelay: 700,
         alternate: true,
         ease: 'out(3)',
       }),
     );
 
-    animations.push(
-      animate(instances, {
-        x: (instance) => instance.x * 10,
-        y: (instance) => instance.y * 10,
-        z: (instance) => instance.z * 10,
-        duration: 2000,
-        delay: stagger([0, 500], { grid: true, from: 'center', reversed: true, ease: 'in(3)' }),
-        loop: true,
-        loopDelay: 500,
-        alternate: true,
-        ease: 'inOutExpo',
-      }),
-    );
+    playExpand();
   };
 
   layoutAndAnimate();
@@ -151,6 +205,7 @@ export function createAboutCubeScene(container, options = {}) {
       material.color.set(hex);
     },
     destroy() {
+      stopped = true;
       stopAnims();
       try {
         timer?.pause();
