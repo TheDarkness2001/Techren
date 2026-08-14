@@ -1,11 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { programmingPath } from '../data/content';
 import { playGeneric } from '../animations/scrollAnimations';
+import { startProgramLayout } from '../animations/programLayout';
 
 export default function Programs() {
   const ref = useRef(null);
 
-  useEffect(() => playGeneric(ref.current, '.program-panel, .program-step'), []);
+  useEffect(() => {
+    const cleanReveal = playGeneric(ref.current, '.program-panel, .program-layout');
+    const cleanLayout = startProgramLayout(ref.current);
+    return () => {
+      cleanReveal();
+      cleanLayout();
+    };
+  }, []);
 
   return (
     <section className="section" id="programming" ref={ref} aria-labelledby="programming-title">
@@ -41,19 +49,36 @@ export default function Programs() {
           </a>
         </div>
 
-        <ol className="program-path">
-          {programmingPath.map((step, i) => (
-            <li className="program-step" key={step.name}>
-              <p className="program-step-index">{String(i + 1).padStart(2, '0')}</p>
-              <div>
-                <p className="program-step-level">{step.level}</p>
+        <div className="program-layout" data-program-layout data-grid="1">
+          <div className="program-layout-chrome">
+            <p className="program-layout-title">Layout</p>
+            <button type="button" className="program-layout-replay" data-layout-replay aria-label="Replay layout animation">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                <path d="M4 12a8 8 0 0113.66-5.66M20 12a8 8 0 01-13.66 5.66" strokeLinecap="round" />
+                <path d="M18 4v4h-4M6 20v-4h4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <ol className="program-layout-grid">
+            {programmingPath.map((step, i) => (
+              <li
+                className="program-layout-item"
+                key={step.name}
+                data-layout-id={step.name.toLowerCase()}
+                style={{ '--i': i }}
+              >
+                <p className="program-step-meta">
+                  <span>{String(i + 1).padStart(2, '0')}</span>
+                  <span>{step.level}</span>
+                </p>
                 <h3>{step.name}</h3>
-                <p>{step.desc}</p>
+                <p className="program-step-desc">{step.desc}</p>
                 <p className="program-step-build">Build: {step.build}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
   );
