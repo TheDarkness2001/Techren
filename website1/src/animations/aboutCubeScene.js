@@ -8,7 +8,18 @@ const ZOOM_MS = 1200;
 const HOLD_MS = 10000;
 const GAP_MS = 500;
 
-const PALETTE = ['#0f9f7e', '#5ce1b8', '#38bdf8', '#a78bfa', '#f59e0b', '#f472b6', '#34d399', '#60a5fa'];
+const PALETTE = [
+  '#22d3a6', // mint
+  '#34d399', // green
+  '#2dd4bf', // teal
+  '#38bdf8', // sky
+  '#60a5fa', // blue
+  '#a78bfa', // violet
+  '#f472b6', // pink
+  '#fb7185', // rose
+  '#fbbf24', // amber
+  '#a3e635', // lime
+];
 
 function wrapLines(ctx, text, maxWidth, maxLines = 6) {
   const words = String(text || '')
@@ -92,7 +103,7 @@ function randomColor() {
 export function createAboutCubeScene(container, options = {}) {
   if (!container) return { destroy() {}, replay() {}, setSlide() {} };
 
-  const colorHex = options.color || '#0f9f7e';
+  const colorHex = options.color || '#22d3a6';
   const reduced = options.reducedMotion === true;
   const onPhase = typeof options.onPhase === 'function' ? options.onPhase : () => {};
   const getSlide =
@@ -115,6 +126,9 @@ export function createAboutCubeScene(container, options = {}) {
   renderer.setClearColor(0xffffff, 1);
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
   renderer.domElement.className = 'about-webgl';
   renderer.domElement.style.cursor = 'pointer';
   container.appendChild(renderer.domElement);
@@ -127,13 +141,16 @@ export function createAboutCubeScene(container, options = {}) {
   camera.position.copy(camHome);
   camera.lookAt(0, 0, 0);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-  const key = new THREE.DirectionalLight(0xffffff, 1.15);
-  key.position.set(3, 5, 6);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.05));
+  const key = new THREE.DirectionalLight(0xffffff, 1.55);
+  key.position.set(4, 6, 7);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.45);
-  fill.position.set(-4, 2, 2);
+  const fill = new THREE.DirectionalLight(0xdbeafe, 0.75);
+  fill.position.set(-5, 2, 3);
   scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xfef3c7, 0.45);
+  rim.position.set(0, -2, -4);
+  scene.add(rim);
 
   const gridSize = 4;
   const cellSize = 2 / gridSize;
@@ -143,18 +160,20 @@ export function createAboutCubeScene(container, options = {}) {
 
   const geometry = new THREE.BoxGeometry(cellSize * 0.88, cellSize * 0.88, cellSize * 0.88);
   const material = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(colorHex),
-    roughness: 0.35,
-    metalness: 0.05,
+    color: 0xffffff,
+    roughness: 0.28,
+    metalness: 0.12,
+    emissive: new THREE.Color('#0f766e'),
+    emissiveIntensity: 0.12,
   });
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
+  // Bright multi-color field — each cube gets a vivid palette color
   const colorAttr = new Float32Array(count * 3);
-  const seed = new THREE.Color(colorHex);
   for (let i = 0; i < count; i += 1) {
-    // Slight variation so the field isn’t flat
-    const c = seed.clone().offsetHSL((i % 7) * 0.01, 0, ((i % 5) - 2) * 0.02);
+    const c = new THREE.Color(PALETTE[i % PALETTE.length]);
+    c.offsetHSL(0, 0.05, ((i * 3) % 7) * 0.015);
     c.toArray(colorAttr, i * 3);
   }
   mesh.instanceColor = new THREE.InstancedBufferAttribute(colorAttr, 3);
@@ -165,13 +184,15 @@ export function createAboutCubeScene(container, options = {}) {
   let faceTexture = createFaceTexture(getSlide(), colorHex);
   const faceMat = new THREE.MeshStandardMaterial({
     map: faceTexture,
-    roughness: 0.55,
+    roughness: 0.5,
     metalness: 0.02,
   });
   const sideMat = new THREE.MeshStandardMaterial({
     color: new THREE.Color(colorHex),
-    roughness: 0.4,
-    metalness: 0.08,
+    roughness: 0.28,
+    metalness: 0.1,
+    emissive: new THREE.Color(colorHex),
+    emissiveIntensity: 0.22,
   });
   // +Z face is the “front” we keep toward the camera
   const focusMats = [sideMat, sideMat, sideMat, sideMat, faceMat, sideMat];

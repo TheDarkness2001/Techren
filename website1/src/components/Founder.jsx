@@ -53,13 +53,11 @@ export default function Founder() {
 
   const bootScene = useCallback(() => {
     if (!canvasRef.current || sceneRef.current) return undefined;
-    const accent =
-      getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#0f9f7e';
     let cancelled = false;
     import('../animations/aboutCubeScene').then(({ createAboutCubeScene }) => {
       if (cancelled || !canvasRef.current || sceneRef.current) return;
       sceneRef.current = createAboutCubeScene(canvasRef.current, {
-        color: accent,
+        color: '#22d3a6',
         reducedMotion: prefersReducedMotion(),
         onPhase: (phase) => onPhaseRef.current(phase),
         getSlide: () => getSlideRef.current(),
