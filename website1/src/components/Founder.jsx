@@ -1,28 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { aboutTopics } from '../data/content';
+import { aboutAcademy, aboutCourses } from '../data/content';
 import { prefersReducedMotion } from '../animations/utils';
-
-const CYCLE_MS = 5200;
-
-function TopicIcon({ path, label }) {
-  return (
-    <li className="about-icon" title={label}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-        <path d={path} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span>{label}</span>
-    </li>
-  );
-}
 
 export default function Founder() {
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(false);
-
-  const topic = aboutTopics[index];
+  const [open, setOpen] = useState(false);
 
   const bootScene = useCallback(() => {
     if (!canvasRef.current || sceneRef.current) return;
@@ -49,10 +33,10 @@ export default function Founder() {
     const io = new IntersectionObserver(
       ([entry]) => {
         const on = entry?.isIntersecting === true;
-        setVisible(on);
+        setOpen(on);
         if (on) cancelBoot = bootScene();
       },
-      { threshold: 0.2 },
+      { threshold: 0.28 },
     );
     io.observe(root);
     return () => {
@@ -63,73 +47,39 @@ export default function Founder() {
     };
   }, [bootScene]);
 
-  useEffect(() => {
-    if (!visible || prefersReducedMotion() || aboutTopics.length < 2) return undefined;
-    const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % aboutTopics.length);
-    }, CYCLE_MS);
-    return () => window.clearInterval(id);
-  }, [visible]);
-
-  const replay = () => {
-    sceneRef.current?.replay();
-  };
-
-  const selectTopic = (i) => {
-    setIndex(i);
-    sceneRef.current?.replay();
-  };
-
   return (
-    <section className="section about-section" id="about" ref={sectionRef} aria-labelledby="about-title">
-      <div className="container about-layout">
-        <div className="about-stage">
-          <div className="about-stage-chrome">
-            <div className="about-stage-heading">
-              <p className="about-topic" id="about-title" key={topic.id}>
-                {topic.topic}
-              </p>
-              <span className="about-pill">{topic.badge}</span>
-            </div>
-            <div className="about-stage-actions">
-              <button type="button" className="about-icon-btn" onClick={replay} aria-label="Replay animation">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                  <path d="M4 12a8 8 0 0113.66-5.66M20 12a8 8 0 01-13.66 5.66" strokeLinecap="round" />
-                  <path d="M18 4v4h-4M6 20v-4h4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="about-canvas" ref={canvasRef} />
-        </div>
+    <section
+      className={`section about-section${open ? ' is-open' : ''}`}
+      id="about"
+      ref={sectionRef}
+      aria-labelledby="about-title"
+    >
+      <div className="about-bg" aria-hidden="true">
+        <div className="about-canvas" ref={canvasRef} />
+        <div className="about-bg-veil" />
+      </div>
 
-        <div className="about-copy">
-          <p className="section-kicker">About TechRen</p>
-          <p className="about-intro" key={`intro-${topic.id}`}>
-            {topic.intro}
-          </p>
-          <ul className="about-icons" key={`icons-${topic.id}`}>
-            {topic.icons.map((icon) => (
-              <TopicIcon key={icon.label} path={icon.path} label={icon.label} />
+      <div className="container about-foreground">
+        <div className="about-panel">
+          <p className="section-kicker">{aboutAcademy.kicker}</p>
+          <h2 id="about-title">{aboutAcademy.title}</h2>
+          <p className="about-lead">{aboutAcademy.lead}</p>
+          <ul className="about-points">
+            {aboutAcademy.points.map((point) => (
+              <li key={point}>{point}</li>
             ))}
           </ul>
-          <p className="about-subject" key={`subject-${topic.id}`}>
-            {topic.subject}
-          </p>
-          <div className="about-dots" role="tablist" aria-label="About topics">
-            {aboutTopics.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={i === index}
-                className={i === index ? 'is-active' : undefined}
-                onClick={() => selectTopic(i)}
-              >
-                <span className="sr-only">{item.topic}</span>
-              </button>
-            ))}
-          </div>
+        </div>
+
+        <div className="about-courses" aria-label="Courses">
+          {aboutCourses.map((course) => (
+            <a className="about-course" href={course.href} key={course.id}>
+              <p className="about-course-kicker">Course</p>
+              <h3>{course.title}</h3>
+              <p>{course.summary}</p>
+              <p className="about-course-topics">{course.topics.join(' · ')}</p>
+            </a>
+          ))}
         </div>
       </div>
     </section>
