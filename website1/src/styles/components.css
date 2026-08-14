@@ -1597,24 +1597,24 @@
   }
 }
 
-/* About — 3D cubes in the background, course / TechRen info in front */
+/* About — white stage, cube zoom carries the story */
 .about-section {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   min-height: min(92vh, 820px);
   display: grid;
-  align-items: center;
-  padding-block: clamp(4rem, 9vw, 7rem);
+  align-items: stretch;
+  padding-block: 0;
+  background: #ffffff;
 }
 
 .about-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
-  background: #120e18;
-  background: color-mix(in srgb, #120e18 90%, var(--accent) 10%);
+  background: #ffffff;
+  pointer-events: auto;
 }
 
 .about-canvas {
@@ -1626,122 +1626,55 @@
   display: block;
   width: 100%;
   height: 100%;
-  opacity: 0.92;
 }
 
-.about-bg-veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(8, 6, 12, 0.72) 0%, rgba(8, 6, 12, 0.28) 38%, rgba(8, 6, 12, 0.18) 100%),
-    radial-gradient(ellipse at 62% 48%, transparent 0%, rgba(8, 6, 12, 0.45) 78%);
-}
-
-.about-bg-veil-soft {
-  background:
-    linear-gradient(180deg, rgba(8, 6, 12, 0.35) 0%, rgba(8, 6, 12, 0.2) 40%, rgba(8, 6, 12, 0.55) 100%),
-    radial-gradient(ellipse at 55% 45%, transparent 10%, rgba(8, 6, 12, 0.4) 75%);
-}
-
-.about-foreground {
+.about-chrome {
   position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
-  align-items: end;
-  max-width: 34rem;
-  opacity: 0;
-  transform: translateY(24px) scale(0.985);
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(92vh, 820px);
+  padding-bottom: clamp(1.4rem, 4vw, 2.4rem);
   pointer-events: none;
-  transition:
-    opacity 0.55s var(--ease),
-    transform 0.55s var(--ease);
 }
 
-.about-foreground-caption {
-  margin-top: min(42vh, 340px);
+.about-chrome-bar {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 0.75rem;
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.45s var(--ease),
+    transform 0.45s var(--ease);
+  pointer-events: none;
+}
+
+.about-chrome-bar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.about-chrome-label {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .about-hint {
   margin: 0;
   font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  color: rgba(244, 244, 241, 0.45);
-}
-
-.about-section.is-open .about-foreground {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.about-panel {
-  color: #f4f4f1;
-  max-width: 36rem;
-}
-
-.about-panel .section-kicker {
-  color: color-mix(in srgb, var(--accent) 80%, #fff 20%);
-}
-
-.about-panel h2 {
-  font-family: var(--font-display);
-  font-size: clamp(2.1rem, 4.4vw, 3.6rem);
-  letter-spacing: -0.045em;
-  line-height: 1.05;
-  margin-top: 0.55rem;
-  color: #f7f7f4;
-}
-
-.about-lead {
-  margin-top: 1.1rem;
-  color: rgba(244, 244, 241, 0.78);
-  font-size: clamp(1.02rem, 1.5vw, 1.18rem);
-  line-height: 1.5;
-  max-width: 38ch;
-}
-
-.about-points {
-  list-style: none;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.about-points li {
-  position: relative;
-  padding-left: 1.15rem;
-  color: rgba(244, 244, 241, 0.72);
-  font-size: 0.98rem;
-  line-height: 1.45;
-  max-width: 42ch;
-}
-
-.about-points li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.55em;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-.about-course-topics {
-  margin-top: 1.2rem;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: rgba(244, 244, 241, 0.55);
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
 }
 
 .about-course-link {
   display: inline-flex;
-  margin-top: 1.25rem;
-  color: color-mix(in srgb, var(--accent) 80%, #fff 20%);
+  width: fit-content;
+  color: var(--accent);
   font-family: var(--font-display);
   font-size: 0.95rem;
   text-decoration: none;
@@ -1751,7 +1684,7 @@
 }
 
 .about-course-link:hover {
-  color: #fff;
+  color: var(--text);
 }
 
 .about-slide-dots {
@@ -1765,7 +1698,7 @@
   border-radius: 999px;
   border: 0;
   padding: 0;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(17, 17, 19, 0.18);
   cursor: pointer;
 }
 
@@ -1775,14 +1708,9 @@
 }
 
 @media (max-width: 900px) {
-  .about-section {
-    min-height: auto;
-  }
-
-  .about-bg-veil {
-    background:
-      linear-gradient(180deg, rgba(8, 6, 12, 0.72) 0%, rgba(8, 6, 12, 0.82) 55%, rgba(8, 6, 12, 0.92) 100%),
-      radial-gradient(ellipse at 50% 20%, transparent 0%, rgba(8, 6, 12, 0.45) 80%);
+  .about-section,
+  .about-chrome {
+    min-height: min(88vh, 720px);
   }
 }
 
