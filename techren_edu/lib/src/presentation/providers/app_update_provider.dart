@@ -130,6 +130,7 @@ List<Uri> _statusJsonCandidates(Uri primaryOrigin) {
   }
 
   add(primaryOrigin.resolve('/downloads/status.json'));
+  add(Uri.parse('https://www.techrenacademy.com/downloads/status.json'));
   add(Uri.parse('https://techren.up.railway.app/downloads/status.json'));
   return list;
 }
@@ -192,7 +193,7 @@ final appUpdateProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     // the app at Railway /downloads/*.apk — those files are not deployed there.
     return AppUpdateInfo(
       latestVersion: latest,
-      downloadSiteUrl: Uri.parse('https://techren.up.railway.app'),
+      downloadSiteUrl: Uri.parse('https://www.techrenacademy.com'),
       androidApkUrl: _uriOrFallback(
         map['androidUrl'] ?? map['androidApkUrl'],
         _githubAndroidApk,
