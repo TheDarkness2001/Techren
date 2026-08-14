@@ -125,5 +125,5 @@ class AppUser extends Equatable {
       };
 
   @override
-  List<Object?> get props => [id, email, userType, role, status];
+  List<Object?> get props => [id, email, userType, role, status, profileImage];
 }

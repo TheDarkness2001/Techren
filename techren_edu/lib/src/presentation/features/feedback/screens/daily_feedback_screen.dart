@@ -46,6 +46,8 @@ class _DailyFeedbackScreenState extends ConsumerState<DailyFeedbackScreen> {
       student: student,
       onSubmit: ({
         required homework,
+        required words,
+        required sentence,
         required behavior,
         required participation,
         required isExamDay,
@@ -57,6 +59,8 @@ class _DailyFeedbackScreenState extends ConsumerState<DailyFeedbackScreen> {
               studentId: student.id,
               classScheduleId: session.schedule.id,
               homework: homework,
+              words: words,
+              sentence: sentence,
               behavior: behavior,
               participation: participation,
               isExamDay: isExamDay,

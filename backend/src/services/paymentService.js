@@ -311,13 +311,18 @@ const listRoster = async (req) => {
     ];
   }
 
-  const students = await Student.find(studentFilter).sort({ name: 1 }).limit(200);
+  const students = await Student.find(studentFilter).limit(200);
   if (!students.length) {
     return { items: [], meta: { month, year, total: 0 } };
   }
 
   const studentIds = students.map((s) => s._id);
   const duesMap = await buildDuesByStudent({ studentIds, month, year, branchFilter });
+
+  const studentCodeSortKey = (code) => {
+    const digits = String(code || '').replace(/\D/g, '');
+    return digits ? Number(digits) : Number.MAX_SAFE_INTEGER;
+  };
 
   const items = students.map((student) => {
     const dues = duesMap.get(String(student._id)) || {
@@ -335,9 +340,10 @@ const listRoster = async (req) => {
     };
   });
 
-  // Prefer students who have courses; still show others so fees can be recorded.
+  // Ascending by numeric student ID (##0004 before ##0012); name as tiebreaker.
   items.sort((a, b) => {
-    if (a.overallStatus !== b.overallStatus) return a.overallStatus === 'unpaid' ? -1 : 1;
+    const byId = studentCodeSortKey(a.studentCode) - studentCodeSortKey(b.studentCode);
+    if (byId !== 0) return byId;
     return a.name.localeCompare(b.name);
   });
 

@@ -6,8 +6,11 @@ import '../theme/app_durations.dart';
 import '../theme/app_spacing.dart';
 import '../theme/staff_shell_colors.dart';
 import '../utils/responsive.dart';
+import '../../domain/entities/app_user.dart';
 import '../../presentation/providers/auth_provider.dart';
+import '../../presentation/providers/parent_provider.dart';
 import '../../presentation/providers/staff_navigation_provider.dart';
+import 'person_avatar.dart';
 import 'staff_navigation.dart';
 import 'staff_permissions.dart';
 import 'staff_shell_shortcuts.dart';
@@ -190,7 +193,16 @@ class AdaptiveScaffold extends ConsumerWidget {
     // —— Student / teacher / parent compact ——
     if (size == ScreenSize.compact) {
       return Scaffold(
-        appBar: AppBar(title: Text(title), actions: actions),
+        appBar: AppBar(
+          title: Text(title),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(child: _ShellProfileAvatar(user: user, radius: 16)),
+            ),
+            ...?actions,
+          ],
+        ),
         body: animatedBody,
         floatingActionButton: floatingActionButton,
         bottomNavigationBar: Semantics(
@@ -224,14 +236,7 @@ class AdaptiveScaffold extends ConsumerWidget {
                   : NavigationRailLabelType.selected,
               leading: Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Image.asset('assets/branding/logo.png', fit: BoxFit.contain),
-                  ),
-                ),
+                child: _ShellProfileAvatar(user: user, radius: 22),
               ),
               destinations: [
                 for (final item in navItems)
@@ -257,6 +262,50 @@ class AdaptiveScaffold extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Student/parent navbar avatar — uses student photo, or first child photo for parents.
+class _ShellProfileAvatar extends ConsumerWidget {
+  const _ShellProfileAvatar({required this.user, this.radius = 20});
+
+  final AppUser? user;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (user == null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Image.asset('assets/branding/logo.png', fit: BoxFit.contain),
+        ),
+      );
+    }
+
+    var name = user!.name;
+    var image = user!.profileImage;
+    var isStudent = user!.isStudent || user!.isParent;
+
+    if (user!.isParent) {
+      final children = ref.watch(parentChildrenProvider).valueOrNull;
+      if (children != null && children.isNotEmpty) {
+        final child = children.first;
+        name = child.name;
+        image = child.profileImage ?? image;
+        isStudent = true;
+      }
+    }
+
+    return PersonAvatar(
+      name: name,
+      profileImage: image,
+      radius: radius,
+      isStudent: isStudent,
+      isActive: true,
     );
   }
 }

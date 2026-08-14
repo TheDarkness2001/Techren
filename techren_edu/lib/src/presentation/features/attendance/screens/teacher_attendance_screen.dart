@@ -7,6 +7,7 @@ import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/attendance.dart';
 import '../../../providers/attendance_provider.dart';
+import '../../feedback/widgets/daily_feedback_widgets.dart';
 import '../widgets/student_attendance_widgets.dart';
 
 class TeacherAttendancePage extends ConsumerStatefulWidget {
@@ -216,7 +217,13 @@ class _TeacherAttendancePageState extends ConsumerState<TeacherAttendancePage> {
 
   Future<void> _showFeedback(BuildContext context, TodayClassSession session, StudentAttendanceRow student) async {
     final messenger = ScaffoldMessenger.of(context);
+    final isEnglish = isEnglishFeedbackSubject(
+      session.schedule.subjectName,
+      session.schedule.className,
+    );
     int homework = 80;
+    int words = 80;
+    int sentence = 80;
     int behavior = 80;
     int participation = 80;
     bool isExamDay = false;
@@ -239,7 +246,11 @@ class _TeacherAttendancePageState extends ConsumerState<TeacherAttendancePage> {
             children: [
               Text('Feedback — ${student.name}', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: AppSpacing.md),
-              _SliderRow(label: 'Homework', value: homework.toDouble(), onChanged: (v) => setSheetState(() => homework = v.round())),
+              if (isEnglish) ...[
+                _SliderRow(label: 'Words', value: words.toDouble(), onChanged: (v) => setSheetState(() => words = v.round())),
+                _SliderRow(label: 'Sentence', value: sentence.toDouble(), onChanged: (v) => setSheetState(() => sentence = v.round())),
+              ] else
+                _SliderRow(label: 'Homework', value: homework.toDouble(), onChanged: (v) => setSheetState(() => homework = v.round())),
               _SliderRow(label: 'Behavior', value: behavior.toDouble(), onChanged: (v) => setSheetState(() => behavior = v.round())),
               _SliderRow(label: 'Participation', value: participation.toDouble(), onChanged: (v) => setSheetState(() => participation = v.round())),
               SwitchListTile(
@@ -255,7 +266,9 @@ class _TeacherAttendancePageState extends ConsumerState<TeacherAttendancePage> {
                   await ref.read(attendanceApiProvider).submitFeedback(
                         studentId: student.id,
                         classScheduleId: session.schedule.id,
-                        homework: homework,
+                        homework: isEnglish ? 0 : homework,
+                        words: isEnglish ? words : 0,
+                        sentence: isEnglish ? sentence : 0,
                         behavior: behavior,
                         participation: participation,
                         isExamDay: isExamDay,

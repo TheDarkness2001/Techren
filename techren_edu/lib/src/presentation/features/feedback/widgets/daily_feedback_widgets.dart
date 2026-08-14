@@ -482,6 +482,8 @@ Future<bool?> showAddDailyFeedbackDialog({
   required StudentAttendanceRow student,
   required Future<void> Function({
     required int homework,
+    required int words,
+    required int sentence,
     required int behavior,
     required int participation,
     required bool isExamDay,
@@ -500,6 +502,12 @@ Future<bool?> showAddDailyFeedbackDialog({
   );
 }
 
+bool isEnglishFeedbackSubject(String? subjectName, [String? className]) {
+  final subject = (subjectName ?? '').trim().toLowerCase();
+  final cls = (className ?? '').trim().toLowerCase();
+  return subject.contains('english') || cls.contains('english');
+}
+
 class _AddDailyFeedbackDialog extends StatefulWidget {
   const _AddDailyFeedbackDialog({
     required this.session,
@@ -511,6 +519,8 @@ class _AddDailyFeedbackDialog extends StatefulWidget {
   final StudentAttendanceRow student;
   final Future<void> Function({
     required int homework,
+    required int words,
+    required int sentence,
     required int behavior,
     required int participation,
     required bool isExamDay,
@@ -525,6 +535,8 @@ class _AddDailyFeedbackDialog extends StatefulWidget {
 
 class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
   double _homework = 80;
+  double _words = 80;
+  double _sentence = 80;
   double _behavior = 80;
   double _participation = 80;
   bool _isExamDay = false;
@@ -532,6 +544,11 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
   DateTime _feedbackDate = DateTime.now();
   final _notesController = TextEditingController();
   bool _saving = false;
+
+  bool get _isEnglish => isEnglishFeedbackSubject(
+        widget.session.schedule.subjectName,
+        widget.session.schedule.className,
+      );
 
   @override
   void dispose() {
@@ -553,7 +570,9 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
     setState(() => _saving = true);
     try {
       await widget.onSubmit(
-        homework: _homework.round(),
+        homework: _isEnglish ? 0 : _homework.round(),
+        words: _isEnglish ? _words.round() : 0,
+        sentence: _isEnglish ? _sentence.round() : 0,
         behavior: _behavior.round(),
         participation: _participation.round(),
         isExamDay: _isExamDay,
@@ -574,6 +593,7 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
   @override
   Widget build(BuildContext context) {
     final classLabel = widget.session.schedule.className;
+    final subjectLabel = widget.session.schedule.subjectName ?? 'General';
 
     return Dialog(
       insetPadding: AppSpacing.dialogInset,
@@ -587,8 +607,37 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.sm, 0),
               child: Row(
                 children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(context).colorScheme.primary.withValues(alpha: 0.65),
+                        ],
+                      ),
+                    ),
+                    child: const Icon(Icons.rate_review_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text('Add Daily Feedback', style: Theme.of(context).textTheme.titleLarge),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Daily feedback',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          widget.student.name,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: context.semantic.textMuted,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                 ],
@@ -603,18 +652,32 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.primaryContainer,
+                            Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.45),
+                          ],
+                        ),
                         borderRadius: AppRadius.card,
-                        border: Border(
-                          left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 4),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                         ),
                       ),
-                      child: Text(
-                        'Class: $classLabel',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.class_outlined, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              '$classLabel · $subjectLabel'
+                              '${_isEnglish ? ' · Words & Sentence' : ''}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -658,12 +721,28 @@ class _AddDailyFeedbackDialogState extends State<_AddDailyFeedbackDialog> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    GradientMetricSlider(
-                      label: 'Homework',
-                      icon: Icons.menu_book_outlined,
-                      value: _homework,
-                      onChanged: (v) => setState(() => _homework = v),
-                    ),
+                    if (_isEnglish) ...[
+                      GradientMetricSlider(
+                        label: 'Words',
+                        icon: Icons.spellcheck_outlined,
+                        value: _words,
+                        onChanged: (v) => setState(() => _words = v),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      GradientMetricSlider(
+                        label: 'Sentence',
+                        icon: Icons.short_text_outlined,
+                        value: _sentence,
+                        onChanged: (v) => setState(() => _sentence = v),
+                      ),
+                    ] else ...[
+                      GradientMetricSlider(
+                        label: 'Homework',
+                        icon: Icons.menu_book_outlined,
+                        value: _homework,
+                        onChanged: (v) => setState(() => _homework = v),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.md),
                     GradientMetricSlider(
                       label: 'Behavior',

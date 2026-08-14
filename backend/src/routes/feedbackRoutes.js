@@ -31,6 +31,8 @@ router.post(
   body('studentId').isMongoId(),
   body('classScheduleId').isMongoId(),
   body('homework').optional().isInt({ min: 0, max: 100 }),
+  body('words').optional().isInt({ min: 0, max: 100 }),
+  body('sentence').optional().isInt({ min: 0, max: 100 }),
   body('behavior').optional().isInt({ min: 0, max: 100 }),
   body('participation').optional().isInt({ min: 0, max: 100 }),
   validate,

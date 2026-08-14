@@ -135,7 +135,11 @@ class _FeedbackMiniCard extends StatelessWidget {
                 spacing: 4,
                 runSpacing: 4,
                 children: [
-                  _ScoreChip(label: l10n.homeworkScore, value: entry.homework),
+                  if (entry.isEnglishMetrics) ...[
+                    _ScoreChip(label: l10n.wordsScore, value: entry.words),
+                    _ScoreChip(label: l10n.sentenceScore, value: entry.sentence),
+                  ] else
+                    _ScoreChip(label: l10n.homeworkScore, value: entry.homework),
                   _ScoreChip(label: l10n.behaviorScore, value: entry.behavior),
                   _ScoreChip(label: l10n.participationScore, value: entry.participation),
                 ],

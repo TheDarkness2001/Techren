@@ -75,14 +75,34 @@ Railway’s disk is wiped on redeploy. For images/audio:
 
 ---
 
-## 5. Verify
+## 5. Custom domain (www.techrenacademy.com)
+
+Point your domain at this Railway service (the API + modern landing from `website1`):
+
+1. Railway → your TechRen service → **Settings** → **Networking** → **Custom Domain**
+2. Add `www.techrenacademy.com` (and optionally apex `techrenacademy.com`)
+3. At your DNS provider, create the records Railway shows (usually CNAME `www` → `….up.railway.app`)
+4. Set env:
+   - `FRONTEND_URL=https://www.techrenacademy.com`
+5. Wait for HTTPS certificate to become **Active**
+
+CORS already allows `*.techrenacademy.com`. After DNS is live:
+
+```text
+https://www.techrenacademy.com/
+https://www.techrenacademy.com/api/v1/health
+```
+
+---
+
+## 6. Verify
 
 ```text
 https://YOUR-SERVICE.up.railway.app/
 https://YOUR-SERVICE.up.railway.app/api/v1/health
 ```
 
-- `/` → TechRen download landing page  
+- `/` → TechRen Academy landing (smart Download App)
 - `/api/v1/health` → `200`  
 
 Seed founder once (Railway shell or one-off):
@@ -93,7 +113,7 @@ cd backend && node scripts/seed.js
 
 ---
 
-## 6. Rebuild native apps for Railway
+## 7. Rebuild native apps for Railway
 
 On your PC (requires HTTPS production API):
 

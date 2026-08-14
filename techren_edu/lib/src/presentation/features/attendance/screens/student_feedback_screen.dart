@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/routing/student_navigation.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
-import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/feedback_list_widgets.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
 import '../../../../domain/entities/attendance.dart';
 import '../../../providers/attendance_provider.dart';
@@ -27,22 +26,10 @@ class StudentFeedbackScreen extends ConsumerStatefulWidget {
   ConsumerState<StudentFeedbackScreen> createState() => _StudentFeedbackScreenState();
 }
 
-String _formatStudentFeedbackDate(String raw) {
-  final trimmed = raw.trim();
-  if (trimmed.isEmpty) return '—';
-  final parsed = DateTime.tryParse(trimmed);
-  if (parsed == null) return trimmed;
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${weekdays[parsed.weekday - 1]}, ${months[parsed.month - 1]} ${parsed.day}, ${parsed.year}';
-}
-
 class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
   String _search = '';
   final _searchController = TextEditingController();
+  final List<FeedbackInsightPoint> _loadedPoints = [];
 
   FeedbackQuery _baseQuery(String? studentId) => (studentId: studentId, page: 1, search: _search);
 
@@ -52,11 +39,43 @@ class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
     super.dispose();
   }
 
+  FeedbackScoreSummary _summary(FeedbackEntry f) {
+    if (f.isEnglishMetrics) {
+      return FeedbackScoreSummary(
+        isEnglish: true,
+        primaryLabel: 'Words',
+        primaryValue: f.words,
+        secondaryLabel: 'Sentence',
+        secondaryValue: f.sentence,
+        behavior: f.behavior,
+        participation: f.participation,
+        isExamDay: f.isExamDay,
+        examPercentage: f.examPercentage,
+      );
+    }
+    return FeedbackScoreSummary(
+      isEnglish: false,
+      primaryLabel: 'Homework',
+      primaryValue: f.homework,
+      behavior: f.behavior,
+      participation: f.participation,
+      isExamDay: f.isExamDay,
+      examPercentage: f.examPercentage,
+    );
+  }
+
+  void _openInsights() {
+    showFeedbackInsightsSheet(
+      context: context,
+      title: 'Feedback insights',
+      points: List.of(_loadedPoints),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final baseQuery = _baseQuery(user?.id);
-
     final navItems = widget.navItems ?? studentNavItemsOf(context);
 
     return AdaptiveScaffold(
@@ -64,6 +83,13 @@ class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
       selectedIndex: widget.selectedIndex,
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
+      actions: [
+        TextButton.icon(
+          onPressed: _loadedPoints.isEmpty ? null : _openInsights,
+          icon: const Icon(Icons.insights_outlined, size: 18),
+          label: const Text('More'),
+        ),
+      ],
       body: Column(
         children: [
           Padding(
@@ -107,24 +133,54 @@ class _StudentFeedbackScreenState extends ConsumerState<StudentFeedbackScreen> {
                   ),
                 ],
               ),
-              builder: (context, controller, items, state) => ListView.builder(
-                controller: controller,
-                padding: AppSpacing.listGutter,
-                itemCount: items.length,
-                itemBuilder: (_, i) {
-                  final f = items[i];
-                  final dateLabel = _formatStudentFeedbackDate(f.date);
-                  return AppAdminRowCard(
-                    title: f.className,
-                    subtitle:
-                        '$dateLabel\nHomework ${f.homework}% · Behavior ${f.behavior}% · Participation ${f.participation}%'
-                        '${f.isExamDay ? '\nExam: ${f.examPercentage ?? 0}%' : ''}'
-                        '${f.parentComments != null ? '\nParent: ${f.parentComments}' : ''}',
-                    icon: Icons.rate_review_outlined,
-                    accentColor: AppColors.primary,
-                  );
-                },
-              ),
+              builder: (context, controller, items, state) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final next = [
+                    for (final f in items)
+                      FeedbackInsightPoint(
+                        id: f.id,
+                        className: f.className,
+                        date: f.date,
+                        createdAt: f.createdAt,
+                        isEnglish: f.isEnglishMetrics,
+                        homework: f.homework,
+                        words: f.words,
+                        sentence: f.sentence,
+                        behavior: f.behavior,
+                        participation: f.participation,
+                      ),
+                  ];
+                  final changed = next.length != _loadedPoints.length ||
+                      (next.isNotEmpty &&
+                          _loadedPoints.isNotEmpty &&
+                          next.first.id != _loadedPoints.first.id);
+                  if (changed && mounted) {
+                    setState(() {
+                      _loadedPoints
+                        ..clear()
+                        ..addAll(next);
+                    });
+                  }
+                });
+
+                return ListView.builder(
+                  controller: controller,
+                  padding: AppSpacing.listGutter,
+                  itemCount: items.length,
+                  itemBuilder: (_, i) {
+                    final f = items[i];
+                    return FeedbackListCard(
+                      title: f.className,
+                      classDateLabel: formatFeedbackClassDate(f.date),
+                      submittedAtLabel: formatFeedbackSubmittedAt(f.createdAt),
+                      teacherName: f.teacherName,
+                      summary: _summary(f),
+                      footer: f.parentComments != null ? 'Parent: ${f.parentComments}' : null,
+                      onMore: _openInsights,
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],

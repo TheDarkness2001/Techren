@@ -8,6 +8,17 @@ const { isPrivilegedStaff } = require('../middleware/auth');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const logger = require('../config/logger');
 
+const isEnglishSubject = (schedule) => {
+  const fromTeacher = Array.isArray(schedule?.teacher?.subject)
+    ? schedule.teacher.subject[0]
+    : '';
+  const subject = String(
+    schedule?.subjectName || schedule?.subject?.name || fromTeacher || ''
+  ).toLowerCase();
+  const className = String(schedule?.className || '').toLowerCase();
+  return subject.includes('english') || className.includes('english');
+};
+
 const format = (doc) => ({
   id: doc._id,
   student: doc.student,
@@ -18,6 +29,9 @@ const format = (doc) => ({
   teacherName: doc.teacher?.name,
   date: doc.date,
   homework: doc.homework,
+  words: doc.words ?? 0,
+  sentence: doc.sentence ?? 0,
+  metricsMode: doc.metricsMode || 'standard',
   behavior: doc.behavior,
   participation: doc.participation,
   isExamDay: doc.isExamDay,
@@ -100,7 +114,7 @@ const list = async (req) => {
       .populate('student', 'name studentId')
       .populate('classSchedule', 'className')
       .populate('teacher', 'name')
-      .sort({ date: -1 })
+      .sort({ date: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit),
     Feedback.countDocuments(filter),
@@ -110,7 +124,7 @@ const list = async (req) => {
 };
 
 const create = async (req, data) => {
-  const schedule = await ClassSchedule.findById(data.classScheduleId);
+  const schedule = await ClassSchedule.findById(data.classScheduleId).populate('subject', 'name');
   if (!schedule) {
     throw Object.assign(new Error('Class schedule not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
@@ -126,6 +140,9 @@ const create = async (req, data) => {
     ? schedule.teacher
     : req.user._id;
 
+  const english = isEnglishSubject(schedule);
+  const metricsMode = english ? 'english' : 'standard';
+
   const feedback = await Feedback.findOneAndUpdate(
     {
       student: data.studentId,
@@ -136,7 +153,10 @@ const create = async (req, data) => {
       $set: {
         teacher: teacherId,
         branchId: schedule.branchId,
-        homework: data.homework ?? 0,
+        metricsMode,
+        homework: english ? 0 : (data.homework ?? 0),
+        words: english ? (data.words ?? 0) : 0,
+        sentence: english ? (data.sentence ?? 0) : 0,
         behavior: data.behavior ?? 0,
         participation: data.participation ?? 0,
         isExamDay: data.isExamDay ?? false,
@@ -168,6 +188,9 @@ const update = async (req, id, data) => {
 
   Object.assign(feedback, {
     homework: data.homework ?? feedback.homework,
+    words: data.words ?? feedback.words,
+    sentence: data.sentence ?? feedback.sentence,
+    metricsMode: data.metricsMode ?? feedback.metricsMode,
     behavior: data.behavior ?? feedback.behavior,
     participation: data.participation ?? feedback.participation,
     isExamDay: data.isExamDay ?? feedback.isExamDay,

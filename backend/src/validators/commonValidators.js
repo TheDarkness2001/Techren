@@ -60,11 +60,24 @@ const studentUpdateRules = [
   param('id').isMongoId(),
   body('name').optional().trim().notEmpty(),
   body('email').optional().isEmail().normalizeEmail(),
-  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  // Empty string = "keep current password" — do not run min-length on blanks.
+  body('password')
+    .optional({ values: 'falsy' })
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters'),
   body('parentName').optional().trim(),
   body('parentPhone').optional().trim(),
   body('coursePrice').optional().isFloat({ min: 0 }),
   body('status').optional().isIn(['active', 'inactive']),
+  body('parentAccount').optional().isObject(),
+  body('parentAccount.username')
+    .optional({ values: 'falsy' })
+    .matches(/^[a-z0-9._-]{3,40}$/)
+    .withMessage('Parent username must be 3–40 characters (letters, numbers, . _ -)'),
+  body('parentAccount.password')
+    .optional({ values: 'falsy' })
+    .isLength({ min: 4 })
+    .withMessage('Parent password must be at least 4 characters'),
 ];
 
 module.exports = {

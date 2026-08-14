@@ -33,7 +33,10 @@ website/downloads/*.apk
 website/downloads/*.zip
 website/downloads/*.exe
 
-# Next.js marketing site
+# Modern landing source (website1/) — Docker builds into website/
+# Local publish: scripts/publish-website.ps1
+
+# Legacy Next.js marketing site (replaced by website1)
 web/.next/
 web/out/
 

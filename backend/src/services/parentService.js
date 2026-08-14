@@ -214,7 +214,7 @@ const getChildFeedback = async (parent, studentId, query = {}) => {
     Feedback.find(filter)
       .populate('classSchedule', 'className')
       .populate('teacher', 'name')
-      .sort({ date: -1 })
+      .sort({ date: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit),
     Feedback.countDocuments(filter),
@@ -227,7 +227,10 @@ const getChildFeedback = async (parent, studentId, query = {}) => {
       className: doc.classSchedule?.className,
       teacherName: doc.teacher?.name,
       date: doc.date,
-      homework: doc.homework,
+      homework: doc.homework ?? 0,
+      words: doc.words ?? 0,
+      sentence: doc.sentence ?? 0,
+      metricsMode: doc.metricsMode || 'standard',
       behavior: doc.behavior,
       participation: doc.participation,
       isExamDay: doc.isExamDay,

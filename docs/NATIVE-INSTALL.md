@@ -4,9 +4,15 @@ This project ships a **download website** (not a PWA). Students and staff instal
 
 ## Download site
 
-- Landing page: `GET /` → [`website/index.html`](../website/index.html)
-- Files: `GET /downloads/techren-edu.apk`, `GET /downloads/TechRenEDU-windows.zip`, `GET /downloads/TechRenEDU-macos.zip`
-- Status: `GET /downloads/status.json` — installed apps compare `version` to their build and show an **Update** button (no uninstall).
+Source: [`website1/`](../website1/) (Vite + React). Railway builds it into `website/` via the Dockerfile. Locally run:
+
+```powershell
+.\scripts\publish-website.ps1
+```
+
+- Landing page: `GET /` → modern TechRen Academy site with a **smart Download App** button (detects Android / Windows / Mac)
+- Files: `GET /downloads/techren-edu.apk`, setup.exe, zips
+- Status: `GET /downloads/status.json` — in-app Update compares `version`
 
 Local check (API running on port 5002):
 

@@ -184,11 +184,15 @@ class FeedbackEntry extends Equatable {
     required this.date,
     this.teacherName,
     this.homework = 0,
+    this.words = 0,
+    this.sentence = 0,
+    this.metricsMode = 'standard',
     this.behavior = 0,
     this.participation = 0,
     this.isExamDay = false,
     this.examPercentage,
     this.parentComments,
+    this.createdAt,
   });
 
   final String id;
@@ -197,11 +201,18 @@ class FeedbackEntry extends Equatable {
   final String date;
   final String? teacherName;
   final int homework;
+  final int words;
+  final int sentence;
+  /// `english` => Words + Sentence; otherwise Homework.
+  final String metricsMode;
   final int behavior;
   final int participation;
   final bool isExamDay;
   final int? examPercentage;
   final String? parentComments;
+  final DateTime? createdAt;
+
+  bool get isEnglishMetrics => metricsMode == 'english';
 
   factory FeedbackEntry.fromJson(Map<String, dynamic> json) => FeedbackEntry(
         id: json['id']?.toString() ?? '',
@@ -209,12 +220,20 @@ class FeedbackEntry extends Equatable {
         className: json['className'] as String? ?? '',
         date: json['date']?.toString() ?? '',
         teacherName: json['teacherName'] as String?,
-        homework: json['homework'] as int? ?? 0,
-        behavior: json['behavior'] as int? ?? 0,
-        participation: json['participation'] as int? ?? 0,
+        homework: (json['homework'] as num?)?.toInt() ?? 0,
+        words: (json['words'] as num?)?.toInt() ?? 0,
+        sentence: (json['sentence'] as num?)?.toInt() ?? 0,
+        metricsMode: json['metricsMode'] as String? ??
+            (((json['words'] as num?)?.toInt() ?? 0) > 0 ||
+                    ((json['sentence'] as num?)?.toInt() ?? 0) > 0
+                ? 'english'
+                : 'standard'),
+        behavior: (json['behavior'] as num?)?.toInt() ?? 0,
+        participation: (json['participation'] as num?)?.toInt() ?? 0,
         isExamDay: json['isExamDay'] as bool? ?? false,
-        examPercentage: json['examPercentage'] as int?,
+        examPercentage: (json['examPercentage'] as num?)?.toInt(),
         parentComments: json['parentComments'] as String?,
+        createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       );
 
   @override

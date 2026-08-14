@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/feedback_list_widgets.dart';
 import '../../../../core/widgets/metric_card.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
 import '../../../../domain/entities/parent_portal.dart';
@@ -215,154 +216,141 @@ class ParentFeedbackTab extends ConsumerStatefulWidget {
 class _ParentFeedbackTabState extends ConsumerState<ParentFeedbackTab> {
   String _search = '';
   final _searchController = TextEditingController();
+  final List<FeedbackInsightPoint> _loadedPoints = [];
 
   ParentFeedbackQuery get _baseQuery => (studentId: widget.studentId, page: 1, search: _search);
 
-
-
   @override
-
   void dispose() {
-
     _searchController.dispose();
-
     super.dispose();
-
   }
-
-
 
   void _refresh() => ref.invalidate(parentChildFeedbackProvider(_baseQuery));
 
-
-
-  @override
-
-  Widget build(BuildContext context) {
-
-    final baseQuery = _baseQuery;
-
-
-
-    return Column(
-
-        children: [
-
-          Padding(
-
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-
-            child: TextField(
-
-              controller: _searchController,
-
-              decoration: InputDecoration(
-
-                hintText: 'Search feedback by class or date',
-
-                prefixIcon: const Icon(Icons.search),
-
-                suffixIcon: _search.isNotEmpty
-
-                    ? IconButton(
-
-                        icon: const Icon(Icons.clear),
-
-                        onPressed: () {
-
-                          _searchController.clear();
-
-                          setState(() => _search = '');
-
-                        },
-
-                      )
-
-                    : null,
-
-                isDense: true,
-
-              ),
-
-              onSubmitted: (value) => setState(() => _search = value.trim()),
-
-            ),
-
-          ),
-
-          Expanded(
-
-            child: PaginatedScrollBody<ParentFeedbackEntry, ParentFeedbackQuery>(
-
-              provider: parentChildFeedbackProvider,
-
-              query: baseQuery,
-
-              withPage: (q, page) => (studentId: q.studentId, page: page, search: q.search),
-
-              queryCacheKey: '${widget.studentId}|$_search',
-
-              onInvalidate: (ref, q) => ref.invalidate(parentChildFeedbackProvider(q)),
-
-              itemLabel: 'entries',
-
-              initialLoadingKind: LoadingSkeletonKind.list,
-
-              empty: ListView(
-
-                children: const [
-
-                  SizedBox(height: AppSpacing.xxl),
-
-                  EmptyState(
-
-                    title: 'No feedback yet',
-
-                    message: 'Teacher comments will appear here after class sessions.',
-
-                    icon: Icons.rate_review_outlined,
-
-                  ),
-
-                ],
-
-              ),
-
-              builder: (context, controller, items, state) => ListView.builder(
-
-                controller: controller,
-
-                padding: const EdgeInsets.all(AppSpacing.md),
-
-                itemCount: items.length,
-
-                itemBuilder: (_, i) => _FeedbackCard(entry: items[i], onSaved: _refresh),
-
-              ),
-
-            ),
-
-          ),
-
-        ],
-
-      );
-
+  void _openInsights() {
+    showFeedbackInsightsSheet(
+      context: context,
+      title: 'Feedback insights',
+      points: List.of(_loadedPoints),
+    );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final baseQuery = _baseQuery;
+
+    return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search feedback by class or date',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _search.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _search = '');
+                              },
+                            )
+                          : null,
+                      isDense: true,
+                    ),
+                    onSubmitted: (value) => setState(() => _search = value.trim()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: _loadedPoints.isEmpty ? null : _openInsights,
+                  icon: const Icon(Icons.insights_outlined, size: 18),
+                  label: const Text('More'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: PaginatedScrollBody<ParentFeedbackEntry, ParentFeedbackQuery>(
+              provider: parentChildFeedbackProvider,
+              query: baseQuery,
+              withPage: (q, page) => (studentId: q.studentId, page: page, search: q.search),
+              queryCacheKey: '${widget.studentId}|$_search',
+              onInvalidate: (ref, q) => ref.invalidate(parentChildFeedbackProvider(q)),
+              itemLabel: 'entries',
+              initialLoadingKind: LoadingSkeletonKind.list,
+              empty: ListView(
+                children: const [
+                  SizedBox(height: AppSpacing.xxl),
+                  EmptyState(
+                    title: 'No feedback yet',
+                    message: 'Teacher comments will appear here after class sessions.',
+                    icon: Icons.rate_review_outlined,
+                  ),
+                ],
+              ),
+              builder: (context, controller, items, state) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final next = [
+                    for (final f in items)
+                      FeedbackInsightPoint(
+                        id: f.id,
+                        className: f.className ?? 'Class',
+                        date: f.date,
+                        createdAt: f.createdAt,
+                        isEnglish: f.isEnglishMetrics,
+                        homework: f.homework,
+                        words: f.words,
+                        sentence: f.sentence,
+                        behavior: f.behavior,
+                        participation: f.participation,
+                      ),
+                  ];
+                  final changed = next.length != _loadedPoints.length ||
+                      (next.isNotEmpty &&
+                          _loadedPoints.isNotEmpty &&
+                          next.first.id != _loadedPoints.first.id);
+                  if (changed && mounted) {
+                    setState(() {
+                      _loadedPoints
+                        ..clear()
+                        ..addAll(next);
+                    });
+                  }
+                });
+                return ListView.builder(
+                  controller: controller,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: items.length,
+                  itemBuilder: (_, i) => _FeedbackCard(
+                    entry: items[i],
+                    onSaved: _refresh,
+                    onMore: _openInsights,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+  }
 }
 
 
 
 class _FeedbackCard extends ConsumerStatefulWidget {
 
-  const _FeedbackCard({required this.entry, required this.onSaved});
-
-
+  const _FeedbackCard({required this.entry, required this.onSaved, this.onMore});
 
   final ParentFeedbackEntry entry;
 
   final VoidCallback onSaved;
+  final VoidCallback? onMore;
 
 
 
@@ -439,52 +427,48 @@ class _FeedbackCardState extends ConsumerState<_FeedbackCard> {
 
 
   @override
-
   Widget build(BuildContext context) {
-
     final f = widget.entry;
+    final summary = f.isEnglishMetrics
+        ? FeedbackScoreSummary(
+            isEnglish: true,
+            primaryLabel: 'Words',
+            primaryValue: f.words,
+            secondaryLabel: 'Sentence',
+            secondaryValue: f.sentence,
+            behavior: f.behavior,
+            participation: f.participation,
+            isExamDay: f.isExamDay,
+            examPercentage: f.examPercentage,
+          )
+        : FeedbackScoreSummary(
+            isEnglish: false,
+            primaryLabel: 'Homework',
+            primaryValue: f.homework,
+            behavior: f.behavior,
+            participation: f.participation,
+            isExamDay: f.isExamDay,
+            examPercentage: f.examPercentage,
+          );
 
-    final subtitle = StringBuffer()
-
-      ..write(f.date)
-
-      ..write('\nHomework ${f.homework}% · Behavior ${f.behavior}% · Participation ${f.participation}%');
-
-    if (f.isExamDay) subtitle.write('\nExam: ${f.examPercentage ?? 0}%');
-
-    if (f.parentComments != null) subtitle.write('\nYour comment: ${f.parentComments}');
-
-
-
-    return AppHubCard(
-
+    return FeedbackListCard(
       title: f.className ?? 'Class',
-
-      subtitle: subtitle.toString(),
-
-      accentColor: AppColors.primary,
-
-      icon: Icons.rate_review_outlined,
-
+      classDateLabel: formatFeedbackClassDate(f.date),
+      submittedAtLabel: formatFeedbackSubmittedAt(f.createdAt),
+      teacherName: f.teacherName,
+      summary: summary,
+      footer: f.parentComments != null && f.parentComments!.isNotEmpty
+          ? 'Your comment: ${f.parentComments}'
+          : (f.notes != null && f.notes!.isNotEmpty ? f.notes : null),
       trailing: IconButton(
-
-        icon: const Icon(Icons.comment_outlined),
-
         tooltip: 'Add comment',
-
         onPressed: _addComment,
-
+        icon: const Icon(Icons.comment_outlined),
       ),
-
-      onTap: _addComment,
-
+      onMore: widget.onMore,
     );
-
   }
-
 }
-
-
 
 class ParentAttendanceTab extends ConsumerStatefulWidget {
 

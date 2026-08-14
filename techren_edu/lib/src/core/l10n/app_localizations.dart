@@ -143,6 +143,8 @@ class AppLocalizations {
   String get statusActive => _t(en: 'active', ru: 'активен', uz: 'faol');
   String get statusInactive => _t(en: 'inactive', ru: 'неактивен', uz: 'nofaol');
   String get homeworkScore => _t(en: 'Homework', ru: 'Домашнее', uz: 'Uy vazifa');
+  String get wordsScore => _t(en: 'Words', ru: 'Слова', uz: 'So\'zlar');
+  String get sentenceScore => _t(en: 'Sentence', ru: 'Предложение', uz: 'Gap');
   String get behaviorScore => _t(en: 'Behavior', ru: 'Поведение', uz: 'Xulq');
   String get participationScore => _t(en: 'Participation', ru: 'Участие', uz: 'Faollik');
   String get notifications => _t(en: 'Notifications', ru: 'Уведомления', uz: 'Bildirishnomalar');

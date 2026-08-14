@@ -8,6 +8,11 @@ const feedbackSchema = new mongoose.Schema(
     branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     date: { type: String, required: true },
     homework: { type: Number, min: 0, max: 100, default: 0 },
+    /** English classes: Words / Sentence instead of Homework */
+    words: { type: Number, min: 0, max: 100, default: 0 },
+    sentence: { type: Number, min: 0, max: 100, default: 0 },
+    /** 'english' => Words+Sentence; 'standard' => Homework */
+    metricsMode: { type: String, enum: ['standard', 'english'], default: 'standard' },
     behavior: { type: Number, min: 0, max: 100, default: 0 },
     participation: { type: Number, min: 0, max: 100, default: 0 },
     isExamDay: { type: Boolean, default: false },
