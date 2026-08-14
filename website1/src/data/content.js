@@ -245,6 +245,62 @@ export const testimonials = [
   },
 ];
 
+/** About intro card — topic / intro / icons / subject cycle with the 3D stage. */
+export const aboutTopics = [
+  {
+    id: 'programming',
+    topic: 'Programming',
+    badge: 'Path',
+    intro:
+      'Students learn by building — from the first page to apps that run on their own phone.',
+    subject: 'HTML · CSS · JavaScript · Python · Java · React',
+    icons: [
+      { label: 'Code', path: 'M8 6l-4 6 4 6M16 6l4 6-4 6' },
+      { label: 'Build', path: 'M4 18V8l8-4 8 4v10l-8 4-8-4z' },
+      { label: 'Ship', path: 'M4 12h12M12 6l6 6-6 6' },
+    ],
+  },
+  {
+    id: 'english',
+    topic: 'English',
+    badge: 'Speak',
+    intro:
+      'English is taught as a skill you use: words, sentences, and confidence in real conversation.',
+    subject: 'Vocabulary · Speaking · Writing · Feedback',
+    icons: [
+      { label: 'Words', path: 'M5 7h14M5 12h10M5 17h12' },
+      { label: 'Voice', path: 'M12 4v10M8 9a4 4 0 008 0M6 18h12' },
+      { label: 'Write', path: 'M5 19l3-1 9-9-2-2-9 9-1 3z' },
+    ],
+  },
+  {
+    id: 'technology',
+    topic: 'Technology',
+    badge: 'Stack',
+    intro:
+      'The tools students actually touch in class — not a logo wall. Practice beats theory.',
+    subject: 'Web · Logic · Databases · Git · Hardware',
+    icons: [
+      { label: 'Web', path: 'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18' },
+      { label: 'Data', path: 'M4 7c0-1.5 3.6-3 8-3s8 1.5 8 3-3.6 3-8 3-8-1.5-8-3zm0 5c0 1.5 3.6 3 8 3s8-1.5 8-3M4 12v5c0 1.5 3.6 3 8 3s8-1.5 8-3v-5' },
+      { label: 'Git', path: 'M6 4v16M6 12h8a4 4 0 100-8H6m8 8a4 4 0 110 8' },
+    ],
+  },
+  {
+    id: 'founder',
+    topic: 'Founder',
+    badge: 'Story',
+    intro:
+      'From programmer to teacher to founder — TechRen exists so students learn how to use technology, not only pass a test.',
+    subject: 'Programmer · IT teacher · Academy founder',
+    icons: [
+      { label: 'Teach', path: 'M4 6h16v10H4zM8 20h8M12 16v4' },
+      { label: 'Work', path: 'M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M4 7h16v12H4z' },
+      { label: 'Grow', path: 'M12 19V6M7 11l5-5 5 5' },
+    ],
+  },
+];
+
 export const footerColumns = [
   {
     title: 'Academy',

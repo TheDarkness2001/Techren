@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "animejs": "^3.2.2",
+    "animejs4": "npm:animejs@^4.5.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "three": "^0.172.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
