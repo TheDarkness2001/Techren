@@ -10,7 +10,6 @@ export default function Founder() {
   const slidesLenRef = useRef(4);
 
   const [inView, setInView] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
 
   const slides = useMemo(
@@ -43,14 +42,6 @@ export default function Founder() {
 
   const onPhaseRef = useRef(() => {});
   onPhaseRef.current = (phase) => {
-    if (phase === 'open') {
-      setPanelOpen(true);
-      return;
-    }
-    if (phase === 'close') {
-      setPanelOpen(false);
-      return;
-    }
     if (phase === 'advance') {
       indexRef.current = (indexRef.current + 1) % slidesLenRef.current;
       setSlideIndex(indexRef.current);
@@ -89,7 +80,6 @@ export default function Founder() {
         const on = entry?.isIntersecting === true;
         setInView(on);
         if (on) cancelBoot = bootScene();
-        else setPanelOpen(false);
       },
       { threshold: 0.22 },
     );
@@ -104,54 +94,25 @@ export default function Founder() {
 
   return (
     <section
-      className={`section about-section${inView ? ' is-inview' : ''}${panelOpen ? ' is-open' : ''}`}
+      className={`section about-section${inView ? ' is-inview' : ''}`}
       id="about"
       ref={sectionRef}
       aria-labelledby="about-title"
     >
-      <div className="about-bg" aria-hidden="true">
+      <div className="about-bg">
         <div className="about-canvas" ref={canvasRef} />
       </div>
 
-      {/* Screen-reader + controls only — story text lives on the cube face */}
-      <div className="container about-chrome">
-        <h2 id="about-title" className="sr-only">
-          {slide.title}
-        </h2>
-        <p className="sr-only">{slide.lead}</p>
-
-        <div className={`about-chrome-bar${panelOpen ? ' is-visible' : ''}`}>
-          {slide.kind === 'course' ? (
-            <a className="about-course-link" href={slide.href}>
-              Explore {slide.title}
-            </a>
-          ) : (
-            <span className="about-chrome-label">{slide.kicker}</span>
-          )}
-
-          <div className="about-slide-dots" role="tablist" aria-label="About slides">
-            {slides.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={i === slideIndex}
-                className={i === slideIndex ? 'is-active' : undefined}
-                onClick={() => {
-                  indexRef.current = i;
-                  setSlideIndex(i);
-                  setPanelOpen(true);
-                  sceneRef.current?.setSlide?.();
-                }}
-              >
-                <span className="sr-only">{item.title}</span>
-              </button>
-            ))}
-          </div>
-
-          <p className="about-hint">Click a cube to recolor it</p>
-        </div>
-      </div>
+      {/* Accessibility only — no on-screen copy; story is on the cube face */}
+      <h2 id="about-title" className="sr-only">
+        {slide.title}
+      </h2>
+      <p className="sr-only">{slide.lead}</p>
+      {slide.kind === 'course' ? (
+        <a className="sr-only" href={slide.href}>
+          Explore {slide.title}
+        </a>
+      ) : null}
     </section>
   );
 }

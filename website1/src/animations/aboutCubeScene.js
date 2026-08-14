@@ -4,8 +4,8 @@ import { getInstances } from 'animejs4/adapters/three';
 
 const EXPAND_MS = 2200;
 const CLOSE_MS = 2000;
-const ZOOM_MS = 1100;
-const HOLD_MS = 3800;
+const ZOOM_MS = 1200;
+const HOLD_MS = 10000;
 const GAP_MS = 500;
 
 const PALETTE = ['#0f9f7e', '#5ce1b8', '#38bdf8', '#a78bfa', '#f59e0b', '#f472b6', '#34d399', '#60a5fa'];
@@ -194,6 +194,7 @@ export function createAboutCubeScene(container, options = {}) {
   let bases = [];
   let stopped = false;
   let focusing = false;
+  let holding = false;
   let focusIndex = 0;
   let spinAnim = null;
   let hiddenPos = null;
@@ -280,33 +281,38 @@ export function createAboutCubeScene(container, options = {}) {
     refreshFace();
     onPhase('open');
 
-    // Park the chosen instance out of the way (adapter scale is unreliable)
+    // Park the chosen instance out of the way
     const inst = instances[focusIndex];
     hiddenPos = { x: inst.x, y: inst.y, z: inst.z };
     utils.set(inst, { x: 80, y: 80, z: 80 });
 
-    // World position from saved local coords × current mesh transform
-    mesh.updateMatrixWorld(true);
-    const local = new THREE.Vector3(hiddenPos.x, hiddenPos.y, hiddenPos.z);
-    local.applyMatrix4(mesh.matrixWorld);
-    worldPos.copy(local);
-
-    focusMesh.position.copy(worldPos);
+    // Start from that cube’s world spot, then move it to screen center
+    const start = new THREE.Vector3(hiddenPos.x, hiddenPos.y, hiddenPos.z).applyMatrix4(mesh.matrixWorld);
+    focusMesh.position.copy(start);
     focusMesh.scale.setScalar(0.55);
     focusMesh.visible = true;
     faceCamera();
 
-    // Dolly in so the cube face fills the view
-    const dir = new THREE.Vector3().subVectors(camera.position, worldPos).normalize();
-    if (dir.lengthSq() < 0.001) dir.set(0, 0, 1);
-    camTarget.copy(worldPos).addScaledVector(dir, 2.35);
-    lookTarget.copy(worldPos);
+    // Hold dead-center in front of the camera
+    const center = new THREE.Vector3(0, 0, 0);
+    camTarget.set(0, 0, 3.4);
+    lookTarget.copy(center);
+
+    animations.push(
+      animate(focusMesh.position, {
+        x: center.x,
+        y: center.y,
+        z: center.z,
+        duration: ZOOM_MS,
+        ease: 'inOutCubic',
+      }),
+    );
 
     animations.push(
       animate(focusMesh.scale, {
-        x: 2.35,
-        y: 2.35,
-        z: 2.35,
+        x: 2.6,
+        y: 2.6,
+        z: 2.6,
         duration: ZOOM_MS,
         ease: 'inOutCubic',
       }),
@@ -325,6 +331,10 @@ export function createAboutCubeScene(container, options = {}) {
         },
         onComplete: () => {
           if (stopped) return;
+          // Lock in center for the full hold
+          holding = true;
+          focusMesh.position.set(0, 0, 0);
+          camera.position.copy(camTarget);
           camera.lookAt(lookTarget);
           faceCamera();
           trackTimeout(playZoomOut, HOLD_MS);
@@ -335,7 +345,22 @@ export function createAboutCubeScene(container, options = {}) {
 
   const playZoomOut = () => {
     if (stopped || !instances) return;
+    holding = false;
     onPhase('close');
+
+    const returnPos = hiddenPos
+      ? new THREE.Vector3(hiddenPos.x, hiddenPos.y, hiddenPos.z).applyMatrix4(mesh.matrixWorld)
+      : new THREE.Vector3(0, 0, 0);
+
+    animations.push(
+      animate(focusMesh.position, {
+        x: returnPos.x,
+        y: returnPos.y,
+        z: returnPos.z,
+        duration: ZOOM_MS,
+        ease: 'inOutCubic',
+      }),
+    );
 
     animations.push(
       animate(focusMesh.scale, {
@@ -362,6 +387,7 @@ export function createAboutCubeScene(container, options = {}) {
           if (stopped) return;
           focusMesh.visible = false;
           focusing = false;
+          holding = false;
           if (hiddenPos) {
             utils.set(instances[focusIndex], {
               x: hiddenPos.x,
@@ -417,6 +443,7 @@ export function createAboutCubeScene(container, options = {}) {
   const layoutAndAnimate = () => {
     stopped = false;
     focusing = false;
+    holding = false;
     stopTrackedAnims();
     focusMesh.visible = false;
     camera.position.copy(camHome);
@@ -484,10 +511,9 @@ export function createAboutCubeScene(container, options = {}) {
   if (!reduced) {
     timer = createTimer({
       onUpdate: () => {
-        if (focusing && focusMesh.visible && hiddenPos) {
-          const local = new THREE.Vector3(hiddenPos.x, hiddenPos.y, hiddenPos.z);
-          local.applyMatrix4(mesh.matrixWorld);
-          focusMesh.position.copy(local);
+        if (holding && focusMesh.visible) {
+          // Keep the featured cube locked in the center while held
+          focusMesh.position.set(0, 0, 0);
           faceCamera();
         }
         renderer.render(scene, camera);
