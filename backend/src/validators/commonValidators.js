@@ -7,7 +7,8 @@ const objectId = (field, location = 'param') => {
 
 const paginationRules = [
   query('page').optional().isInt({ min: 1 }).toInt(),
-  query('limit').optional().isInt({ min: 1, max: 200 }).toInt(),
+  // Group editors / pickers may request up to a few hundred rows.
+  query('limit').optional().isInt({ min: 1, max: 500 }).toInt(),
   query('search').optional().isString().trim(),
   query('sortOrder').optional().isIn(['asc', 'desc']),
 ];

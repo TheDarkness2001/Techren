@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
@@ -17,6 +19,36 @@ import '../../../providers/identity_provider.dart';
 import '../../../providers/scheduling_provider.dart';
 import '../widgets/admin_timetable_panel.dart';
 import '../widgets/scheduling_widgets.dart';
+
+String _groupsUiError(Object e) {
+  if (e is AppException) return e.message;
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['error'] is Map) {
+      final err = data['error'] as Map;
+      final details = err['details'];
+      if (details is List && details.isNotEmpty) {
+        final first = details.first;
+        if (first is Map) {
+          final detailMsg = first['msg'] ?? first['message'];
+          if (detailMsg != null && detailMsg.toString().trim().isNotEmpty) {
+            return detailMsg.toString();
+          }
+        }
+      }
+      final message = err['message']?.toString();
+      if (message != null && message.trim().isNotEmpty) return message;
+    }
+    final status = e.response?.statusCode;
+    if (status == 400) return 'Invalid request. Please try again.';
+    if (status == 401 || status == 403) return 'You do not have permission for this action.';
+    if (status != null && status >= 500) return 'Server error. Please try again in a moment.';
+    return 'Network error. Please try again.';
+  }
+  final raw = e.toString();
+  if (raw.contains('DioException')) return 'Could not complete the request. Please try again.';
+  return raw.replaceFirst('Exception: ', '');
+}
 
 /// Active students available for a group:
 /// - exclude inactive students (unless already in [editingGroupId])
@@ -160,7 +192,8 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     List<Person> students;
     try {
       final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
+      // API pagination max is 500; keep within limit for group pickers.
+      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
       final groups = await ref.read(examGroupsProvider.future);
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
@@ -168,7 +201,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         groups: groups,
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Could not load people: ${_groupsUiError(e)}')));
       return;
     }
 
@@ -282,7 +315,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       );
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text('Could not create group: $e')));
+                  messenger.showSnackBar(SnackBar(content: Text('Could not create group: ${_groupsUiError(e)}')));
                 }
               },
             ),
@@ -308,7 +341,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     List<Person> students;
     try {
       final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
+      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
       final groups = await ref.read(examGroupsProvider.future);
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
@@ -318,7 +351,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         currentMembers: view.group.students,
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Could not load people: ${_groupsUiError(e)}')));
       return;
     }
     if (!context.mounted) return;
@@ -461,7 +494,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   }
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text('Could not update group: $e')));
+                  messenger.showSnackBar(SnackBar(content: Text('Could not update group: ${_groupsUiError(e)}')));
                 }
               },
             ),
