@@ -255,30 +255,6 @@ export function createAboutCubeScene(container, options = {}) {
     faceMat.needsUpdate = true;
   };
 
-  const pauseSpin = () => {
-    try {
-      spinAnim?.pause();
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const resumeSpin = () => {
-    try {
-      spinAnim?.play();
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const readInstanceWorldPos = (index, out = worldPos) => {
-    mesh.updateMatrixWorld(true);
-    mesh.getMatrixAt(index, tmpLocal);
-    tmpWorld.multiplyMatrices(mesh.matrixWorld, tmpLocal);
-    out.setFromMatrixPosition(tmpWorld);
-    return out;
-  };
-
   const faceCamera = () => {
     focusMesh.quaternion.copy(camera.quaternion);
   };
@@ -286,7 +262,7 @@ export function createAboutCubeScene(container, options = {}) {
   const playZoomIn = () => {
     if (stopped || !instances) return;
     focusing = true;
-    pauseSpin();
+    // Keep field spinning in the background while we feature one cube
     mesh.updateMatrixWorld(true);
 
     let next = Math.floor(Math.random() * count);
@@ -417,7 +393,6 @@ export function createAboutCubeScene(container, options = {}) {
             });
             hiddenPos = null;
           }
-          resumeSpin();
           trackTimeout(() => {
             if (!stopped) onPhase('advance');
             playContract();

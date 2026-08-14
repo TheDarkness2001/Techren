@@ -2,9 +2,11 @@ import { createLayout, stagger } from 'animejs4';
 import { prefersReducedMotion } from './utils';
 
 const GRID_COUNT = 4;
+const HOLD_BETWEEN_MS = 2200;
+const ANIM_MS = 900;
 
 /**
- * Anime.js Auto Layout — cycles the programming path between bento grid sizes.
+ * Anime.js Auto Layout — keeps cycling forever in the background.
  */
 export function startProgramLayout(root) {
   if (!root) return () => {};
@@ -21,48 +23,84 @@ export function startProgramLayout(root) {
     children: '.program-layout-item',
   });
 
-  let i = 0;
+  let i = Number(stage.dataset.grid) || 1;
   let alive = true;
   let timeline = null;
+  let waitId = 0;
+  let running = false;
 
-  const tick = () => {
-    if (!alive) return;
-    timeline = layout.update(
-      () => {
-        i = (i % GRID_COUNT) + 1;
-        stage.dataset.grid = String(i);
-      },
-      {
-        duration: 900,
-        ease: 'out(3)',
-        delay: stagger(70, { from: 'center' }),
-        onComplete: () => {
-          if (!alive) return;
-          window.setTimeout(tick, 2200);
-        },
-      },
-    );
+  const clearWait = () => {
+    if (waitId) {
+      window.clearTimeout(waitId);
+      waitId = 0;
+    }
   };
 
-  // Start after a beat so the section is visible
-  const startId = window.setTimeout(tick, 600);
-
-  const replayBtn = root.querySelector('[data-layout-replay]');
-  const onReplay = () => {
+  const scheduleNext = (ms = HOLD_BETWEEN_MS) => {
+    clearWait();
     if (!alive) return;
+    waitId = window.setTimeout(() => {
+      waitId = 0;
+      tick();
+    }, ms);
+  };
+
+  const tick = () => {
+    if (!alive || running) return;
+    running = true;
+
     try {
       timeline?.pause?.();
       timeline?.cancel?.();
     } catch {
       /* ignore */
     }
+
+    timeline = layout.update(
+      () => {
+        i = (i % GRID_COUNT) + 1;
+        stage.dataset.grid = String(i);
+      },
+      {
+        duration: ANIM_MS,
+        ease: 'out(3)',
+        delay: stagger(70, { from: 'center' }),
+        onComplete: () => {
+          running = false;
+          scheduleNext(HOLD_BETWEEN_MS);
+        },
+      },
+    );
+
+    // Safety: if onComplete never fires, keep the loop alive
+    clearWait();
+    waitId = window.setTimeout(() => {
+      if (!alive) return;
+      if (running) {
+        running = false;
+        scheduleNext(400);
+      }
+    }, ANIM_MS + 2500);
+  };
+
+  const startId = window.setTimeout(() => {
+    if (alive) tick();
+  }, 500);
+
+  const replayBtn = root.querySelector('[data-layout-replay]');
+  const onReplay = () => {
+    if (!alive) return;
+    running = false;
+    clearWait();
     tick();
   };
   replayBtn?.addEventListener('click', onReplay);
 
   return () => {
     alive = false;
+    running = false;
     window.clearTimeout(startId);
+    clearWait();
     replayBtn?.removeEventListener('click', onReplay);
     try {
       timeline?.pause?.();
