@@ -11,12 +11,14 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
+import '../../../../domain/entities/branch.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/scheduling_provider.dart';
+import '../../../providers/staff_branch_provider.dart';
 import '../widgets/admin_timetable_panel.dart';
 import '../widgets/scheduling_widgets.dart';
 
@@ -188,8 +190,15 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
   Future<void> _showCreateUnified(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final user = ref.read(authProvider).user;
+    final filterBranch = ref.read(staffBranchFilterProvider.notifier).activeBranchId;
+    String? branchId = user?.isFounder == true
+        ? filterBranch
+        : (user?.branchId ?? filterBranch);
+
     List<Person> teachers;
     List<Person> students;
+    var branches = <Branch>[];
     try {
       final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
       // API pagination max is 500; keep within limit for group pickers.
@@ -200,6 +209,10 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         students: studentsResult.items,
         groups: groups,
       );
+      if (user?.isFounder == true && (branchId == null || branchId!.isEmpty)) {
+        branches = (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items;
+        if (branches.length == 1) branchId = branches.first.id;
+      }
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not load people: ${_groupsUiError(e)}')));
       return;
@@ -208,6 +221,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     if (!context.mounted) return;
     if (teachers.isEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('Create a teacher first in People.')));
+      return;
+    }
+    if (user?.isFounder == true &&
+        (branchId == null || branchId!.isEmpty) &&
+        branches.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Create a branch first, then create a group.')));
       return;
     }
 
@@ -219,6 +238,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     final endController = TextEditingController(text: '11:30');
     final selectedDays = <String>{'Mon', 'Wed', 'Fri'};
     final selectedStudentIds = <String>{};
+    final needsBranchPicker = user?.isFounder == true && branches.isNotEmpty;
 
     final created = await showAppDialog<bool>(
       context: context,
@@ -228,6 +248,16 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
           maxWidth: 560,
           content: AppFormColumn(
               children: [
+                if (needsBranchPicker)
+                  DropdownButtonFormField<String>(
+                    value: branchId,
+                    decoration: const InputDecoration(labelText: 'Branch *'),
+                    items: [
+                      for (final b in branches)
+                        DropdownMenuItem(value: b.id, child: Text(b.name)),
+                    ],
+                    onChanged: (v) => setDialogState(() => branchId = v),
+                  ),
                 TextField(controller: subjectController, decoration: const InputDecoration(labelText: 'Subject name')),
                 TextField(
                   controller: priceController,
@@ -295,6 +325,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               onPressed: () async {
                 if (subjectController.text.isEmpty || groupController.text.isEmpty || teacherId == null) return;
                 if (selectedDays.isEmpty) return;
+                if (branchId == null || branchId!.trim().isEmpty) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Select a branch (or pick one in the top bar).')),
+                  );
+                  return;
+                }
                 final price = num.tryParse(priceController.text.trim());
                 if (price == null || price <= 0) {
                   messenger.showSnackBar(
@@ -312,6 +348,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         endTime: endController.text.trim(),
                         studentIds: selectedStudentIds.toList(),
                         pricePerClass: price,
+                        branchId: branchId!,
                       );
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {

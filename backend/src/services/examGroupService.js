@@ -128,6 +128,13 @@ const deleteExamGroup = async (id, filter) => {
 const createUnified = async (data) => {
   const { subject: subjectData, group: groupData, schedule: scheduleData, branchId } = data;
 
+  if (!branchId) {
+    throw Object.assign(new Error('Branch is required to create a group'), {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
   let subject = subjectData.id
     ? await Subject.findById(subjectData.id)
     : null;
