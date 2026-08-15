@@ -187,10 +187,28 @@ const getStudentLessonTree = async (studentId) => {
   const groupIds = await getStudentGroupIds(studentId);
   const levels = await Level.find({ moduleType: 'sentences' });
   const lessons = await Lesson.find({ type: 'sentences' }).sort({ levelId: 1, order: 1 });
-  const sentenceCounts = await Sentence.aggregate([
-    { $group: { _id: '$lessonId', count: { $sum: 1 } } },
+  const lessonIds = lessons.map((l) => l._id);
+
+  const [sentenceCounts, sentenceRows, progressDocs] = await Promise.all([
+    Sentence.aggregate([{ $group: { _id: '$lessonId', count: { $sum: 1 } } }]),
+    Sentence.find({ lessonId: { $in: lessonIds } }).select('_id lessonId').lean(),
+    StudentSentenceProgress.find({
+      studentId,
+      correctCount: { $gt: 0 },
+    })
+      .select('sentenceId')
+      .lean(),
   ]);
+
   const countMap = new Map(sentenceCounts.map((c) => [String(c._id), c.count]));
+  const completedSentenceIds = new Set(progressDocs.map((p) => String(p.sentenceId)));
+
+  const completedByLesson = new Map();
+  for (const row of sentenceRows) {
+    const lid = String(row.lessonId);
+    if (!completedSentenceIds.has(String(row._id))) continue;
+    completedByLesson.set(lid, (completedByLesson.get(lid) || 0) + 1);
+  }
 
   return levels
     .filter((level) => isPracticeUnlockedForStudent(level, groupIds))
@@ -200,14 +218,23 @@ const getStudentLessonTree = async (studentId) => {
       languageId: level.languageId,
       lessons: lessons
         .filter((l) => String(l.levelId) === String(level._id))
-        .map((lesson) => ({
-          id: lesson._id,
-          name: lesson.name,
-          order: lesson.order,
-          sentenceCount: countMap.get(String(lesson._id)) || 0,
-          // Respect teacher per-class unlocks (examUnlockedFor), not only order === 1.
-          status: isExamUnlockedForStudent(lesson, groupIds) ? 'available' : 'locked',
-        })),
+        .map((lesson) => {
+          const lid = String(lesson._id);
+          const sentenceCount = countMap.get(lid) || 0;
+          const completedCount = completedByLesson.get(lid) || 0;
+          const progressPercent =
+            sentenceCount > 0 ? Math.min(100, Math.round((completedCount / sentenceCount) * 100)) : 0;
+          return {
+            id: lesson._id,
+            name: lesson.name,
+            order: lesson.order,
+            sentenceCount,
+            completedCount,
+            progressPercent,
+            // Respect teacher per-class unlocks (examUnlockedFor), not only order === 1.
+            status: isExamUnlockedForStudent(lesson, groupIds) ? 'available' : 'locked',
+          };
+        }),
     }));
 };
 
