@@ -246,14 +246,26 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         ? filterBranch
         : (user?.branchId ?? filterBranch);
 
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Loading teachers & students…'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
     List<Person> teachers;
     List<Person> students;
     var branches = <Branch>[];
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      // API pagination max is 500; keep within limit for group pickers.
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
-      final groups = await ref.read(examGroupsProvider.future);
+      final teachersFuture =
+          ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
+      final studentsFuture =
+          ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
+      final groupsFuture = ref.read(examGroupsProvider.future);
+      final results = await Future.wait([teachersFuture, studentsFuture, groupsFuture]);
+      final teachersResult = results[0] as PaginatedResult<Person>;
+      final studentsResult = results[1] as PaginatedResult<Person>;
+      final groups = results[2] as List<ExamGroup>;
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
         students: studentsResult.items,
@@ -264,9 +276,11 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         if (branches.length == 1) branchId = branches.first.id;
       }
     } catch (e) {
+      messenger.hideCurrentSnackBar();
       messenger.showSnackBar(SnackBar(content: Text('Could not load people: ${_groupsUiError(e)}')));
       return;
     }
+    messenger.hideCurrentSnackBar();
 
     if (!context.mounted) return;
     if (teachers.isEmpty) {
@@ -440,12 +454,23 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
   Future<void> _showEditGroup(BuildContext context, UnifiedGroupView view) async {
     final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Loading teachers & students…'),
+        duration: Duration(seconds: 2),
+      ),
+    );
     List<Person> teachers;
     List<Person> students;
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
-      final groups = await ref.read(examGroupsProvider.future);
+      final results = await Future.wait([
+        ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future),
+        ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future),
+        ref.read(examGroupsProvider.future),
+      ]);
+      final teachersResult = results[0] as PaginatedResult<Person>;
+      final studentsResult = results[1] as PaginatedResult<Person>;
+      final groups = results[2] as List<ExamGroup>;
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
         students: studentsResult.items,
@@ -454,9 +479,11 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         currentMembers: view.group.students,
       );
     } catch (e) {
+      messenger.hideCurrentSnackBar();
       messenger.showSnackBar(SnackBar(content: Text('Could not load people: ${_groupsUiError(e)}')));
       return;
     }
+    messenger.hideCurrentSnackBar();
     if (!context.mounted) return;
     if (teachers.isEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('No teachers available.')));
@@ -600,7 +627,9 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         teacherIds: [teacherId!],
                       );
                   final subjectId = view.group.subjectId;
-                  if (subjectId != null && subjectId.isNotEmpty && price != null) {
+                  final subjectIdOk = subjectId != null &&
+                      RegExp(r'^[a-f\d]{24}$', caseSensitive: false).hasMatch(subjectId);
+                  if (subjectIdOk && price != null) {
                     await ref.read(schedulingApiProvider).updateSubject(
                           subjectId: subjectId,
                           pricePerClass: price,

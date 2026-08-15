@@ -5,6 +5,26 @@ const { daysOverlap, timesOverlap } = require('../utils/timeUtils');
 const { normalizeScheduledDays } = require('../utils/dayNames');
 const { syncScheduleToGroup } = require('./scheduleSyncService');
 
+/** Fix legacy schedules that stored a subject name string instead of an ObjectId. */
+const healLegacySubject = async (schedule) => {
+  const raw = schedule.subject;
+  if (raw && typeof raw === 'object' && raw._id) {
+    schedule.subject = raw._id;
+    return;
+  }
+  if (raw && /^[a-f\d]{24}$/i.test(String(raw))) return;
+
+  if (schedule.subjectGroup) {
+    const ExamGroup = require('../models/ExamGroup');
+    const group = await ExamGroup.findById(schedule.subjectGroup).select('subject');
+    if (group?.subject) {
+      schedule.subject = group.subject;
+      return;
+    }
+  }
+  schedule.subject = undefined;
+};
+
 const formatSchedule = (doc) => {
   const subjectDoc = doc.subject && typeof doc.subject === 'object' && doc.subject._id
     ? doc.subject
@@ -85,11 +105,21 @@ const updateSchedule = async (id, filter, data) => {
     throw Object.assign(new Error('Class schedule not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  const payload = { ...data };
-  if (payload.scheduledDays) {
-    payload.scheduledDays = normalizeScheduledDays(payload.scheduledDays);
+  await healLegacySubject(schedule);
+
+  // Whitelist only editable fields — never blindly assign req.body (can poison `subject`).
+  if (data.teacher !== undefined) schedule.teacher = data.teacher;
+  if (data.className !== undefined) schedule.className = data.className;
+  if (data.startTime !== undefined) schedule.startTime = data.startTime;
+  if (data.endTime !== undefined) schedule.endTime = data.endTime;
+  if (data.enrolledStudents !== undefined) schedule.enrolledStudents = data.enrolledStudents;
+  if (data.scheduledDays !== undefined) {
+    schedule.scheduledDays = normalizeScheduledDays(data.scheduledDays);
   }
-  Object.assign(schedule, payload);
+  if (data.subject !== undefined && /^[a-f\d]{24}$/i.test(String(data.subject))) {
+    schedule.subject = data.subject;
+  }
+
   await schedule.save();
   await syncScheduleToGroup(schedule);
   return getSchedule(schedule._id, filter);
