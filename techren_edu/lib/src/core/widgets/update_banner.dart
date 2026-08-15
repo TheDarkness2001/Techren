@@ -11,7 +11,10 @@ import '../update/app_updater.dart';
 /// Works before sign-in (status.json is public). Tap Update → download inside the app
 /// → install over the current app. Android shows one system "Update" confirmation.
 class UpdateBanner extends ConsumerStatefulWidget {
-  const UpdateBanner({super.key});
+  const UpdateBanner({super.key, this.onBrand = false});
+
+  /// Light-on-purple styling for the login brand panel.
+  final bool onBrand;
 
   @override
   ConsumerState<UpdateBanner> createState() => _UpdateBannerState();
@@ -121,39 +124,58 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> with WidgetsBinding
     final update = ref.watch(appUpdateProvider).valueOrNull;
     if (update == null) return const SizedBox.shrink();
 
+    final onBrand = widget.onBrand;
+    final fg = onBrand ? Colors.white : AppColors.primary;
+    final bg = onBrand ? Colors.white.withValues(alpha: 0.14) : AppColors.primary.withValues(alpha: 0.10);
+    final border = onBrand ? Colors.white.withValues(alpha: 0.35) : AppColors.primary.withValues(alpha: 0.35);
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      margin: EdgeInsets.only(bottom: onBrand ? 0 : AppSpacing.lg),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.10),
+        color: bg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+        border: Border.all(color: border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(Icons.system_update_alt_rounded, color: AppColors.primary),
+              Icon(Icons.system_update_alt_rounded, color: fg),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   _updating
                       ? (_phase.isEmpty ? 'Updating…' : _phase)
                       : 'New version ${update.latestVersion} is available — installs over this app',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: onBrand ? Colors.white : null,
+                      ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               FilledButton.icon(
+                style: onBrand
+                    ? FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        disabledBackgroundColor: Colors.white.withValues(alpha: 0.7),
+                        disabledForegroundColor: AppColors.primary,
+                      )
+                    : null,
                 onPressed: _updating ? null : () => _update(update),
                 onLongPress: _updating ? null : () => _manualDownload(update),
                 icon: _updating
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: onBrand ? AppColors.primary : Colors.white,
+                        ),
                       )
                     : const Icon(Icons.system_update_alt_rounded, size: 18),
                 label: Text(_updating ? 'Updating…' : 'Update'),
@@ -164,7 +186,11 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> with WidgetsBinding
             const SizedBox(height: AppSpacing.sm),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(value: _progress > 0 ? _progress : null),
+              child: LinearProgressIndicator(
+                value: _progress > 0 ? _progress : null,
+                color: onBrand ? Colors.white : null,
+                backgroundColor: onBrand ? Colors.white.withValues(alpha: 0.25) : null,
+              ),
             ),
           ],
         ],

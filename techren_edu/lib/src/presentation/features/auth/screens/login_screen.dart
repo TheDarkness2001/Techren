@@ -80,8 +80,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           if (wide) {
             return Row(
               children: [
-                Expanded(child: _BrandPanel()),
-                Expanded(child: Center(child: _buildForm(maxWidth: 400))),
+                const Expanded(child: _BrandPanel()),
+                Expanded(child: Center(child: _buildForm(maxWidth: 400, showUpdate: false))),
               ],
             );
           }
@@ -89,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                child: _buildForm(maxWidth: 420),
+                child: _buildForm(maxWidth: 420, showUpdate: true),
               ),
             ),
           );
@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildForm({required double maxWidth}) {
+  Widget _buildForm({required double maxWidth, required bool showUpdate}) {
     final l10n = context.l10n;
     // Kick off update check as soon as login is shown (no auth required).
     ref.watch(appUpdateProvider);
@@ -112,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const UpdateBanner(),
+            if (showUpdate) const UpdateBanner(),
             const BrandHeader(),
             const SizedBox(height: AppSpacing.xl),
             AppFormColumn(
@@ -196,6 +196,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 class _BrandPanel extends StatelessWidget {
+  const _BrandPanel();
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -205,8 +207,8 @@ class _BrandPanel extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const Spacer(),
           Container(
             width: 64,
             height: 64,
@@ -237,6 +239,8 @@ class _BrandPanel extends StatelessWidget {
           _FeatureRow(icon: Icons.calendar_month_outlined, label: l10n.loginFeatureScheduling),
           _FeatureRow(icon: Icons.menu_book_outlined, label: l10n.loginFeatureLearning),
           _FeatureRow(icon: Icons.insights_outlined, label: l10n.loginFeatureProgress),
+          const Spacer(),
+          const UpdateBanner(onBrand: true),
         ],
       ),
     );
