@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/identity_provider.dart';
+import 'profile_photo_picker.dart';
 
 Future<bool?> showPersonEditDialog({
   required BuildContext context,
@@ -33,6 +34,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
+  late final TextEditingController _studentIdController;
   late final TextEditingController _parentNameController;
   late final TextEditingController _parentPhoneController;
   late final TextEditingController _parentUsernameController;
@@ -40,9 +42,12 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   late final TextEditingController _coursePriceController;
   late final TextEditingController _phoneController;
   late final TextEditingController _passwordController;
+  late final TextEditingController _addressController;
+  late final TextEditingController _medicalController;
 
   final _nameFocus = FocusNode();
   final _emailFocus = FocusNode();
+  final _studentIdFocus = FocusNode();
   final _coursePriceFocus = FocusNode();
   final _parentNameFocus = FocusNode();
   final _parentUsernameFocus = FocusNode();
@@ -50,6 +55,10 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   final _passwordFocus = FocusNode();
 
   late String _parentRelation;
+  late String _status;
+  late String _gender;
+  late String _bloodGroup;
+  DateTime? _dob;
   bool _obscurePassword = true;
   bool _obscureParentPassword = true;
   bool _saving = false;
@@ -57,6 +66,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   /// Server / client errors shown under specific fields (red).
   String? _nameError;
   String? _emailError;
+  String? _studentIdError;
   String? _coursePriceError;
   String? _parentNameError;
   String? _parentUsernameError;
@@ -81,6 +91,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     final parentAcct = person.parentAccount;
     _nameController = TextEditingController(text: person.name);
     _emailController = TextEditingController(text: person.email ?? '');
+    _studentIdController = TextEditingController(text: person.displayId ?? '');
     _parentNameController = TextEditingController(text: parentAcct?.name ?? person.parentName ?? '');
     _parentPhoneController = TextEditingController(text: parentAcct?.phone ?? person.parentPhone ?? '');
     _parentUsernameController = TextEditingController(text: parentAcct?.username ?? '');
@@ -95,12 +106,19 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     );
     _phoneController = TextEditingController(text: person.phone ?? '');
     _passwordController = TextEditingController();
+    _addressController = TextEditingController(text: person.address ?? '');
+    _medicalController = TextEditingController(text: person.medicalConditions ?? '');
+    _status = person.status.isNotEmpty ? person.status : 'active';
+    _gender = person.gender ?? '';
+    _bloodGroup = person.bloodGroup ?? '';
+    _dob = person.dateOfBirth;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _studentIdController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
     _parentUsernameController.dispose();
@@ -108,8 +126,11 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _coursePriceController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _addressController.dispose();
+    _medicalController.dispose();
     _nameFocus.dispose();
     _emailFocus.dispose();
+    _studentIdFocus.dispose();
     _coursePriceFocus.dispose();
     _parentNameFocus.dispose();
     _parentUsernameFocus.dispose();
@@ -121,6 +142,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   void _clearFieldErrors() {
     _nameError = null;
     _emailError = null;
+    _studentIdError = null;
     _coursePriceError = null;
     _parentNameError = null;
     _parentUsernameError = null;
@@ -136,6 +158,9 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
         !_emailController.text.trim().contains('@') ||
         _emailError != null) {
       target = _emailFocus;
+    } else if (widget.person.isStudent &&
+        (_studentIdController.text.trim().isEmpty || _studentIdError != null)) {
+      target = _studentIdFocus;
     } else if (widget.person.isStudent && _coursePriceError != null) {
       target = _coursePriceFocus;
     } else if (widget.person.isStudent && _parentPortalTouched) {
@@ -165,6 +190,12 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     final email = (v ?? '').trim();
     if (email.isEmpty) return 'Email is required';
     if (!email.contains('@') || !email.contains('.')) return 'Enter a valid email';
+    return null;
+  }
+
+  String? _validateStudentId(String? v) {
+    if (_studentIdError != null) return _studentIdError;
+    if (v == null || v.trim().isEmpty) return 'Student ID is required';
     return null;
   }
 
@@ -217,10 +248,23 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     return null;
   }
 
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dob ?? DateTime(now.year - 12),
+      firstDate: DateTime(1980),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _dob = picked);
+  }
+
   void _applyServerError(Object e) {
     _clearFieldErrors();
     final message = _friendlyError(e).toLowerCase();
-    if (message.contains('email')) {
+    if (message.contains('student id') || message.contains('studentid')) {
+      _studentIdError = _friendlyError(e);
+    } else if (message.contains('email')) {
       _emailError = _friendlyError(e);
     } else if (message.contains('parent username') || message.contains('username')) {
       _parentUsernameError = _friendlyError(e);
@@ -285,10 +329,18 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
           id: widget.person.id,
           name: name,
           email: email,
+          studentId: _studentIdController.text.trim(),
+          phone: _phoneController.text.trim(),
           parentName: parentName.isEmpty ? null : parentName,
           parentPhone: parentPhone,
           parentAccount: parentAccount,
           coursePrice: coursePrice,
+          dateOfBirth: _dob,
+          gender: _gender,
+          bloodGroup: _bloodGroup,
+          address: _addressController.text.trim(),
+          medicalConditions: _medicalController.text.trim(),
+          status: _status,
           password: password.isEmpty ? null : password,
         );
       } else {
@@ -312,6 +364,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
       // Only snackbar when we couldn't pin it to a field.
       if (_nameError == null &&
           _emailError == null &&
+          _studentIdError == null &&
           _coursePriceError == null &&
           _parentNameError == null &&
           _parentUsernameError == null &&
@@ -345,7 +398,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
       final status = e.response?.statusCode;
       if (status == 401) return 'Session expired. Please log in again.';
       if (status == 403) return 'You do not have permission to edit this student.';
-      if (status == 409) return 'Email or parent username already in use.';
+      if (status == 409) return 'Email, student ID, or parent username already in use.';
     }
     return e.toString().replaceFirst('Exception: ', '');
   }
@@ -353,16 +406,29 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   @override
   Widget build(BuildContext context) {
     final isStudent = widget.person.isStudent;
+    final theme = Theme.of(context);
 
     return AppDialog(
       title: isStudent ? 'Edit student' : 'Edit staff',
       icon: Icons.edit_outlined,
+      maxWidth: isStudent ? 560 : 480,
       content: Form(
         key: _formKey,
         autovalidateMode: _autovalidateMode,
         child: SingleChildScrollView(
           child: AppFormColumn(
             children: [
+              if (isStudent)
+                Center(
+                  child: ProfilePhotoPicker(
+                    personId: widget.person.id,
+                    name: widget.person.name,
+                    profileImage: widget.person.profileImage,
+                    isStudent: true,
+                    isActive: widget.person.isActive,
+                    radius: 40,
+                  ),
+                ),
               TextFormField(
                 controller: _nameController,
                 focusNode: _nameFocus,
@@ -373,6 +439,20 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                   if (_nameError != null) setState(() => _nameError = null);
                 },
               ),
+              if (isStudent)
+                TextFormField(
+                  controller: _studentIdController,
+                  focusNode: _studentIdFocus,
+                  decoration: const InputDecoration(
+                    labelText: 'Student ID *',
+                    hintText: 'e.g. #0045 or STU-2026-01',
+                    helperText: 'You choose this ID — shown in People lists',
+                  ),
+                  validator: _validateStudentId,
+                  onChanged: (_) {
+                    if (_studentIdError != null) setState(() => _studentIdError = null);
+                  },
+                ),
               TextFormField(
                 controller: _emailController,
                 focusNode: _emailFocus,
@@ -383,7 +463,73 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                   if (_emailError != null) setState(() => _emailError = null);
                 },
               ),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(labelText: 'Phone'),
+                keyboardType: TextInputType.phone,
+              ),
               if (isStudent) ...[
+                DropdownButtonFormField<String>(
+                  value: _status,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                    DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
+                  ],
+                  onChanged: (v) => setState(() => _status = v ?? 'active'),
+                ),
+                InkWell(
+                  onTap: _pickDob,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date of Birth',
+                      suffixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(
+                      _dob == null
+                          ? 'mm/dd/yyyy'
+                          : '${_dob!.month.toString().padLeft(2, '0')}/'
+                              '${_dob!.day.toString().padLeft(2, '0')}/'
+                              '${_dob!.year}',
+                      style: TextStyle(
+                        color: _dob == null ? theme.hintColor : null,
+                      ),
+                    ),
+                  ),
+                ),
+                DropdownButtonFormField<String>(
+                  value: _gender.isEmpty ? null : _gender,
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                  items: const [
+                    DropdownMenuItem(value: 'male', child: Text('Male')),
+                    DropdownMenuItem(value: 'female', child: Text('Female')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (v) => setState(() => _gender = v ?? ''),
+                ),
+                DropdownButtonFormField<String>(
+                  value: _bloodGroup.isEmpty ? null : _bloodGroup,
+                  decoration: const InputDecoration(labelText: 'Blood Group'),
+                  items: [
+                    for (final g in ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
+                      DropdownMenuItem(value: g, child: Text(g)),
+                  ],
+                  onChanged: (v) => setState(() => _bloodGroup = v ?? ''),
+                ),
+                TextFormField(
+                  controller: _addressController,
+                  decoration: const InputDecoration(labelText: 'Address'),
+                  maxLines: 2,
+                ),
+                TextFormField(
+                  controller: _medicalController,
+                  decoration: const InputDecoration(
+                    labelText: 'Medical Conditions',
+                    hintText: 'No data found',
+                  ),
+                  maxLines: 2,
+                ),
                 TextFormField(
                   controller: _coursePriceController,
                   focusNode: _coursePriceFocus,
@@ -417,7 +563,6 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                   validator: _validateParentName,
                   onChanged: (_) {
                     if (_parentNameError != null) setState(() => _parentNameError = null);
-                    // Re-validate siblings when portal fields change.
                     if (_autovalidateMode != AutovalidateMode.disabled) {
                       _formKey.currentState?.validate();
                     }
@@ -471,12 +616,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                     ),
                   ),
                 ),
-              ] else
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone'),
-                  keyboardType: TextInputType.phone,
-                ),
+              ],
               TextFormField(
                 controller: _passwordController,
                 focusNode: _passwordFocus,

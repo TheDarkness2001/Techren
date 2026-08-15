@@ -179,6 +179,15 @@ const createStudent = async (req, data) => {
     }
   }
 
+  const studentId = String(data.studentId || '').trim();
+  if (!studentId) {
+    throw Object.assign(new Error('Student ID is required'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+  const existingId = await Student.findOne({ studentId });
+  if (existingId) {
+    throw Object.assign(new Error('Student ID already in use'), { statusCode: 409, code: 'DUPLICATE' });
+  }
+
   const subjectFees = Array.isArray(data.subjectFees)
     ? data.subjectFees
         .filter((f) => f && String(f.subject || '').trim())
@@ -194,6 +203,7 @@ const createStudent = async (req, data) => {
   const status = allowedStatus.includes(data.status) ? data.status : 'active';
 
   const student = await Student.create({
+    studentId,
     name: data.name,
     email: data.email,
     password: data.password,
@@ -236,6 +246,20 @@ const updateStudent = async (req, id, data) => {
       throw Object.assign(new Error('Email already in use in this branch'), { statusCode: 409, code: 'DUPLICATE' });
     }
     student.email = data.email;
+  }
+
+  if (data.studentId !== undefined) {
+    const nextId = String(data.studentId || '').trim();
+    if (!nextId) {
+      throw Object.assign(new Error('Student ID cannot be empty'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+    }
+    if (nextId !== student.studentId) {
+      const existingId = await Student.findOne({ studentId: nextId, _id: { $ne: student._id } });
+      if (existingId) {
+        throw Object.assign(new Error('Student ID already in use'), { statusCode: 409, code: 'DUPLICATE' });
+      }
+      student.studentId = nextId;
+    }
   }
 
   if (data.name !== undefined) student.name = data.name;
