@@ -52,6 +52,56 @@ String _groupsUiError(Object e) {
   return raw.replaceFirst('Exception: ', '');
 }
 
+TimeOfDay _parseGroupTime(String raw, {required TimeOfDay fallback}) {
+  final parts = raw.trim().split(':');
+  if (parts.length < 2) return fallback;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return fallback;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+String _formatGroupTime(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+int _groupTimeMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
+
+Widget _groupTimePickerField({
+  required BuildContext context,
+  required String label,
+  required TimeOfDay value,
+  required ValueChanged<TimeOfDay> onChanged,
+}) {
+  return InkWell(
+    onTap: () async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: value,
+        helpText: label,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+      );
+      if (picked != null) onChanged(picked);
+    },
+    borderRadius: BorderRadius.circular(12),
+    child: InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: const Icon(Icons.schedule_outlined),
+      ),
+      child: Text(
+        _formatGroupTime(value),
+        style: Theme.of(context).textTheme.bodyLarge,
+      ),
+    ),
+  );
+}
+
 /// Active students available for a group:
 /// - exclude inactive students (unless already in [editingGroupId])
 /// - exclude students already assigned to another group
@@ -234,8 +284,8 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     final groupController = TextEditingController();
     final priceController = TextEditingController();
     String? teacherId = teachers.first.id;
-    final startController = TextEditingController(text: '10:00');
-    final endController = TextEditingController(text: '11:30');
+    var startTime = const TimeOfDay(hour: 10, minute: 0);
+    var endTime = const TimeOfDay(hour: 11, minute: 30);
     final selectedDays = <String>{'Mon', 'Wed', 'Fri'};
     final selectedStudentIds = <String>{};
     final needsBranchPicker = user?.isFounder == true && branches.isNotEmpty;
@@ -276,8 +326,18 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: const InputDecoration(labelText: 'Start (HH:mm)')),
-                TextField(controller: endController, decoration: const InputDecoration(labelText: 'End (HH:mm)')),
+                _groupTimePickerField(
+                  context: context,
+                  label: 'Start time',
+                  value: startTime,
+                  onChanged: (v) => setDialogState(() => startTime = v),
+                ),
+                _groupTimePickerField(
+                  context: context,
+                  label: 'End time',
+                  value: endTime,
+                  onChanged: (v) => setDialogState(() => endTime = v),
+                ),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -338,14 +398,20 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   );
                   return;
                 }
+                if (_groupTimeMinutes(endTime) <= _groupTimeMinutes(startTime)) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('End time must be after start time')),
+                  );
+                  return;
+                }
                 try {
                   await ref.read(schedulingApiProvider).createUnified(
                         subjectName: subjectController.text.trim(),
                         groupName: groupController.text.trim(),
                         teacherId: teacherId!,
                         scheduledDays: selectedDays.toList(),
-                        startTime: startController.text.trim(),
-                        endTime: endController.text.trim(),
+                        startTime: _formatGroupTime(startTime),
+                        endTime: _formatGroupTime(endTime),
                         studentIds: selectedStudentIds.toList(),
                         pricePerClass: price,
                         branchId: branchId!,
@@ -401,8 +467,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     final priceController = TextEditingController(
       text: view.group.pricePerClass > 0 ? '${view.group.pricePerClass}' : '',
     );
-    final startController = TextEditingController(text: view.schedule?.startTime ?? '10:00');
-    final endController = TextEditingController(text: view.schedule?.endTime ?? '11:30');
+    var startTime = _parseGroupTime(
+      view.schedule?.startTime ?? '10:00',
+      fallback: const TimeOfDay(hour: 10, minute: 0),
+    );
+    var endTime = _parseGroupTime(
+      view.schedule?.endTime ?? '11:30',
+      fallback: const TimeOfDay(hour: 11, minute: 30),
+    );
     final dayAliases = <String, String>{
       for (final d in TimetableData.days) d: d,
       'Monday': 'Mon',
@@ -450,8 +522,18 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: const InputDecoration(labelText: 'Start (HH:mm)')),
-                TextField(controller: endController, decoration: const InputDecoration(labelText: 'End (HH:mm)')),
+                _groupTimePickerField(
+                  context: context,
+                  label: 'Start time',
+                  value: startTime,
+                  onChanged: (v) => setDialogState(() => startTime = v),
+                ),
+                _groupTimePickerField(
+                  context: context,
+                  label: 'End time',
+                  value: endTime,
+                  onChanged: (v) => setDialogState(() => endTime = v),
+                ),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -504,6 +586,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   messenger.showSnackBar(const SnackBar(content: Text('Enter a valid course price')));
                   return;
                 }
+                if (_groupTimeMinutes(endTime) <= _groupTimeMinutes(startTime)) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('End time must be after start time')),
+                  );
+                  return;
+                }
                 try {
                   await ref.read(schedulingApiProvider).updateGroup(
                         groupId: view.group.id,
@@ -524,8 +612,8 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                           scheduleId: scheduleId,
                           teacherId: teacherId,
                           scheduledDays: selectedDays.toList(),
-                          startTime: startController.text.trim(),
-                          endTime: endController.text.trim(),
+                          startTime: _formatGroupTime(startTime),
+                          endTime: _formatGroupTime(endTime),
                           className: groupController.text.trim(),
                         );
                   }
