@@ -139,16 +139,48 @@ const createUnified = async (data) => {
     ? await Subject.findById(subjectData.id)
     : null;
 
+  const subjectName = String(subjectData.name || '').trim();
+  if (!subject && subjectName) {
+    subject = await Subject.findOne({
+      branchId,
+      name: new RegExp(`^${subjectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+    });
+  }
+
   if (!subject) {
+    if (!subjectName) {
+      throw Object.assign(new Error('Subject name is required to create a group'), {
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
     const { withLearningDefaults } = require('./subjectService');
-    subject = await Subject.create(
-      withLearningDefaults({
-        name: subjectData.name,
-        code: subjectData.code,
-        pricePerClass: subjectData.pricePerClass || 0,
-        branchId,
-      })
-    );
+    try {
+      subject = await Subject.create(
+        withLearningDefaults({
+          name: subjectName,
+          code: subjectData.code,
+          pricePerClass: subjectData.pricePerClass || 0,
+          branchId,
+        })
+      );
+    } catch (e) {
+      if (e && e.code === 11000) {
+        subject = await Subject.findOne({
+          branchId,
+          name: new RegExp(`^${subjectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+        });
+      }
+      if (!subject) {
+        throw Object.assign(new Error('Could not create group. Try a different subject name.'), {
+          statusCode: 400,
+          code: 'DUPLICATE',
+        });
+      }
+    }
+  } else if (subjectData.pricePerClass != null && Number(subjectData.pricePerClass) > 0) {
+    subject.pricePerClass = Number(subjectData.pricePerClass);
+    await subject.save();
   }
 
   const group = await ExamGroup.create({
