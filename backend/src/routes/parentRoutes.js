@@ -17,6 +17,8 @@ router.get('/children/:studentId/attendance', objectId('studentId'), paginationR
 router.get('/children/:studentId/exams', objectId('studentId'), paginationRules, validate, controller.exams);
 router.get('/children/:studentId/payments', objectId('studentId'), validate, controller.payments);
 router.get('/children/:studentId/alerts', objectId('studentId'), validate, controller.alerts);
+router.get('/children/:studentId/homework', objectId('studentId'), validate, controller.homework);
+router.get('/children/:studentId/schedule', objectId('studentId'), validate, controller.schedule);
 router.post(
   '/children/:studentId/attendance/:attendanceId/excuse',
   objectId('studentId'),

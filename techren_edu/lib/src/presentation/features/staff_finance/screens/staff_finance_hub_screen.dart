@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
@@ -15,15 +16,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/staff_finance_provider.dart';
 
-String formatSom(int amount) {
-  final text = amount.toString();
-  final buffer = StringBuffer();
-  for (var i = 0; i < text.length; i++) {
-    if (i > 0 && (text.length - i) % 3 == 0) buffer.write(' ');
-    buffer.write(text[i]);
-  }
-  return "${buffer.toString()} so'm";
-}
+String formatSom(int amount) => formatUzs(amount);
 
 class StaffFinanceHubScreen extends ConsumerStatefulWidget {
   const StaffFinanceHubScreen({

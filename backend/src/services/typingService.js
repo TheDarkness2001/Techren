@@ -6,6 +6,7 @@ const TypingResult = require('../models/TypingResult');
 const TypingStudentStats = require('../models/TypingStudentStats');
 const { awardXp, XP_REWARDS, getOrCreateProfile, formatProfile, getLevelInfo } = require('./gamificationService');
 const { ensureSubjectLearningFields, isItTypingSubject } = require('../utils/learningModules');
+const { getTashkentParts } = require('../utils/classWindow');
 
 const ALLOWED_DURATIONS = new Set([15, 30, 60, 120, 300, 0]);
 
@@ -77,7 +78,7 @@ const resolveStudentId = (req, bodyStudentId) => {
   return null;
 };
 
-const utcDateString = (date = new Date()) => date.toISOString().slice(0, 10);
+const utcDateString = (date = new Date()) => getTashkentParts(date).dateString;
 
 const hashSeed = (text) => {
   let hash = 0;

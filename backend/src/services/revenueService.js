@@ -1,5 +1,6 @@
 const Payment = require('../models/Payment');
 const { getBranchFilter } = require('../utils/branchFilter');
+const { getTashkentParts } = require('../utils/classWindow');
 
 const paidFilter = (req) => ({
   ...getBranchFilter(req),
@@ -91,8 +92,9 @@ const getChart = async (req) => {
   for (const payment of payments) {
     if (!payment.paidDate) continue;
     const date = new Date(payment.paidDate);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const dateKey = date.toISOString().slice(0, 10);
+    const parts = getTashkentParts(date);
+    const monthKey = `${parts.year}-${String(parts.month).padStart(2, '0')}`;
+    const dateKey = parts.dateString;
     const amount = Number(payment.amount || 0);
     byMonth[monthKey] = (byMonth[monthKey] || 0) + amount;
     byDate[dateKey] = (byDate[dateKey] || 0) + amount;

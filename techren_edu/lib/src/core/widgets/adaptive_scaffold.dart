@@ -58,6 +58,11 @@ class AdaptiveScaffold extends ConsumerWidget {
     return null;
   }
 
+  String _navLabel(AppLocalizations l10n, NavItem item) {
+    final mapped = l10n.navLabelForRoute(item.route);
+    return mapped.isEmpty ? item.label : mapped;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final size = Responsive.of(context);
@@ -182,7 +187,7 @@ class AdaptiveScaffold extends ConsumerWidget {
               onDestinationSelected: handleNavSelected,
               destinations: [
                 for (final item in navItems)
-                  NavigationDestination(icon: Icon(item.icon), label: item.label),
+                  NavigationDestination(icon: Icon(item.icon), label: _navLabel(l10n, item)),
               ],
             ),
           ),
@@ -194,13 +199,13 @@ class AdaptiveScaffold extends ConsumerWidget {
     if (size == ScreenSize.compact) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(title),
+          title: Text(title, overflow: TextOverflow.ellipsis),
           actions: [
+            ...?actions,
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Center(child: _ShellProfileAvatar(user: user, radius: 16)),
             ),
-            ...?actions,
           ],
         ),
         body: animatedBody,
@@ -212,7 +217,7 @@ class AdaptiveScaffold extends ConsumerWidget {
             onDestinationSelected: handleNavSelected,
             destinations: [
               for (final item in navItems)
-                NavigationDestination(icon: Icon(item.icon), label: item.label),
+                NavigationDestination(icon: Icon(item.icon), label: _navLabel(l10n, item)),
             ],
           ),
         ),
@@ -242,7 +247,7 @@ class AdaptiveScaffold extends ConsumerWidget {
                 for (final item in navItems)
                   NavigationRailDestination(
                     icon: Icon(item.icon),
-                    label: Text(item.label),
+                    label: Text(_navLabel(l10n, item)),
                   ),
               ],
             ),
@@ -349,12 +354,23 @@ class _PageHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Row(
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const Spacer(),
-          if (actions != null) ...actions!,
+          if (actions != null)
+            Flexible(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: actions!,
+                ),
+              ),
+            ),
         ],
       ),
       ),

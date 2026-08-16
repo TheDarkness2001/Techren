@@ -1,0 +1,25 @@
+part of 'app_localizations.dart';
+
+extension L10nPayments on AppLocalizations {
+  String get recordPayment => t(en: 'Record Payment', ru: 'Записать платёж', uz: 'To\'lovni yozish');
+  String get acceptPayment => t(en: 'Accept payment', ru: 'Принять платёж', uz: 'To\'lovni qabul qilish');
+  String get noStudentsFound => t(en: 'No students found', ru: 'Ученики не найдены', uz: 'O\'quvchilar topilmadi');
+  String get student => t(en: 'Student', ru: 'Ученик', uz: 'O\'quvchi');
+  String get course => t(en: 'Course', ru: 'Курс', uz: 'Kurs');
+  String get courseOrSubject => t(en: 'Course / subject', ru: 'Курс / предмет', uz: 'Kurs / fan');
+  String get amountReceived => t(en: 'Amount received', ru: 'Полученная сумма', uz: 'Qabul qilingan summa');
+  String get method => t(en: 'Method', ru: 'Способ', uz: 'Usul');
+  String get refreshData => t(en: 'Refresh Data', ru: 'Обновить данные', uz: 'Ma\'lumotni yangilash');
+  String get searchStudent => t(en: 'Search Student', ru: 'Поиск ученика', uz: 'O\'quvchi qidirish');
+  String get nameOrId => t(en: 'Name or ID', ru: 'Имя или ID', uz: 'Ism yoki ID');
+  String get couldNotLoadPayments => t(en: 'Could not load payments', ru: 'Не удалось загрузить платежи', uz: 'To\'lovlarni yuklab bo\'lmadi');
+  String remainingLeft(String amount) => t(en: '$amount left', ru: 'осталось $amount', uz: '$amount qoldi');
+  String couldNotRecordPayment(String error) => t(en: 'Could not record payment: $error', ru: 'Не удалось записать платёж: $error', uz: 'To\'lov yozilmadi: $error');
+  String paymentRecordedFor(String name) => t(en: 'Payment recorded for $name', ru: 'Платёж записан для $name', uz: '$name uchun to\'lov yozildi');
+  String get recordPaid => t(en: 'Record paid', ru: 'Записать оплату', uz: 'To\'langan deb yozish');
+  String get noStudentsMatchFilters => t(
+        en: 'No active students match this month’s filters.',
+        ru: 'Нет активных учеников по фильтрам этого месяца.',
+        uz: 'Bu oy filtrlari bo\'yicha faol o\'quvchilar yo\'q.',
+      );
+}

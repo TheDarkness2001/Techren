@@ -10,6 +10,11 @@ const fcmService = require('./fcmService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const logger = require('../config/logger');
 
+const actorUserType = (req) =>
+  req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+
+const lastTestPushAt = new Map();
+
 const formatNotification = (doc) => ({
   id: String(doc._id || doc.id || ''),
   userId: doc.userId != null ? String(doc.userId) : '',
@@ -204,8 +209,7 @@ const registerFcmToken = async (studentId, token, meta = {}) => {
 };
 
 const registerDeviceTokenForActor = async (req, body = {}) => {
-  const userType =
-    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  const userType = actorUserType(req);
   return fcmService.upsertDeviceToken({
     userId: req.user._id,
     userType,
@@ -217,8 +221,7 @@ const registerDeviceTokenForActor = async (req, body = {}) => {
 };
 
 const refreshDeviceTokenForActor = async (req, body = {}) => {
-  const userType =
-    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  const userType = actorUserType(req);
   return fcmService.upsertDeviceToken({
     userId: req.user._id,
     userType,
@@ -230,8 +233,7 @@ const refreshDeviceTokenForActor = async (req, body = {}) => {
 };
 
 const removeDeviceTokenForActor = async (req, body = {}) => {
-  const userType =
-    req.userType === 'student' ? 'student' : req.userType === 'parent' ? 'parent' : 'teacher';
+  const userType = actorUserType(req);
   return fcmService.removeDeviceToken({
     userId: req.user._id,
     userType,
@@ -241,7 +243,7 @@ const removeDeviceTokenForActor = async (req, body = {}) => {
 
 const listForUser = async (req) => {
   const { page, limit, skip } = parsePagination(req.query);
-  const userType = req.userType === 'student' ? 'student' : 'teacher';
+  const userType = actorUserType(req);
   const filter = {
     userId: req.user._id,
     userType,
@@ -292,7 +294,7 @@ const markRead = async (req, id) => {
   const notification = await NotificationLog.findOne({
     _id: id,
     userId: req.user._id,
-    userType: req.userType === 'student' ? 'student' : 'teacher',
+    userType: actorUserType(req),
   });
   if (!notification) {
     throw Object.assign(new Error('Notification not found'), { statusCode: 404, code: 'NOT_FOUND' });
@@ -303,7 +305,7 @@ const markRead = async (req, id) => {
 };
 
 const markAllRead = async (req) => {
-  const userType = req.userType === 'student' ? 'student' : 'teacher';
+  const userType = actorUserType(req);
   const result = await NotificationLog.updateMany(
     { userId: req.user._id, userType, channel: 'in_app', readAt: null },
     { readAt: new Date() }
@@ -830,6 +832,35 @@ const runPaymentLockSweep = async () => {
   return { locked, day, month, year };
 };
 
+const sendTestPushForActor = async (req) => {
+  const userType = actorUserType(req);
+  const key = `${userType}:${req.user._id}`;
+  const prev = lastTestPushAt.get(key) || 0;
+  if (Date.now() - prev < 15000) {
+    throw Object.assign(new Error('Wait a few seconds before sending another test'), {
+      statusCode: 429,
+      code: 'RATE_LIMIT',
+    });
+  }
+  lastTestPushAt.set(key, Date.now());
+
+  const result = await fcmService.sendToUser({
+    userId: req.user._id,
+    userType,
+    title: 'TechRen test',
+    body: 'Push is working. You can close this notification.',
+    data: { eventType: 'test_push', screen: 'notifications' },
+  });
+
+  return {
+    sent: result.sent || 0,
+    failed: result.failed || 0,
+    status: result.status || 'skipped',
+    reason: result.reason || null,
+    firebaseConfigured: Boolean(fcmService.isFirebaseReady()),
+  };
+};
+
 module.exports = {
   formatSettings,
   getParentSettings,
@@ -849,5 +880,6 @@ module.exports = {
   notifyAttendanceMarked,
   runPaymentDueReminders,
   runPaymentLockSweep,
+  sendTestPushForActor,
   screenForEvent,
 };

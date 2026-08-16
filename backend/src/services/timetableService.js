@@ -87,12 +87,14 @@ const getTeacherTimetable = async (req) => {
   return { role: 'teacher', weekStart: req.query.weekStart || null, grid: buildGrid(schedules), total: schedules.length };
 };
 
-const getStudentTimetable = async (req) => {
-  const schedules = await ClassSchedule.find({ enrolledStudents: req.user._id })
+const getStudentTimetable = async (req) => getTimetableForStudent(req.user._id, req.query.weekStart);
+
+const getTimetableForStudent = async (studentId, weekStart = null) => {
+  const schedules = await ClassSchedule.find({ enrolledStudents: studentId })
     .populate(schedulePopulate)
     .sort({ startTime: 1 });
 
-  return { role: 'student', weekStart: req.query.weekStart || null, grid: buildGrid(schedules), total: schedules.length };
+  return { role: 'student', weekStart: weekStart || null, grid: buildGrid(schedules), total: schedules.length };
 };
 
 const getTimetable = async (req, type) => {
@@ -102,4 +104,4 @@ const getTimetable = async (req, type) => {
   throw Object.assign(new Error('Invalid timetable type'), { statusCode: 400, code: 'VALIDATION_ERROR' });
 };
 
-module.exports = { getTimetable, buildGrid, DAYS };
+module.exports = { getTimetable, getTimetableForStudent, buildGrid, DAYS };

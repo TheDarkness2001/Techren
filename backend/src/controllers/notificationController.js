@@ -58,6 +58,15 @@ exports.removeDeviceToken = asyncHandler(async (req, res) => {
   }
 });
 
+exports.sendTestPush = asyncHandler(async (req, res) => {
+  try {
+    const data = await notificationService.sendTestPushForActor(req);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 exports.getMySettings = asyncHandler(async (req, res) => {
   try {
     if (req.userType !== 'student') {

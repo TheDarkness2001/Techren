@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../../presentation/providers/app_preferences_provider.dart';
+import 'send_test_push_button.dart';
 
 /// Language (EN / RU / UZ) and theme (light / dark / system) chips for profile menus.
 class AppearanceControls extends ConsumerWidget {
@@ -74,6 +75,7 @@ class AppearanceControls extends ConsumerWidget {
             ),
           ],
         ),
+        const SendTestPushButton(),
       ],
     );
   }

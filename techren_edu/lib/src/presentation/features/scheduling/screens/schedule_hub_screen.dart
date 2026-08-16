@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
@@ -87,17 +88,18 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final baseQuery = (page: 1, search: _groupsSearch);
 
     return AdaptiveScaffold(
-      title: 'Groups',
+      title: l10n.navGroups,
       selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
-        IconButton(icon: const Icon(Icons.add), tooltip: 'Create group', onPressed: () => _showCreateUnified(context)),
+        IconButton(icon: const Icon(Icons.add), tooltip: l10n.createGroup, onPressed: () => _showCreateUnified(context)),
       ],
       body: Column(
         children: [
@@ -107,7 +109,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               controller: _groupsSearchController,
               style: Theme.of(context).textTheme.bodyMedium,
               decoration: InputDecoration(
-                hintText: 'Search groups by name or subject',
+                hintText: l10n.searchGroupsHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _groupsSearch.isNotEmpty
                     ? IconButton(
@@ -130,12 +132,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               withPage: (q, page) => (page: page, search: q.search),
               queryCacheKey: _groupsSearch,
               onInvalidate: (ref, q) => ref.invalidate(unifiedGroupsProvider(q)),
-              itemLabel: 'groups',
+              itemLabel: l10n.itemsGroups,
               initialLoadingKind: LoadingSkeletonKind.list,
               empty: ListView(
-                children: const [
-                  SizedBox(height: AppSpacing.emptyStateTop),
-                  EmptyState(title: 'No groups', message: 'Create a group with the + button.'),
+                children: [
+                  const SizedBox(height: AppSpacing.emptyStateTop),
+                  EmptyState(title: l10n.noGroups, message: l10n.noGroupsMessage),
                 ],
               ),
               builder: (context, controller, items, state) => ListView.builder(
@@ -155,6 +157,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
   }
 
   Future<void> _showCreateUnified(BuildContext context) async {
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     List<Person> teachers;
     List<Person> students;
@@ -168,13 +171,13 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         groups: groups,
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople('$e'))));
       return;
     }
 
     if (!context.mounted) return;
     if (teachers.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Create a teacher first in People.')));
+      messenger.showSnackBar(SnackBar(content: Text(context.l10n.createTeacherFirst)));
       return;
     }
 
@@ -191,30 +194,30 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AppDialog(
-          title: 'Create group',
+          title: context.l10n.createGroup,
           maxWidth: 560,
           content: AppFormColumn(
               children: [
-                TextField(controller: subjectController, decoration: const InputDecoration(labelText: 'Subject name')),
+                TextField(controller: subjectController, decoration: InputDecoration(labelText: context.l10n.subjectName)),
                 TextField(
                   controller: priceController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Course price (monthly) *',
-                    hintText: 'Used for dues & expected revenue',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.coursePriceMonthlyRequired,
+                    hintText: context.l10n.coursePriceHint,
                   ),
                 ),
-                TextField(controller: groupController, decoration: const InputDecoration(labelText: 'Group name')),
+                TextField(controller: groupController, decoration: InputDecoration(labelText: context.l10n.groupName)),
                 DropdownButtonFormField<String>(
                   value: teacherId,
-                  decoration: const InputDecoration(labelText: 'Teacher'),
+                  decoration: InputDecoration(labelText: context.l10n.teacher),
                   items: teachers
                       .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: const InputDecoration(labelText: 'Start (HH:mm)')),
-                TextField(controller: endController, decoration: const InputDecoration(labelText: 'End (HH:mm)')),
+                TextField(controller: startController, decoration: InputDecoration(labelText: context.l10n.startTime)),
+                TextField(controller: endController, decoration: InputDecoration(labelText: context.l10n.endTime)),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -232,10 +235,10 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                     );
                   }).toList(),
                 ),
-                Text('Students', style: Theme.of(context).textTheme.titleSmall),
+                Text(context.l10n.navStudents, style: Theme.of(context).textTheme.titleSmall),
                 if (students.isEmpty)
                   Text(
-                    'No available students. Only active students who are not already in a group can be added.',
+                    context.l10n.noAvailableStudents,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 for (final s in students)
@@ -258,14 +261,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
             AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
             AppDialogActions.confirm(
               context,
-              label: 'Create',
+              label: l10n.create,
               onPressed: () async {
                 if (subjectController.text.isEmpty || groupController.text.isEmpty || teacherId == null) return;
                 if (selectedDays.isEmpty) return;
                 final price = num.tryParse(priceController.text.trim());
                 if (price == null || price <= 0) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Enter a course price greater than 0')),
+                    SnackBar(content: Text(l10n.enterPriceGreaterThanZero)),
                   );
                   return;
                 }
@@ -282,7 +285,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       );
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text('Could not create group: $e')));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotCreateGroup('$e'))));
                 }
               },
             ),
@@ -303,6 +306,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
   }
 
   Future<void> _showEditGroup(BuildContext context, UnifiedGroupView view) async {
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     List<Person> teachers;
     List<Person> students;
@@ -318,12 +322,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         currentMembers: view.group.students,
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not load people: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople('$e'))));
       return;
     }
     if (!context.mounted) return;
     if (teachers.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('No teachers available.')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.noTeachersAvailable)));
       return;
     }
 
@@ -359,29 +363,29 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AppDialog(
-          title: 'Edit group',
+          title: l10n.editGroup,
           maxWidth: 560,
           content: AppFormColumn(
               children: [
-                TextField(controller: groupController, decoration: const InputDecoration(labelText: 'Group name')),
+                TextField(controller: groupController, decoration: InputDecoration(labelText: l10n.groupName)),
                 TextField(
                   controller: priceController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Course price (monthly)',
-                    hintText: 'Used for dues & expected revenue',
+                  decoration: InputDecoration(
+                    labelText: l10n.coursePriceMonthly,
+                    hintText: l10n.coursePriceHint,
                   ),
                 ),
                 DropdownButtonFormField<String>(
                   value: teacherId,
-                  decoration: const InputDecoration(labelText: 'Teacher'),
+                  decoration: InputDecoration(labelText: l10n.teacher),
                   items: teachers
                       .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: const InputDecoration(labelText: 'Start (HH:mm)')),
-                TextField(controller: endController, decoration: const InputDecoration(labelText: 'End (HH:mm)')),
+                TextField(controller: startController, decoration: InputDecoration(labelText: context.l10n.startTime)),
+                TextField(controller: endController, decoration: InputDecoration(labelText: context.l10n.endTime)),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -399,10 +403,10 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                     );
                   }).toList(),
                 ),
-                Text('Students', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.navStudents, style: Theme.of(context).textTheme.titleSmall),
                 if (students.isEmpty)
                   Text(
-                    'No available students. Only active students who are not already in another group can be added.',
+                    l10n.noAvailableStudents,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 for (final s in students)
@@ -425,13 +429,13 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
             AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
             AppDialogActions.confirm(
               context,
-              label: 'Save',
+              label: l10n.save,
               onPressed: () async {
                 if (groupController.text.trim().isEmpty || teacherId == null || selectedDays.isEmpty) return;
                 final priceText = priceController.text.trim();
                 final price = priceText.isEmpty ? null : num.tryParse(priceText);
                 if (priceText.isNotEmpty && (price == null || price < 0)) {
-                  messenger.showSnackBar(const SnackBar(content: Text('Enter a valid course price')));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.enterValidCoursePrice)));
                   return;
                 }
                 try {
@@ -461,7 +465,7 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   }
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text('Could not update group: $e')));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotUpdateGroup('$e'))));
                 }
               },
             ),
@@ -500,7 +504,7 @@ class ScheduleHubScreen extends ConsumerWidget {
     final timetableAsync = ref.watch(timetableProvider('admin'));
 
     return AdaptiveScaffold(
-      title: 'Timetable',
+      title: context.l10n.navTimetable,
       selectedIndex: timetableIndex >= 0 ? timetableIndex : (selectedIndex < 0 ? 0 : selectedIndex),
       selectedRoute: selectedRoute,
       items: navItems,
@@ -508,7 +512,7 @@ class ScheduleHubScreen extends ConsumerWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),
-          tooltip: 'Refresh',
+          tooltip: context.l10n.refresh,
           onPressed: () => ref.invalidate(timetableProvider('admin')),
         ),
       ],

@@ -2,6 +2,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const paymentService = require('../services/paymentService');
 const { getBranchFilter } = require('../utils/branchFilter');
+const { billingPeriodFromQuery } = require('../utils/classWindow');
 
 const handle = (res, e) => sendError(res, e.statusCode || 500, e.code || 'SERVER_ERROR', e.message);
 
@@ -24,8 +25,7 @@ exports.myDues = asyncHandler(async (req, res) => {
     if (req.userType !== 'student') {
       return sendError(res, 403, 'FORBIDDEN', 'Students only');
     }
-    const month = Math.min(12, Math.max(1, Number(req.query.month) || new Date().getMonth() + 1));
-    const year = Number(req.query.year) || new Date().getFullYear();
+    const { month, year } = billingPeriodFromQuery(req.query);
     const result = await paymentService.getStudentDues(req.user._id, month, year);
     sendSuccess(res, result);
   } catch (e) { handle(res, e); }

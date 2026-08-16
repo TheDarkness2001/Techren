@@ -362,6 +362,7 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
     final semantic = context.semantic;
     final started = _startedAt != null || _caret > 0;
     final bg = Color.lerp(const Color(0xFF0B0E14), scheme.surface, 0.35)!;
+    final compact = MediaQuery.sizeOf(context).width < 600;
 
     return Scaffold(
       backgroundColor: bg,
@@ -417,19 +418,23 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                       children: [
                         Center(
                           child: FractionallySizedBox(
-                            widthFactor: 0.78,
+                            widthFactor: compact ? 0.96 : 0.78,
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 960, minWidth: 280),
+                              constraints: BoxConstraints(
+                                maxWidth: 960,
+                                minWidth: compact ? 0 : 280,
+                              ),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 16),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 6,
                                       children: [
                                         Icon(_modeIcon, size: 14, color: scheme.primary),
-                                        const SizedBox(width: 6),
                                         Text(
                                           _modeLabel,
                                           style: TextStyle(
@@ -439,7 +444,7 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                                             color: scheme.primary,
                                           ),
                                         ),
-                                        Text('  ·  ', style: TextStyle(color: semantic.textMuted)),
+                                        Text('·', style: TextStyle(color: semantic.textMuted)),
                                         Text(
                                           widget.durationSec > 0 ? '${widget.durationSec}s' : '∞',
                                           style: TextStyle(
@@ -458,24 +463,27 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                                         padding: const EdgeInsets.only(bottom: 20),
                                         child: Wrap(
                                           alignment: WrapAlignment.center,
-                                          spacing: 32,
+                                          spacing: compact ? 16 : 32,
                                           runSpacing: 8,
                                           children: [
                                             _MonoStat(
                                               value: (_wpm.isFinite ? _wpm : 0).toStringAsFixed(0),
                                               label: 'wpm',
                                               color: scheme.primary,
+                                              compact: compact,
                                             ),
                                             _MonoStat(
                                               value: _accuracy.toStringAsFixed(0),
                                               label: 'acc',
                                               color: scheme.primary,
+                                              compact: compact,
                                             ),
                                             _MonoStat(
                                               value: _timeLeft < 0 ? '∞' : '$_timeLeft',
                                               label: 'time',
                                               color: scheme.primary,
                                               large: true,
+                                              compact: compact,
                                             ),
                                           ],
                                         ),
@@ -486,6 +494,7 @@ class _TypingGameScreenState extends ConsumerState<TypingGameScreen>
                                       typed: _inputCtrl.text,
                                       caret: _caret,
                                       caretBlink: _caretBlink,
+                                      fontSize: compact ? 22 : 32,
                                     ),
                                     const SizedBox(height: 32),
                                     Text(
@@ -555,15 +564,18 @@ class _MonoStat extends StatelessWidget {
     required this.label,
     required this.color,
     this.large = false,
+    this.compact = false,
   });
 
   final String value;
   final String label;
   final Color color;
   final bool large;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final valueSize = compact ? (large ? 28.0 : 22.0) : (large ? 34.0 : 28.0);
     return Text.rich(
       TextSpan(
         children: [
@@ -572,7 +584,7 @@ class _MonoStat extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Consolas',
               fontFamilyFallback: const ['Courier New', 'monospace'],
-              fontSize: large ? 34 : 28,
+              fontSize: valueSize,
               fontWeight: FontWeight.w700,
               color: color,
               height: 1,
@@ -600,22 +612,23 @@ class MonkeytypePrompt extends StatelessWidget {
     required this.typed,
     required this.caret,
     required this.caretBlink,
+    this.fontSize = 32,
   });
 
   final String target;
   final String typed;
   final int caret;
   final Animation<double> caretBlink;
+  final double fontSize;
 
-  static const _fontSize = 32.0;
   static const _lineHeight = 1.55;
 
-  double get _rowHeight => _fontSize * _lineHeight;
+  double get _rowHeight => fontSize * _lineHeight;
 
-  TextStyle get _baseStyle => const TextStyle(
+  TextStyle get _baseStyle => TextStyle(
         fontFamily: 'Consolas',
-        fontFamilyFallback: ['Courier New', 'Menlo', 'monospace'],
-        fontSize: _fontSize,
+        fontFamilyFallback: const ['Courier New', 'Menlo', 'monospace'],
+        fontSize: fontSize,
         height: _lineHeight,
         letterSpacing: 0.35,
         fontWeight: FontWeight.w400,
@@ -742,7 +755,7 @@ class MonkeytypePrompt extends StatelessWidget {
                     offset: Offset(caretOffset.dx, caretOffset.dy - scrollY + 2),
                     child: Container(
                       width: 2.5,
-                      height: _fontSize * 1.05,
+                      height: fontSize * 1.05,
                       decoration: BoxDecoration(
                         color: caretColor,
                         borderRadius: BorderRadius.circular(1),

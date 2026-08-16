@@ -27,28 +27,35 @@ const formatResult = (result, passingMarks) => ({
   passed: result.marksObtained >= passingMarks,
 });
 
-const format = (doc) => ({
-  id: doc._id,
-  examName: doc.examName,
-  subject: doc.subject,
-  class: doc.class,
-  scheduleId: doc.scheduleId?._id || doc.scheduleId,
-  subjectGroup: doc.subjectGroup?._id || doc.subjectGroup,
-  groupName: doc.subjectGroup?.groupName,
-  className: doc.scheduleId?.className || doc.class,
-  examDate: doc.examDate,
-  startTime: doc.startTime,
-  duration: doc.duration,
-  totalMarks: doc.totalMarks,
-  passingMarks: doc.passingMarks,
-  examType: doc.examType,
-  teacher: doc.teacher,
-  teacherName: doc.teacher?.name,
-  status: doc.status,
-  results: (doc.results || []).map((r) => formatResult(r.toObject?.() || r, doc.passingMarks)),
-  branchId: doc.branchId,
-  createdAt: doc.createdAt,
-});
+const format = (doc, req = null) => {
+  let results = (doc.results || []).map((r) => formatResult(r.toObject?.() || r, doc.passingMarks));
+  if (req?.userType === 'student') {
+    const selfId = String(req.user._id);
+    results = results.filter((row) => String(row.student) === selfId);
+  }
+  return {
+    id: doc._id,
+    examName: doc.examName,
+    subject: doc.subject,
+    class: doc.class,
+    scheduleId: doc.scheduleId?._id || doc.scheduleId,
+    subjectGroup: doc.subjectGroup?._id || doc.subjectGroup,
+    groupName: doc.subjectGroup?.groupName,
+    className: doc.scheduleId?.className || doc.class,
+    examDate: doc.examDate,
+    startTime: doc.startTime,
+    duration: doc.duration,
+    totalMarks: doc.totalMarks,
+    passingMarks: doc.passingMarks,
+    examType: doc.examType,
+    teacher: doc.teacher,
+    teacherName: doc.teacher?.name,
+    status: doc.status,
+    results,
+    branchId: doc.branchId,
+    createdAt: doc.createdAt,
+  };
+};
 
 const toResultRows = (studentIds) =>
   (studentIds || []).map((studentId) => ({
@@ -137,7 +144,7 @@ const list = async (req) => {
     Exam.countDocuments(filter),
   ]);
 
-  return { items: items.map(format), meta: buildPaginationMeta(page, limit, total) };
+  return { items: items.map((exam) => format(exam, req)), meta: buildPaginationMeta(page, limit, total) };
 };
 
 const getOne = async (id, filter = {}, req = null) => {
@@ -151,7 +158,7 @@ const getOne = async (id, filter = {}, req = null) => {
       throw Object.assign(new Error('Exam not found'), { statusCode: 404, code: 'NOT_FOUND' });
     }
   }
-  return format(exam);
+  return format(exam, req);
 };
 
 const create = async (req, data) => {
@@ -223,7 +230,7 @@ const create = async (req, data) => {
   return getOne(exam._id, {}, req);
 };
 
-const update = async (id, filter, data) => {
+const update = async (id, filter, data, req = null) => {
   const exam = await Exam.findOneAndUpdate({ _id: id, ...filter }, data, { new: true, runValidators: true });
   if (!exam) {
     throw Object.assign(new Error('Exam not found'), { statusCode: 404, code: 'NOT_FOUND' });
@@ -331,7 +338,7 @@ const markAbsentFailed = async (id, filter = {}) => {
   return { exam: await getOne(exam._id), updated };
 };
 
-const addStudent = async (id, studentId, filter = {}) => {
+const addStudent = async (id, studentId, filter = {}, req = null) => {
   const exam = await Exam.findOne({ _id: id, ...filter });
   if (!exam) {
     throw Object.assign(new Error('Exam not found'), { statusCode: 404, code: 'NOT_FOUND' });
@@ -350,7 +357,7 @@ const addStudent = async (id, studentId, filter = {}) => {
   return getOne(exam._id, {}, req);
 };
 
-const removeStudent = async (id, studentId, filter = {}) => {
+const removeStudent = async (id, studentId, filter = {}, req = null) => {
   const exam = await Exam.findOne({ _id: id, ...filter });
   if (!exam) {
     throw Object.assign(new Error('Exam not found'), { statusCode: 404, code: 'NOT_FOUND' });

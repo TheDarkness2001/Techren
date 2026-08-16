@@ -22,6 +22,7 @@ const teacherSchema = new mongoose.Schema(
     branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     status: { type: String, enum: ['active', 'inactive', 'on-leave'], default: 'active' },
     profileImage: { type: String },
+    fcmTokens: [{ type: String }],
   },
   { timestamps: true }
 );

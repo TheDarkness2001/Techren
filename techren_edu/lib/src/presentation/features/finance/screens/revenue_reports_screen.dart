@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/finance.dart';
@@ -70,7 +71,7 @@ class RevenueReportsScreen extends ConsumerWidget {
                     cards: [
                       _SummaryCard(
                         title: 'Total Revenue',
-                        value: '${summary.totalRevenue.toStringAsFixed(0)} UZS',
+                        value: formatUzs(summary.totalRevenue),
                         icon: Icons.trending_up,
                       ),
                       _SummaryCard(
@@ -80,7 +81,7 @@ class RevenueReportsScreen extends ConsumerWidget {
                       ),
                       _SummaryCard(
                         title: 'Pending',
-                        value: '${summary.totalPending.toStringAsFixed(0)} UZS',
+                        value: formatUzs(summary.totalPending),
                         subtitle: '${summary.pendingCount} unpaid',
                         icon: Icons.pending_actions,
                       ),
@@ -96,7 +97,7 @@ class RevenueReportsScreen extends ConsumerWidget {
                               (e) => ListTile(
                                 dense: true,
                                 title: Text(e.key),
-                                trailing: Text('${e.value.toStringAsFixed(0)} UZS'),
+                                trailing: Text(formatUzs(e.value)),
                               ),
                             )
                             .toList(),
@@ -499,7 +500,7 @@ class _VerticalBarChart extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 4),
                                     child: Tooltip(
-                                      message: '${point.label}: ${point.amount.toStringAsFixed(0)} UZS',
+                                      message: '${point.label}: ${formatUzs(point.amount)}',
                                       child: _AnimatedBar(
                                         fraction: point.amount / safeMax,
                                         color: scheme.primary,
@@ -574,7 +575,7 @@ class _HorizontalBarChart extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${point.amount.toStringAsFixed(0)} UZS',
+                      formatUzs(point.amount),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.primary),
                     ),
                   ],

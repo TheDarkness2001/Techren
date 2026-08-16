@@ -6,7 +6,9 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/news.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/news_provider.dart';
+import '../../../providers/staff_navigation_provider.dart';
 
 class NewsCmsScreen extends ConsumerStatefulWidget {
   const NewsCmsScreen({
@@ -478,6 +480,11 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
       (i) => widget.selectedRoute.startsWith(i.route) || i.route.contains('/news'),
     );
     final async = ref.watch(newsAdminProvider(_status));
+    final user = ref.watch(authProvider).user;
+    final rolePerms = ref.watch(staffRolePermissionsProvider);
+    final canMutate = user?.hasPermission('canCreateNews', rolePerms) == true ||
+        user?.hasPermission('canManageNews', rolePerms) == true ||
+        user?.hasPermission('canModerateNews', rolePerms) == true;
 
     return AdaptiveScaffold(
       title: 'News',
@@ -491,11 +498,12 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
           onPressed: () => ref.invalidate(newsAdminProvider(_status)),
           icon: const Icon(Icons.refresh),
         ),
-        FilledButton.tonalIcon(
-          onPressed: () => _createOrEdit(),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('New post'),
-        ),
+        if (canMutate)
+          FilledButton.tonalIcon(
+            onPressed: () => _createOrEdit(),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('New post'),
+          ),
       ],
       body: Column(
         children: [
@@ -533,8 +541,12 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
                 if (items.isEmpty) {
                   return EmptyState(
                     title: 'No posts',
-                    message: 'Create an announcement, poll, or quote for the campus feed.',
-                    action: FilledButton(onPressed: () => _createOrEdit(), child: const Text('Create post')),
+                    message: canMutate
+                        ? 'Create an announcement, poll, or quote for the campus feed.'
+                        : 'No announcements yet.',
+                    action: canMutate
+                        ? FilledButton(onPressed: () => _createOrEdit(), child: const Text('Create post'))
+                        : null,
                   );
                 }
                 return RefreshIndicator(
@@ -560,7 +572,8 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
                               '${p.stats.clicks} clicks',
                             ].join(' · '),
                           ),
-                          trailing: PopupMenuButton<String>(
+                          trailing: canMutate
+                              ? PopupMenuButton<String>(
                             onSelected: (v) {
                               if (v == 'edit') {
                                 _createOrEdit(existing: p);
@@ -581,8 +594,9 @@ class _NewsCmsScreenState extends ConsumerState<NewsCmsScreen> {
                               const PopupMenuItem(value: 'archive', child: Text('Archive')),
                               const PopupMenuItem(value: 'delete', child: Text('Delete')),
                             ],
-                          ),
-                          onTap: () => _createOrEdit(existing: p),
+                          )
+                              : null,
+                          onTap: canMutate ? () => _createOrEdit(existing: p) : null,
                         ),
                       );
                     },

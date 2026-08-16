@@ -223,9 +223,7 @@ const formatConversation = (doc, { userId, userType, unreadCount = 0 } = {}) => 
 };
 
 const assertCanUse = async (req) => {
-  if (req.userType === 'student') return;
-  // Parents may only use communications via dedicated excuse helper (not general chat APIs).
-  if (req.userType === 'parent') throw forbidden('Parents cannot open the chat directory');
+  if (req.userType === 'student' || req.userType === 'parent') return;
   if (req.user.role === 'founder') return;
   const ok = await hasPermission(req, 'canUseCommunications');
   if (!ok) throw forbidden('Missing permission: canUseCommunications');
@@ -599,6 +597,9 @@ const findOrCreatePrivate = async (req, { targetUserId, targetUserType }) => {
   await assertCanUse(req);
   const me = actorKey(req);
   const otherType = targetUserType === 'student' ? 'student' : 'teacher';
+  if (req.userType === 'parent' && otherType === 'student') {
+    throw forbidden('Parents cannot message students directly');
+  }
   if (!targetUserId) throw badRequest('targetUserId required');
   if (String(targetUserId) === String(me.userId) && otherType === me.userType) {
     throw badRequest('Cannot chat with yourself');
@@ -644,12 +645,14 @@ const findOrCreatePrivate = async (req, { targetUserId, targetUserType }) => {
 
 const createSupport = async (req, { body: firstMessage } = {}) => {
   await assertCanUse(req);
-  if (req.userType !== 'student') throw badRequest('Support chat is for students');
+  if (req.userType !== 'student' && req.userType !== 'parent') {
+    throw badRequest('Support chat is for students and parents');
+  }
   const me = actorKey(req);
 
   let conv = await Conversation.findOne({
     type: 'support',
-    participants: { $elemMatch: { userId: me.userId, userType: 'student', leftAt: null } },
+    participants: { $elemMatch: { userId: me.userId, userType: me.userType, leftAt: null } },
     archived: { $ne: true },
   });
 
@@ -660,19 +663,29 @@ const createSupport = async (req, { body: firstMessage } = {}) => {
     }).select('_id');
 
     const participants = [
-      { userId: me.userId, userType: 'student', role: 'member' },
+      { userId: me.userId, userType: me.userType, role: 'member' },
       ...staff.map((t) => ({ userId: t._id, userType: 'teacher', role: 'admin' })),
     ];
 
-    conv = await Conversation.create({
+    const supportDoc = {
       type: 'support',
       title: 'Administration Support',
       allowReplies: true,
       createdBy: me.userId,
-      createdByType: 'student',
-      branchId: req.user.branchId || null,
+      createdByType: me.userType,
       participants,
-    });
+    };
+    if (req.user.branchId) supportDoc.branchId = req.user.branchId;
+    try {
+      conv = await Conversation.create(supportDoc);
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+      await Conversation.updateMany(
+        { type: { $ne: 'private' }, privateKey: null },
+        { $unset: { privateKey: 1 } }
+      );
+      conv = await Conversation.create(supportDoc);
+    }
   }
 
   if (firstMessage && String(firstMessage).trim()) {
@@ -962,6 +975,7 @@ const createSubjectRoom = async (req, { subjectId, title }) => {
 
 const directory = async (req) => {
   await assertCanUse(req);
+  if (req.userType === 'parent') throw forbidden('Parents cannot open the chat directory');
   const q = String(req.query.search || '').trim();
   const role = req.query.role;
   const limit = Math.min(Number(req.query.limit) || 40, 100);

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../providers/auth_provider.dart';
@@ -129,7 +130,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Teacher'),
+        title: Text(context.l10n.addTeacher),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('${widget.prefix}/people/teachers'),
@@ -284,7 +285,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                   children: [
                     OutlinedButton(
                       onPressed: _saving ? null : () => context.go('${widget.prefix}/people/teachers'),
-                      child: const Text('Cancel'),
+                      child: Text(context.l10n.cancel),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton(
@@ -295,7 +296,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Add'),
+                          : Text(context.l10n.add),
                     ),
                   ],
                 ),

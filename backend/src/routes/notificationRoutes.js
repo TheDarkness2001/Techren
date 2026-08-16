@@ -38,6 +38,8 @@ router.delete(
   controller.removeDeviceToken
 );
 
+router.post('/test-push', controller.sendTestPush);
+
 router.get('/settings/me', controller.getMySettings);
 router.put('/settings/me', controller.updateMySettings);
 

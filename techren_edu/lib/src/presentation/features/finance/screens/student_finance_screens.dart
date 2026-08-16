@@ -5,6 +5,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -123,7 +124,7 @@ class StudentPaymentsScreen extends ConsumerWidget {
                   subtitle: '${payment.month}/${payment.year} · ${payment.status}',
                   icon: payment.status == 'paid' ? Icons.check_circle_outline : Icons.schedule_outlined,
                   accentColor: payment.status == 'paid' ? AppColors.success : AppColors.tertiary,
-                  trailing: Text('${payment.amount.toStringAsFixed(0)} UZS'),
+                  trailing: Text(formatUzs(payment.amount)),
                 );
               },
             ),

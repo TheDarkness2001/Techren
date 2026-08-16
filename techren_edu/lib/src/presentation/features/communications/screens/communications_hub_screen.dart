@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/network/communications_socket.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -31,12 +32,16 @@ class CommunicationsHubScreen extends ConsumerStatefulWidget {
     this.navItems = const [],
     this.selectedRoute,
     this.isStudent = false,
+    this.isParent = false,
+    this.homeRoute,
   });
 
   final String routePrefix;
   final List<NavItem> navItems;
   final String? selectedRoute;
   final bool isStudent;
+  final bool isParent;
+  final String? homeRoute;
 
   @override
   ConsumerState<CommunicationsHubScreen> createState() => _CommunicationsHubScreenState();
@@ -793,7 +798,8 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
     final async = ref.watch(conversationsProvider);
     final me = ref.watch(authProvider).user;
     final rolePerms = ref.watch(staffRolePermissionsProvider);
-    final canBroadcast = !widget.isStudent &&
+    final limitedChat = widget.isStudent || widget.isParent;
+    final canBroadcast = !limitedChat &&
         (me?.hasFullStaffAccess == true || me?.hasPermission('canBroadcast', rolePerms) == true);
     final messagesRoute = '${widget.routePrefix}/messages';
 
@@ -803,44 +809,45 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
         child: Row(
           children: [
             Text(
-              'Chats',
+              context.l10n.chats,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const Spacer(),
-            if (widget.isStudent)
+            if (limitedChat)
               IconButton(
-                tooltip: 'Support',
+                tooltip: context.l10n.support,
                 visualDensity: VisualDensity.compact,
                 onPressed: _support,
                 icon: const Icon(Icons.support_agent, size: 20),
               ),
-            if (!widget.isStudent)
+            if (!limitedChat)
               IconButton(
-                tooltip: 'Subject room',
+                tooltip: context.l10n.subjectRoom,
                 visualDensity: VisualDensity.compact,
                 onPressed: _createSubjectRoom,
                 icon: const Icon(Icons.menu_book_outlined, size: 20),
               ),
-            if (!widget.isStudent)
+            if (!limitedChat)
               IconButton(
-                tooltip: 'Moderation',
+                tooltip: context.l10n.moderation,
                 visualDensity: VisualDensity.compact,
                 onPressed: () => context.go('${widget.routePrefix}/messages/moderation'),
                 icon: const Icon(Icons.gavel_outlined, size: 20),
               ),
             if (canBroadcast)
               IconButton(
-                tooltip: 'Broadcast',
+                tooltip: context.l10n.broadcast,
                 visualDensity: VisualDensity.compact,
                 onPressed: _broadcast,
                 icon: const Icon(Icons.campaign_outlined, size: 20),
               ),
-            IconButton(
-              tooltip: 'New chat',
-              visualDensity: VisualDensity.compact,
-              onPressed: _startNewChat,
-              icon: const Icon(Icons.edit_square, size: 20),
-            ),
+            if (!widget.isParent)
+              IconButton(
+                tooltip: context.l10n.newChat,
+                visualDensity: VisualDensity.compact,
+                onPressed: _startNewChat,
+                icon: const Icon(Icons.edit_square, size: 20),
+              ),
           ],
         ),
       );
@@ -937,11 +944,11 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText: 'Search chats…',
+                      hintText: context.l10n.searchChats,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       suffixIcon: IconButton(
-                        tooltip: 'Search messages',
+                        tooltip: context.l10n.searchMessages,
                         icon: const Icon(Icons.manage_search, size: 18),
                         onPressed: _globalSearch,
                       ),
@@ -956,12 +963,12 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                   child: Row(
                     children: [
                       for (final f in [
-                        ('all', 'Recent'),
-                        ('private', 'Direct'),
-                        ('groups', 'Groups'),
-                        ('subject', 'Subjects'),
-                        ('broadcast', 'Broadcast'),
-                        ('support', 'Support'),
+                        ('all', context.l10n.filterRecent),
+                        ('private', context.l10n.filterDirect),
+                        ('groups', context.l10n.navGroups),
+                        ('subject', context.l10n.filterSubjects),
+                        ('broadcast', context.l10n.broadcast),
+                        ('support', context.l10n.support),
                       ])
                         Padding(
                           padding: const EdgeInsets.only(right: 6),
@@ -978,7 +985,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                 const SizedBox(height: AppSpacing.xs),
                 Expanded(
                   child: filtered.isEmpty
-                      ? const EmptyState(title: 'No chats yet', message: 'Start a conversation or open Support.')
+                      ? EmptyState(title: context.l10n.noChatsYet, message: context.l10n.noChatsMessage)
                       : ListView.builder(
                           padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           itemCount: filtered.length,
@@ -1017,7 +1024,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
           ),
         );
       }
-      final canReply = conv.type != 'broadcast' || conv.allowReplies || !widget.isStudent;
+      final canReply = conv.type != 'broadcast' || conv.allowReplies || !limitedChat;
       final visibleMessages = _threadSearch.trim().isEmpty
           ? _liveMessages
           : _liveMessages
@@ -1281,7 +1288,7 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                           controller: _messageCtrl,
                           onChanged: _onComposerChanged,
                           decoration: InputDecoration(
-                            hintText: _recording ? 'Recording…' : 'Message… (Enter to send)',
+                            hintText: _recording ? context.l10n.recording : context.l10n.messageHint,
                             isDense: true,
                           ),
                           minLines: 1,
@@ -1334,20 +1341,23 @@ class _CommunicationsHubScreenState extends ConsumerState<CommunicationsHubScree
                         setState(() => _selected = null);
                       },
                       icon: const Icon(Icons.arrow_back),
-                      label: const Text('Chats'),
+                      label: Text(context.l10n.chats),
                     ),
                   ),
                   Expanded(child: threadPane()),
                 ],
               ));
 
-    if (widget.isStudent) {
+    if (widget.isStudent || widget.isParent) {
       return Scaffold(
         appBar: AppBar(
           title: const Text(''),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('${widget.routePrefix}/dashboard'),
+            onPressed: () => context.go(
+              widget.homeRoute ??
+                  (widget.isParent ? '/parent/home' : '${widget.routePrefix}/dashboard'),
+            ),
           ),
         ),
         body: body,

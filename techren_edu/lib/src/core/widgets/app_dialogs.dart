@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_constants.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
@@ -25,16 +27,34 @@ class AppDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxDialogHeight = MediaQuery.sizeOf(context).height * 0.85;
+    final media = MediaQuery.of(context);
+    final compact = media.size.width < AppConstants.compactBreakpoint;
+    final insetH = compact ? 12.0 : 40.0;
+    final insetV = compact ? 16.0 : 24.0;
+    final maxDialogWidth = maxWidth < media.size.width - insetH * 2
+        ? maxWidth
+        : media.size.width - insetH * 2;
+    final maxDialogHeight = (media.size.height - insetV * 2 - media.viewInsets.bottom) * 0.92;
 
     return Dialog(
+      insetPadding: EdgeInsets.fromLTRB(
+        insetH,
+        insetV,
+        insetH,
+        insetV + media.viewInsets.bottom,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: maxWidth,
-          maxHeight: maxDialogHeight,
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight.clamp(160.0, media.size.height),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
+          padding: EdgeInsets.fromLTRB(
+            compact ? AppSpacing.md : AppSpacing.lg,
+            compact ? AppSpacing.md : AppSpacing.lg,
+            compact ? AppSpacing.md : AppSpacing.lg,
+            compact ? AppSpacing.sm : AppSpacing.md,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,7 +75,12 @@ class AppDialog extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                   ],
                   Expanded(
-                    child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -69,14 +94,11 @@ class AppDialog extends StatelessWidget {
               ],
               if (actions != null && actions!.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.lg),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    for (var i = 0; i < actions!.length; i++) ...[
-                      if (i > 0) const SizedBox(width: AppSpacing.sm),
-                      actions![i],
-                    ],
-                  ],
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: actions!,
                 ),
               ],
             ],
@@ -90,13 +112,13 @@ class AppDialog extends StatelessWidget {
 class AppDialogActions {
   const AppDialogActions._();
 
-  static Widget cancel(BuildContext context, {VoidCallback? onPressed, String label = 'Cancel'}) {
+  static Widget cancel(BuildContext context, {VoidCallback? onPressed, String? label}) {
     return TextButton(
       onPressed: onPressed ?? () {
         final navigator = Navigator.maybeOf(context, rootNavigator: true) ?? Navigator.maybeOf(context);
         navigator?.pop();
       },
-      child: Text(label),
+      child: Text(label ?? context.l10n.cancel),
     );
   }
 
@@ -137,8 +159,8 @@ Future<bool> showAppConfirmDialog({
   required BuildContext context,
   required String title,
   required String message,
-  String confirmLabel = 'Confirm',
-  String cancelLabel = 'Cancel',
+  String? confirmLabel,
+  String? cancelLabel,
   bool destructive = false,
   IconData? icon,
 }) async {
@@ -150,10 +172,10 @@ Future<bool> showAppConfirmDialog({
       iconColor: destructive ? AppColors.danger : AppColors.primary,
       content: Text(message, style: Theme.of(dialogContext).textTheme.bodyMedium),
       actions: [
-        AppDialogActions.cancel(dialogContext, label: cancelLabel, onPressed: () => Navigator.pop(dialogContext, false)),
+        AppDialogActions.cancel(dialogContext, label: cancelLabel ?? dialogContext.l10n.cancel, onPressed: () => Navigator.pop(dialogContext, false)),
         AppDialogActions.confirm(
           dialogContext,
-          label: confirmLabel,
+          label: confirmLabel ?? dialogContext.l10n.confirm,
           destructive: destructive,
           onPressed: () => Navigator.pop(dialogContext, true),
         ),
@@ -167,8 +189,8 @@ Future<bool?> showAppFormDialog({
   required BuildContext context,
   required String title,
   required Widget content,
-  String confirmLabel = 'Save',
-  String cancelLabel = 'Cancel',
+  String? confirmLabel,
+  String? cancelLabel,
   bool destructive = false,
   bool loading = false,
   Future<void> Function()? onConfirm,
@@ -183,12 +205,12 @@ Future<bool?> showAppFormDialog({
       actions: [
         AppDialogActions.cancel(
           dialogContext,
-          label: cancelLabel,
+          label: cancelLabel ?? dialogContext.l10n.cancel,
           onPressed: loading ? null : () => Navigator.pop(dialogContext, false),
         ),
         AppDialogActions.confirm(
           dialogContext,
-          label: confirmLabel,
+          label: confirmLabel ?? dialogContext.l10n.save,
           destructive: destructive,
           loading: loading,
           onPressed: onConfirm == null

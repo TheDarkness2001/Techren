@@ -26,12 +26,21 @@ bool _shouldBlock(AppUser? user, String route) {
 }
 
 /// Localized bottom/rail navigation for student shells.
-List<NavItem> studentNavItemsFor(AppLocalizations l10n) => [
-      NavItem(label: l10n.navHome, icon: Icons.home_outlined, route: '/student/dashboard'),
-      NavItem(label: l10n.navLearn, icon: Icons.menu_book_outlined, route: '/student/learn'),
-      NavItem(label: l10n.navSchedule, icon: Icons.calendar_today_outlined, route: '/student/schedule'),
-      NavItem(label: l10n.navProgress, icon: Icons.insights_outlined, route: '/student/progress'),
-      NavItem(label: l10n.navProfile, icon: Icons.person_outline, route: '/student/profile'),
-    ];
+List<NavItem> studentNavItemsFor(AppLocalizations l10n, {bool inactive = false}) {
+  final items = [
+    NavItem(label: l10n.navHome, icon: Icons.home_outlined, route: '/student/dashboard'),
+    NavItem(label: l10n.navLearn, icon: Icons.menu_book_outlined, route: '/student/learn'),
+    NavItem(label: l10n.navSchedule, icon: Icons.calendar_today_outlined, route: '/student/schedule'),
+    NavItem(label: l10n.navProgress, icon: Icons.insights_outlined, route: '/student/progress'),
+    NavItem(label: l10n.navProfile, icon: Icons.person_outline, route: '/student/profile'),
+  ];
+  if (!inactive) return items;
+  return items
+      .where((item) => item.route == '/student/dashboard' || item.route == '/student/profile')
+      .toList();
+}
 
-List<NavItem> studentNavItemsOf(BuildContext context) => studentNavItemsFor(context.l10n);
+List<NavItem> studentNavItemsOf(BuildContext context) {
+  final user = ProviderScope.containerOf(context).read(authProvider).user;
+  return studentNavItemsFor(context.l10n, inactive: user?.isInactiveStudent == true);
+}

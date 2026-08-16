@@ -3,7 +3,7 @@ const StudentAttendance = require('../models/StudentAttendance');
 const Student = require('../models/Student');
 const ClassSchedule = require('../models/ClassSchedule');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
-const { getTashkentParts, isScheduleToday, isWithinClassWindow, canBypassTimeWindow } = require('../utils/classWindow');
+const { getTashkentParts, isScheduleToday, isWithinClassWindow, canBypassTimeWindow, addCalendarDays } = require('../utils/classWindow');
 const { isPrivilegedStaff } = require('../middleware/auth');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { findSettingsDocument } = require('./settingsService');
@@ -185,9 +185,7 @@ const markBulk = async (req, { classScheduleId, date, records }) => {
 
 const updateExamEligibility = async (studentId) => {
   const parts = getTashkentParts();
-  const threeDaysAgo = new Date(parts.dateString);
-  threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
-  const fromDate = threeDaysAgo.toISOString().slice(0, 10);
+  const fromDate = addCalendarDays(parts.dateString, -2);
 
   const recentAbsent = await StudentAttendance.find({
     student: studentId,
@@ -273,9 +271,7 @@ const getEligibility = async (studentId, req) => {
   }
 
   const parts = getTashkentParts();
-  const threeDaysAgo = new Date(parts.dateString);
-  threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
-  const fromDate = threeDaysAgo.toISOString().slice(0, 10);
+  const fromDate = addCalendarDays(parts.dateString, -2);
 
   const recentAbsent = await StudentAttendance.find({
     student: studentId,

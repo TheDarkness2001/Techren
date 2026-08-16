@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -88,10 +89,10 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
       children: [
         TabBar(
           controller: _tabs,
-          tabs: const [
-            Tab(text: 'Dashboard'),
-            Tab(text: 'Practice'),
-            Tab(text: 'Leaderboard'),
+          tabs: [
+            Tab(text: context.l10n.navDashboard),
+            Tab(text: context.l10n.practice),
+            Tab(text: context.l10n.leaderboard),
           ],
         ),
         Expanded(
@@ -101,12 +102,12 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
               dashAsync.when(
                 loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
                 error: (e, _) => EmptyState(
-                  title: 'Could not load typing dashboard',
+                  title: context.l10n.couldNotLoadTyping,
                   message: e.toString(),
                   icon: Icons.keyboard_outlined,
                   action: FilledButton(
                     onPressed: () => ref.invalidate(typingDashboardProvider(widget.subjectId)),
-                    child: const Text('Retry'),
+                    child: Text(context.l10n.retry),
                   ),
                 ),
                 data: (dash) => ListView(
@@ -135,19 +136,19 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
                         FilledButton.icon(
                           onPressed: () => _openPractice(),
                           icon: const Icon(Icons.play_arrow),
-                          label: Text(dash.staffView ? 'Try practice' : 'Continue practice'),
+                          label: Text(dash.staffView ? context.l10n.tryPractice : context.l10n.continuePractice),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: dash.dailyChallengeCompleted
                               ? null
                               : () => _openPractice(isDaily: true, durationSec: 60, mode: 'programming'),
                           icon: const Icon(Icons.today_outlined),
-                          label: Text(dash.dailyChallengeCompleted ? 'Daily done' : 'Daily challenge'),
+                          label: Text(dash.dailyChallengeCompleted ? context.l10n.dailyDone : context.l10n.dailyChallenge),
                         ),
                         OutlinedButton.icon(
                           onPressed: () => _tabs.animateTo(2),
                           icon: const Icon(Icons.leaderboard_outlined),
-                          label: const Text('Leaderboard'),
+                          label: Text(context.l10n.leaderboard),
                         ),
                       ],
                     ),
@@ -167,7 +168,7 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
         (i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'),
       );
       return AdaptiveScaffold(
-        title: 'Typing Speed Challenge',
+        title: context.l10n.typingSpeedChallenge,
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: _learningSelected,
         items: widget.navItems,
@@ -179,7 +180,7 @@ class _TypingHubScreenState extends ConsumerState<TypingHubScreen> with SingleTi
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Typing Speed Challenge'),
+        title: Text(context.l10n.typingSpeedChallenge),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(_subjectHome),
@@ -214,16 +215,16 @@ class _PracticeSetupState extends State<_PracticeSetup> {
     return ListView(
       padding: AppSpacing.pagePadding,
       children: [
-        Text('Mode', style: Theme.of(context).textTheme.titleMedium),
+        Text(context.l10n.mode, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: 8,
           children: [
-            for (final m in const [
-              ('english', 'English words'),
-              ('uzbek', 'Uzbek words'),
-              ('programming', 'Programming words'),
-              ('code', 'Code typing'),
+            for (final m in [
+              ('english', context.l10n.englishWords),
+              ('uzbek', context.l10n.uzbekWords),
+              ('programming', context.l10n.programmingWords),
+              ('code', context.l10n.codeTyping),
             ])
               ChoiceChip(
                 label: Text(m.$2),
@@ -234,14 +235,14 @@ class _PracticeSetupState extends State<_PracticeSetup> {
         ),
         if (_mode != 'code') ...[
           const SizedBox(height: AppSpacing.lg),
-          Text('Difficulty', style: Theme.of(context).textTheme.titleMedium),
+          Text(context.l10n.difficulty, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: 8,
             children: [
               for (final d in const ['easy', 'medium', 'hard', 'expert'])
                 ChoiceChip(
-                  label: Text(d),
+                  label: Text(context.l10n.typingDifficulty(d)),
                   selected: _difficulty == d,
                   onSelected: (_) => setState(() => _difficulty = d),
                 ),
@@ -249,14 +250,14 @@ class _PracticeSetupState extends State<_PracticeSetup> {
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
-        Text('Timer', style: Theme.of(context).textTheme.titleMedium),
+        Text(context.l10n.timer, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: 8,
           children: [
             for (final t in const [15, 30, 60, 120, 300, 0])
               ChoiceChip(
-                label: Text(t == 0 ? 'Unlimited' : '${t}s'),
+                label: Text(t == 0 ? context.l10n.unlimited : '${t}s'),
                 selected: _duration == t,
                 onSelected: (_) => setState(() => _duration = t),
               ),
@@ -270,7 +271,7 @@ class _PracticeSetupState extends State<_PracticeSetup> {
             durationSec: _duration,
           ),
           icon: const Icon(Icons.keyboard),
-          label: const Text('Start typing'),
+          label: Text(context.l10n.startTyping),
         ),
       ],
     );

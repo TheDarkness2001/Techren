@@ -2,7 +2,7 @@
 
 const inactiveStudentDashboardRoute = '/student/dashboard';
 
-const _learningRoutePrefixes = [
+const _blockedPrefixes = [
   '/student/learn',
   '/student/learning',
   '/student/words',
@@ -12,11 +12,16 @@ const _learningRoutePrefixes = [
   '/student/typing',
   '/student/competition',
   '/student/wallet',
+  '/student/exams',
+  '/student/feedback',
+  '/student/schedule',
+  '/student/gamification',
+  '/student/quiz',
 ];
 
 bool isRouteBlockedForInactiveStudent(String path) {
   if (path == '/student/progress' || path.startsWith('/student/progress/')) {
     return true;
   }
-  return _learningRoutePrefixes.any((prefix) => path == prefix || path.startsWith('$prefix/'));
+  return _blockedPrefixes.any((prefix) => path == prefix || path.startsWith('$prefix/'));
 }

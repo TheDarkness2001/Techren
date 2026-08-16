@@ -28,7 +28,7 @@ exports.create = asyncHandler(async (req, res) => {
 
 exports.update = asyncHandler(async (req, res) => {
   try {
-    const item = await examService.update(req.params.id, getBranchFilter(req), req.body);
+    const item = await examService.update(req.params.id, getBranchFilter(req), req.body, req);
     sendSuccess(res, item);
   } catch (e) { handle(res, e); }
 });
@@ -63,14 +63,14 @@ exports.markAbsentFailed = asyncHandler(async (req, res) => {
 
 exports.addStudent = asyncHandler(async (req, res) => {
   try {
-    const item = await examService.addStudent(req.params.id, req.body.studentId, getBranchFilter(req));
+    const item = await examService.addStudent(req.params.id, req.body.studentId, getBranchFilter(req), req);
     sendSuccess(res, item);
   } catch (e) { handle(res, e); }
 });
 
 exports.removeStudent = asyncHandler(async (req, res) => {
   try {
-    const item = await examService.removeStudent(req.params.id, req.params.studentId, getBranchFilter(req));
+    const item = await examService.removeStudent(req.params.id, req.params.studentId, getBranchFilter(req), req);
     sendSuccess(res, item);
   } catch (e) { handle(res, e); }
 });

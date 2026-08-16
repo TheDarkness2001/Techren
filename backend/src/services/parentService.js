@@ -9,6 +9,10 @@ const feedbackService = require('./feedbackService');
 const paymentService = require('./paymentService');
 const communicationService = require('./communicationService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
+const { assertParentChild } = require('../utils/resourceAccess');
+const { billingPeriodFromQuery, getTashkentParts, addCalendarDays } = require('../utils/classWindow');
+const homeworkService = require('./homeworkService');
+const timetableService = require('./timetableService');
 
 const assertPortalEnabled = async () => {
   const enabled = await getFeatureFlag('parentPortalEnabled');
@@ -18,10 +22,7 @@ const assertPortalEnabled = async () => {
 };
 
 const assertChildAccess = async (parent, studentId) => {
-  const allowed = (parent.children || []).some((childId) => String(childId) === String(studentId));
-  if (!allowed) {
-    throw Object.assign(new Error('Child not linked to this parent account'), { statusCode: 403, code: 'FORBIDDEN' });
-  }
+  assertParentChild(parent, studentId);
 };
 
 const formatChild = (student) => ({
@@ -51,9 +52,7 @@ const getChildPayments = async (parent, studentId, query = {}) => {
   await assertPortalEnabled();
   await assertChildAccess(parent, studentId);
 
-  const now = new Date();
-  const month = Math.min(12, Math.max(1, Number(query.month) || now.getMonth() + 1));
-  const year = Number(query.year) || now.getFullYear();
+  const { month, year } = billingPeriodFromQuery(query);
 
   const dues = await paymentService.getStudentDues(studentId, month, year);
   const amountPaid = (dues.courses || []).reduce((sum, c) => sum + Number(c.amountPaid || 0), 0);
@@ -93,12 +92,9 @@ const getChildAlerts = async (parent, studentId) => {
   await assertChildAccess(parent, studentId);
 
   const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  const dayMs = 24 * 60 * 60 * 1000;
-  const sinceAttendance = new Date(now.getTime() - 14 * dayMs);
-  const sinceFeedback = new Date(now.getTime() - 7 * dayMs);
-  const sinceAttendanceStr = sinceAttendance.toISOString().slice(0, 10);
+  const { month, year } = billingPeriodFromQuery();
+  const sinceAttendanceStr = addCalendarDays(getTashkentParts().dateString, -14);
+  const sinceFeedback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const [dues, absences, recentFeedback] = await Promise.all([
     paymentService.getStudentDues(studentId, month, year),
@@ -122,7 +118,7 @@ const getChildAlerts = async (parent, studentId) => {
       type: 'payment',
       severity: dues.overallStatus === 'overdue' ? 'high' : 'medium',
       title: 'Payment remaining',
-      body: `Remaining this month: ${Number(dues.amountRemaining || 0).toFixed(0)} (${dues.overallStatus})`,
+      body: `Remaining this month: ${Number(dues.amountRemaining || 0).toFixed(0)} UZS (${dues.overallStatus})`,
       createdAt: now.toISOString(),
       refId: null,
     });
@@ -168,10 +164,7 @@ const getChildOverview = async (parent, studentId) => {
     Feedback.countDocuments({ student: studentId }),
     StudentAttendance.find({ student: studentId }).sort({ date: -1 }).limit(30),
     Exam.find({ 'results.student': studentId }).select('examName subject examDate status results'),
-    getChildPayments(parent, studentId, {
-      month: now.getMonth() + 1,
-      year: now.getFullYear(),
-    }),
+    getChildPayments(parent, studentId, billingPeriodFromQuery()),
     getChildAlerts(parent, studentId),
   ]);
 
@@ -391,6 +384,19 @@ const getChildExams = async (parent, studentId, query = {}) => {
   };
 };
 
+const getChildHomework = async (parent, studentId) => {
+  await assertPortalEnabled();
+  await assertChildAccess(parent, studentId);
+  const progress = await homeworkService.getProgress(studentId);
+  return { progress };
+};
+
+const getChildSchedule = async (parent, studentId) => {
+  await assertPortalEnabled();
+  await assertChildAccess(parent, studentId);
+  return timetableService.getTimetableForStudent(studentId);
+};
+
 module.exports = {
   assertPortalEnabled,
   assertChildAccess,
@@ -401,5 +407,7 @@ module.exports = {
   getChildExams,
   getChildPayments,
   getChildAlerts,
+  getChildHomework,
+  getChildSchedule,
   submitAbsenceExcuse,
 };

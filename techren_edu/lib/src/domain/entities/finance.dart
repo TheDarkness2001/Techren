@@ -1,3 +1,5 @@
+import '../../core/utils/academy_time.dart';
+
 class ExamEntry {
   const ExamEntry({
     required this.id,
@@ -138,7 +140,7 @@ class PaymentEntry {
       academicYear: json['academicYear'] as String? ?? '',
       term: json['term'] as String? ?? '',
       month: json['month'] as int? ?? 1,
-      year: json['year'] as int? ?? DateTime.now().year,
+      year: json['year'] as int? ?? AcademyTime.year,
       notes: json['notes'] as String?,
     );
   }
@@ -190,8 +192,8 @@ class StudentDues {
   final bool isPaid;
 
   factory StudentDues.fromJson(Map<String, dynamic> json) => StudentDues(
-        month: (json['month'] as num?)?.toInt() ?? DateTime.now().month,
-        year: (json['year'] as num?)?.toInt() ?? DateTime.now().year,
+        month: (json['month'] as num?)?.toInt() ?? AcademyTime.month,
+        year: (json['year'] as num?)?.toInt() ?? AcademyTime.year,
         courses: (json['courses'] as List<dynamic>? ?? [])
             .map((e) => PaymentCourseStatus.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -249,8 +251,8 @@ class PaymentRosterResult {
   factory PaymentRosterResult.fromResponse(List<dynamic> items, Map<String, dynamic> meta) =>
       PaymentRosterResult(
         items: items.map((e) => PaymentRosterRow.fromJson(e as Map<String, dynamic>)).toList(),
-        month: meta['month'] as int? ?? DateTime.now().month,
-        year: meta['year'] as int? ?? DateTime.now().year,
+        month: meta['month'] as int? ?? AcademyTime.month,
+        year: meta['year'] as int? ?? AcademyTime.year,
         term: meta['term'] as String? ?? '1st-term',
         academicYear: meta['academicYear'] as String? ?? '',
       );
@@ -274,14 +276,14 @@ class RevenueDateRange {
   static RevenueDateRange allTime() => const RevenueDateRange();
 
   static RevenueDateRange thisMonth() {
-    final now = DateTime.now();
+    final now = AcademyTime.now();
     final start = DateTime(now.year, now.month, 1);
     final end = DateTime(now.year, now.month + 1, 0);
     return RevenueDateRange(startDate: start, endDate: end, label: 'This month');
   }
 
   static RevenueDateRange last30Days() {
-    final now = DateTime.now();
+    final now = AcademyTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return RevenueDateRange(
       startDate: today.subtract(const Duration(days: 29)),
@@ -291,7 +293,7 @@ class RevenueDateRange {
   }
 
   static RevenueDateRange thisYear() {
-    final now = DateTime.now();
+    final now = AcademyTime.now();
     return RevenueDateRange(
       startDate: DateTime(now.year, 1, 1),
       endDate: DateTime(now.year, now.month, now.day),

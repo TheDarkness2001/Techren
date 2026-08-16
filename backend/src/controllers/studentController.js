@@ -66,8 +66,8 @@ exports.dashboard = asyncHandler(async (req, res) => {
 
 exports.registerFcmToken = asyncHandler(async (req, res) => {
   try {
-    if (req.userType === 'student' && String(req.params.id) !== String(req.user._id)) {
-      return sendError(res, 403, 'FORBIDDEN', 'Cannot register token for another student');
+    if (req.userType !== 'student' || String(req.params.id) !== String(req.user._id)) {
+      return sendError(res, 403, 'FORBIDDEN', 'Cannot register token for another user');
     }
     const data = await notificationService.registerFcmToken(req.params.id, req.body.token);
     sendSuccess(res, data);

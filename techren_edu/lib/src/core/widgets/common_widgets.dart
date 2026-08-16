@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_constants.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_semantic_colors.dart';
 import '../theme/app_spacing.dart';
@@ -55,30 +56,31 @@ enum LoadingSkeletonKind { spinner, list, table, dashboard, card }
 class LoadingState extends StatelessWidget {
   const LoadingState({
     super.key,
-    this.message = 'Loading...',
+    this.message,
     this.kind = LoadingSkeletonKind.spinner,
   });
 
-  final String message;
+  final String? message;
   final LoadingSkeletonKind kind;
 
   @override
   Widget build(BuildContext context) {
+    final label = message ?? context.l10n.loadingLabel;
     if (kind == LoadingSkeletonKind.list) {
-      return Semantics(excludeSemantics: true, label: message, child: const ListSkeleton());
+      return Semantics(excludeSemantics: true, label: label, child: const ListSkeleton());
     }
     if (kind == LoadingSkeletonKind.table) {
-      return Semantics(excludeSemantics: true, label: message, child: const TableSkeleton());
+      return Semantics(excludeSemantics: true, label: label, child: const TableSkeleton());
     }
     if (kind == LoadingSkeletonKind.dashboard) {
-      return Semantics(excludeSemantics: true, label: message, child: const DashboardSkeleton());
+      return Semantics(excludeSemantics: true, label: label, child: const DashboardSkeleton());
     }
     if (kind == LoadingSkeletonKind.card) {
-      return Semantics(excludeSemantics: true, label: message, child: const CardSkeleton());
+      return Semantics(excludeSemantics: true, label: label, child: const CardSkeleton());
     }
 
     return Semantics(
-      label: message,
+      label: label,
       liveRegion: true,
       child: Center(
         child: Column(
@@ -86,7 +88,7 @@ class LoadingState extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: AppSpacing.md),
-            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),
@@ -140,12 +142,12 @@ class ErrorState extends StatelessWidget {
   const ErrorState({
     super.key,
     required this.message,
-    this.title = 'Something went wrong',
+    this.title,
     this.onRetry,
     this.icon = Icons.error_outline,
   });
 
-  final String title;
+  final String? title;
   final String message;
   final VoidCallback? onRetry;
   final IconData icon;
@@ -157,10 +159,11 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heading = title ?? context.l10n.somethingWentWrong;
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
       liveRegion: true,
-      label: '$title. $message',
+      label: '$heading. $message',
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xl),
@@ -169,7 +172,7 @@ class ErrorState extends StatelessWidget {
             children: [
               Icon(icon, size: 56, color: scheme.error.withValues(alpha: 0.85)),
               const SizedBox(height: AppSpacing.md),
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              Text(heading, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 message,
@@ -183,7 +186,7 @@ class ErrorState extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Try again'),
+                  label: Text(context.l10n.tryAgain),
                 ),
               ],
             ],

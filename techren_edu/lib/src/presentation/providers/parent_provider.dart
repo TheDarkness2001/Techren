@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/remote/parent_api.dart';
 import '../../domain/entities/paginated_result.dart';
 import '../../domain/entities/parent_portal.dart';
+import '../../domain/entities/scheduling.dart';
 import 'auth_provider.dart';
 
 typedef ParentFeedbackQuery = ({String studentId, int page, String search});
@@ -42,6 +43,16 @@ final parentChildExamsProvider =
 final parentChildPaymentsProvider =
     FutureProvider.autoDispose.family<ParentPaymentsPage, String>((ref, studentId) async {
   return ref.watch(parentApiProvider).getPayments(studentId);
+});
+
+final parentChildHomeworkProvider =
+    FutureProvider.autoDispose.family<ParentHomeworkProgress, String>((ref, studentId) async {
+  return ref.watch(parentApiProvider).getHomework(studentId);
+});
+
+final parentChildScheduleProvider =
+    FutureProvider.autoDispose.family<TimetableData, String>((ref, studentId) async {
+  return ref.watch(parentApiProvider).getSchedule(studentId);
 });
 
 final selectedParentChildIdProvider = StateProvider<String?>((ref) => null);

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -120,6 +122,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selectedIndex = widget.navItems.indexWhere((i) => widget.selectedRoute.startsWith(i.route));
     final branchFilter = ref.watch(staffBranchFilterProvider);
     final branchId = branchFilter == 'all' ? null : branchFilter;
@@ -164,14 +167,14 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PeopleFilterCard(
-          title: 'Search & Filter',
+          title: l10n.searchAndFilter,
           child: PeopleFormRow(
             left: TextField(
               controller: _searchController,
               style: const TextStyle(fontSize: 12, height: 1.2),
               decoration: _compactFieldDecoration(
-                label: 'Search',
-                hint: _isTeachers ? 'Name or email…' : 'Name, ID, phone…',
+                label: l10n.search,
+                hint: _isTeachers ? l10n.searchNameEmail : l10n.searchNameIdPhone,
                 prefixIcon: const Icon(Icons.search, size: 16),
               ),
               onSubmitted: (v) => setState(() => _meta = _meta.copyWith(search: v, page: 1)),
@@ -179,15 +182,15 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
             right: DropdownButtonFormField<String?>(
               value: _meta.status,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.2),
-              decoration: _compactFieldDecoration(label: 'Status'),
+              decoration: _compactFieldDecoration(label: l10n.status),
               items: [
-                const DropdownMenuItem(value: null, child: Text('All Status')),
-                const DropdownMenuItem(value: 'active', child: Text('Active')),
-                const DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                DropdownMenuItem(value: null, child: Text(l10n.allStatus)),
+                DropdownMenuItem(value: 'active', child: Text(l10n.statusActiveLabel)),
+                DropdownMenuItem(value: 'inactive', child: Text(l10n.statusInactiveLabel)),
                 if (!_isTeachers)
-                  const DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
+                  DropdownMenuItem(value: 'graduated', child: Text(l10n.statusGraduated)),
                 if (_isTeachers)
-                  const DropdownMenuItem(value: 'on-leave', child: Text('On leave')),
+                  DropdownMenuItem(value: 'on-leave', child: Text(l10n.statusOnLeave)),
               ],
               onChanged: (v) => setState(() {
                 _meta = v == null
@@ -200,13 +203,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         const SizedBox(height: AppSpacing.sm),
         PeopleStatStrip(
           items: [
-            ('Total', '$total', AppColors.primary),
-            ('Active', '$active', context.semantic.success),
-            ('Inactive', '$inactive', context.semantic.warning),
+            (l10n.total, '$total', AppColors.primary),
+            (l10n.statusActiveLabel, '$active', context.semantic.success),
+            (l10n.statusInactiveLabel, '$inactive', context.semantic.warning),
             if (_isTeachers)
-              ('On leave', '$fourth', AppColors.secondary)
+              (l10n.statusOnLeave, '$fourth', AppColors.secondary)
             else
-              ('Graduated', '$fourth', AppColors.secondary),
+              (l10n.statusGraduated, '$fourth', AppColors.secondary),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -214,27 +217,42 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     );
 
     return AdaptiveScaffold(
-      title: _isTeachers ? 'Teachers' : 'Students',
+      title: _isTeachers ? l10n.navTeachers : l10n.navStudents,
       selectedIndex: selectedIndex < 0 ? 1 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
         if (canManage) ...[
-          FilledButton.icon(
-            onPressed: _openAdd,
-            style: _headerButtonStyle,
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Add'),
-          ),
-          const SizedBox(width: AppSpacing.sm),
+          if (Responsive.isCompact(context))
+            IconButton(
+              tooltip: l10n.add,
+              onPressed: _openAdd,
+              icon: const Icon(Icons.add),
+            )
+          else ...[
+            FilledButton.icon(
+              onPressed: _openAdd,
+              style: _headerButtonStyle,
+              icon: const Icon(Icons.add, size: 20),
+              label: Text(l10n.add),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+          ],
         ],
-        FilledButton.tonalIcon(
-          onPressed: _refresh,
-          style: _headerButtonStyle,
-          icon: const Icon(Icons.refresh, size: 20),
-          label: const Text('Refresh'),
-        ),
+        if (Responsive.isCompact(context))
+          IconButton(
+            tooltip: l10n.refresh,
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          )
+        else
+          FilledButton.tonalIcon(
+            onPressed: _refresh,
+            style: _headerButtonStyle,
+            icon: const Icon(Icons.refresh, size: 20),
+            label: Text(l10n.refresh),
+          ),
       ],
       body: _isTeachers
           ? _TeacherList(
@@ -294,11 +312,11 @@ class _StudentList extends ConsumerWidget {
       queryCacheKey: queryCacheKey,
       header: header,
       onInvalidate: (ref, q) => ref.invalidate(studentsProvider(q)),
-      itemLabel: 'students',
+      itemLabel: context.l10n.itemsStudents,
       initialLoadingKind: LoadingSkeletonKind.table,
-      empty: const EmptyState(
-        title: 'No students',
-        message: 'Add your first student to get started.',
+      empty: EmptyState(
+        title: context.l10n.noStudents,
+        message: context.l10n.noStudentsMessage,
         icon: Icons.school_outlined,
       ),
       builder: (context, controller, items, state) {
@@ -360,11 +378,11 @@ class _TeacherList extends ConsumerWidget {
       queryCacheKey: queryCacheKey,
       header: header,
       onInvalidate: (ref, q) => ref.invalidate(teachersProvider(q)),
-      itemLabel: 'staff',
+      itemLabel: context.l10n.itemsStaff,
       initialLoadingKind: LoadingSkeletonKind.table,
-      empty: const EmptyState(
-        title: 'No staff',
-        message: 'Add staff to manage your branch.',
+      empty: EmptyState(
+        title: context.l10n.noStaff,
+        message: context.l10n.noStaffMessage,
         icon: Icons.badge_outlined,
       ),
       builder: (context, controller, items, state) {
@@ -498,12 +516,13 @@ class _RowActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final semantic = context.semantic;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         PeopleActionIconButton(
-          tooltip: 'View',
+          tooltip: l10n.view,
           icon: Icons.visibility_outlined,
           color: AppColors.primary,
           onPressed: () => showPersonDetailSheet(
@@ -516,7 +535,7 @@ class _RowActions extends ConsumerWidget {
         ),
         if (canManageStatus)
           PeopleActionIconButton(
-            tooltip: 'Edit',
+            tooltip: l10n.edit,
             icon: Icons.edit_outlined,
             color: semantic.textMuted,
             onPressed: () async {
@@ -530,7 +549,7 @@ class _RowActions extends ConsumerWidget {
           ),
         if (person.isStudent)
           PeopleActionIconButton(
-            tooltip: 'Pay',
+            tooltip: l10n.pay,
             icon: Icons.payments_outlined,
             color: semantic.success,
             onPressed: () => context.go('$prefix/more'),
@@ -580,11 +599,14 @@ class _PersonActions extends ConsumerWidget {
         onChanged: onChanged,
         canManageStatus: canManageStatus,
       ),
-      trailing: _RowActions(
-        person: person,
-        onChanged: onChanged,
-        canManageStatus: canManageStatus,
-        prefix: prefix,
+      trailing: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: _RowActions(
+          person: person,
+          onChanged: onChanged,
+          canManageStatus: canManageStatus,
+          prefix: prefix,
+        ),
       ),
     );
   }

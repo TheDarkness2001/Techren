@@ -1,13 +1,14 @@
 import '../../domain/entities/app_user.dart';
 import 'staff_navigation.dart';
 String? permissionKeyForStaffRoute(String route) {
-  if (route.endsWith('/dashboard') || route.endsWith('/branches')) return null;
+  if (route.endsWith('/dashboard')) return null;
+  if (route.endsWith('/branches')) return '__founder_only__';
 
   if (route.contains('/people')) return 'canViewStudents';
   if (route.contains('/schedule')) return 'canViewScheduler';
   if (route.contains('/attendance')) return 'canViewAttendance';
   if (route.endsWith('/feedback')) return 'canViewFeedback';
-  if (route.endsWith('/news')) return 'canCreateNews';
+  if (route.endsWith('/news')) return 'canViewNewsFeed';
   if (route.endsWith('/messages')) return 'canUseCommunications';
   if (route.endsWith('/exams')) return 'canViewExams';
   if (route.endsWith('/learning') ||
@@ -17,8 +18,7 @@ String? permissionKeyForStaffRoute(String route) {
       route.endsWith('/learning-cms') ||
       route.endsWith('/content-import') ||
       route.contains('/progress')) {
-    // Teachers use canEditHomework; managers/founders use canManageHomework.
-    // Progress stays available to teachers who can edit learning for their groups.
+    // Matches homeworkAccess.js: canManageHomework OR canEditHomework.
     return 'canEditHomework';
   }
   if (route.endsWith('/competition')) return 'canViewStudents';
@@ -36,10 +36,11 @@ String? permissionKeyForStaffRoute(String route) {
 
 bool canAccessStaffRoute(AppUser? user, String route, Map<String, bool> rolePerms) {
   if (user == null) return false;
-  if (user.hasFullStaffAccess) return true;
+  if (user.isFounder) return true;
 
   final key = permissionKeyForStaffRoute(route);
-  if (key == '__admin_only__') return false;
+  if (key == '__founder_only__') return false;
+  if (key == '__admin_only__') return user.isAdmin;
   if (key == null) return true;
   if (key == 'canEditHomework') {
     return user.canEditHomeworkFor(rolePerms);

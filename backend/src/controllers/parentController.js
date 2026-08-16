@@ -74,6 +74,24 @@ exports.alerts = asyncHandler(async (req, res) => {
   }
 });
 
+exports.homework = asyncHandler(async (req, res) => {
+  try {
+    const data = await parentService.getChildHomework(req.user, req.params.studentId);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
+exports.schedule = asyncHandler(async (req, res) => {
+  try {
+    const data = await parentService.getChildSchedule(req.user, req.params.studentId);
+    sendSuccess(res, data);
+  } catch (e) {
+    handle(res, e);
+  }
+});
+
 exports.submitExcuse = asyncHandler(async (req, res) => {
   try {
     const data = await parentService.submitAbsenceExcuse(

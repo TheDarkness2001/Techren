@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/l10n/error_l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -13,6 +16,7 @@ import '../../../../core/widgets/metric_card.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
 import '../../../../domain/entities/parent_portal.dart';
 import '../../../providers/parent_provider.dart';
+import '../../scheduling/widgets/admin_timetable_panel.dart';
 
 
 
@@ -112,6 +116,29 @@ class ParentOverviewTab extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: AppSpacing.md),
+            HubSectionHeader(title: context.l10n.navMore),
+            AppHubCard(
+              title: context.l10n.childSchedule,
+              subtitle: context.l10n.childScheduleHint,
+              accentColor: AppColors.primary,
+              icon: Icons.calendar_month_outlined,
+              onTap: () => context.go('/parent/child/$studentId/schedule'),
+            ),
+            AppHubCard(
+              title: context.l10n.navHomework,
+              subtitle: context.l10n.childHomeworkHint,
+              accentColor: AppColors.secondary,
+              icon: Icons.menu_book_outlined,
+              onTap: () => context.go('/parent/child/$studentId/homework'),
+            ),
+            AppHubCard(
+              title: context.l10n.navMessages,
+              subtitle: context.l10n.parentMessagesHint,
+              accentColor: AppColors.primary,
+              icon: Icons.chat_outlined,
+              onTap: () => context.go('/parent/messages'),
+            ),
           ],
         ),
       ),
@@ -173,7 +200,7 @@ class ParentPaymentsTab extends ConsumerWidget {
                 ListTile(
                   title: Text(c.subject.isEmpty ? 'Course' : c.subject),
                   subtitle: Text(c.status),
-                  trailing: Text('${c.amountPaid.toStringAsFixed(0)} / ${c.amountDue.toStringAsFixed(0)}'),
+                  trailing: Text('${formatUzs(c.amountPaid)} / ${formatUzs(c.amountDue)}'),
                 ),
             ],
             if (page.recentPayments.isNotEmpty) ...[
@@ -717,5 +744,119 @@ class _ParentExamsTabState extends ConsumerState<ParentExamsTab> {
 
   }
 
+}
+
+class ParentScheduleTab extends ConsumerWidget {
+  const ParentScheduleTab({super.key, required this.studentId});
+
+  final String studentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final async = ref.watch(parentChildScheduleProvider(studentId));
+    return async.when(
+      loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
+      error: (e, _) => Center(child: Text(localizedError(e, l10n))),
+      data: (data) {
+        if (data.total == 0 && data.grid.values.every((day) => day.isEmpty)) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(parentChildScheduleProvider(studentId)),
+            child: ListView(
+              children: [
+                const SizedBox(height: AppSpacing.xxl),
+                EmptyState(
+                  title: l10n.childSchedule,
+                  message: l10n.noLessonsThisWeek,
+                  icon: Icons.calendar_month_outlined,
+                ),
+              ],
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(parentChildScheduleProvider(studentId)),
+          child: TimetablePanel(data: data, title: l10n.childSchedule),
+        );
+      },
+    );
+  }
+}
+
+class ParentHomeworkTab extends ConsumerWidget {
+  const ParentHomeworkTab({super.key, required this.studentId});
+
+  final String studentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final semantic = context.semantic;
+    final async = ref.watch(parentChildHomeworkProvider(studentId));
+    return async.when(
+      loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
+      error: (e, _) => Center(child: Text(localizedError(e, l10n))),
+      data: (progress) {
+        if (progress.totalAttempts == 0) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(parentChildHomeworkProvider(studentId)),
+            child: ListView(
+              children: [
+                const SizedBox(height: AppSpacing.xxl),
+                EmptyState(
+                  title: l10n.navHomework,
+                  message: l10n.noHomeworkYet,
+                  icon: Icons.menu_book_outlined,
+                ),
+              ],
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(parentChildHomeworkProvider(studentId)),
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: [
+              HubSectionHeader(title: l10n.navHomework),
+              MetricCardGrid(
+                children: [
+                  MetricCard(
+                    label: l10n.homeworkAttempts,
+                    value: '${progress.totalAttempts}',
+                    icon: Icons.replay_outlined,
+                    accentColor: AppColors.primary,
+                  ),
+                  MetricCard(
+                    label: l10n.homeworkCorrect,
+                    value: '${progress.correctAnswers}',
+                    icon: Icons.check_circle_outline,
+                    accentColor: semantic.success,
+                  ),
+                  MetricCard(
+                    label: l10n.homeworkAccuracy,
+                    value: '${progress.accuracy}%',
+                    icon: Icons.insights_outlined,
+                    accentColor: AppColors.secondary,
+                  ),
+                  MetricCard(
+                    label: 'EN → UZ',
+                    value: '${progress.enToUzAccuracy}%',
+                    icon: Icons.translate_outlined,
+                    accentColor: AppColors.primary,
+                  ),
+                  MetricCard(
+                    label: 'UZ → EN',
+                    value: '${progress.uzToEnAccuracy}%',
+                    icon: Icons.translate_outlined,
+                    accentColor: AppColors.secondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 

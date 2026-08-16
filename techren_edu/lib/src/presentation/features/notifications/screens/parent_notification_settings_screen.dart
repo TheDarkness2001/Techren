@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/go_back_icon_button.dart';
+import '../../../../core/widgets/send_test_push_button.dart';
 import '../../../../domain/entities/notification.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/person.dart';
@@ -290,6 +291,10 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
               divisions: 23,
               label: quietEnd,
               onChanged: (v) => setState(() => quietEnd = _sliderToHour(v)),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SendTestPushButton(),
             ),
             Padding(
               padding: const EdgeInsets.all(16),

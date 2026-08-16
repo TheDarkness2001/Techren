@@ -251,3 +251,27 @@ class StudentNotificationSettings {
     );
   }
 }
+
+class TestPushResult {
+  const TestPushResult({
+    required this.sent,
+    required this.failed,
+    required this.status,
+    required this.firebaseConfigured,
+    this.reason,
+  });
+
+  final int sent;
+  final int failed;
+  final String status;
+  final bool firebaseConfigured;
+  final String? reason;
+
+  factory TestPushResult.fromJson(Map<String, dynamic> json) => TestPushResult(
+        sent: json['sent'] as int? ?? 0,
+        failed: json['failed'] as int? ?? 0,
+        status: json['status'] as String? ?? 'skipped',
+        firebaseConfigured: json['firebaseConfigured'] as bool? ?? false,
+        reason: json['reason'] as String?,
+      );
+}

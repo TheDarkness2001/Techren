@@ -252,9 +252,8 @@ const listFeed = async (req) => {
 };
 
 const listAdmin = async (req) => {
-  await assertCanCreate(req).catch(async () => {
-    await assertCanManage(req);
-  });
+  if (req.userType !== 'teacher') throw forbidden('Staff only');
+  await assertCanView(req);
   const filter = {};
   if (req.query.status) filter.status = String(req.query.status);
   if (req.query.category) filter.category = String(req.query.category);

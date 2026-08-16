@@ -147,8 +147,11 @@ class DioClient {
         code: 'NOT_FOUND',
       );
     }
-    if (status == 401 || status == 403) {
-      return AppException('Invalid email or password.', code: 'UNAUTHORIZED');
+    if (status == 401) {
+      return const AppException('Please sign in again.', code: 'UNAUTHORIZED');
+    }
+    if (status == 403) {
+      return const AppException('You do not have permission to do that.', code: 'FORBIDDEN');
     }
     if (status != null && status >= 500) {
       return AppException('Server error. Please try again in a moment.', code: 'SERVER');

@@ -52,6 +52,14 @@ async function run() {
     ? await fetch(`${base}/parent/children/${studentId}/exams?page=1&limit=20`, { headers: parentHeaders })
     : null;
   const examsJson = examsRes ? await examsRes.json() : null;
+  const homeworkRes = studentId
+    ? await fetch(`${base}/parent/children/${studentId}/homework`, { headers: parentHeaders })
+    : null;
+  const homeworkJson = homeworkRes ? await homeworkRes.json() : null;
+  const scheduleRes = studentId
+    ? await fetch(`${base}/parent/children/${studentId}/schedule`, { headers: parentHeaders })
+    : null;
+  const scheduleJson = scheduleRes ? await scheduleRes.json() : null;
 
   const feedbackItem = feedbackJson?.data?.feedback?.[0];
   const comment = feedbackItem?.id
@@ -68,6 +76,8 @@ async function run() {
   console.log('feedback:', feedbackRes?.status, feedbackJson?.data?.feedback?.length, 'meta:', feedbackJson?.meta);
   console.log('attendance:', attendanceRes?.status, attendanceJson?.data?.attendance?.length, 'meta:', attendanceJson?.meta);
   console.log('exams:', examsRes?.status, examsJson?.data?.exams?.length, 'meta:', examsJson?.meta);
+  console.log('homework:', homeworkRes?.status, homeworkJson?.data?.progress?.totalAttempts);
+  console.log('schedule:', scheduleRes?.status, scheduleJson?.data?.total);
   console.log('parent comment:', comment?.status);
 
   server.close();

@@ -35,8 +35,9 @@ const conversationSchema = new mongoose.Schema(
     lastMessageAt: { type: Date, default: null, index: true },
     lastMessagePreview: { type: String, default: '' },
     pinnedMessageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
-    /** For private DMs: sorted "teacher:id|student:id" (or parent) key for find-or-create */
-    privateKey: { type: String, default: null, sparse: true, unique: true },
+    /** For private DMs: sorted "teacher:id|student:id" (or parent) key for find-or-create.
+     *  Must be omitted on non-private chats — storing null collides on the unique sparse index. */
+    privateKey: { type: String, sparse: true, unique: true },
   },
   { timestamps: true }
 );

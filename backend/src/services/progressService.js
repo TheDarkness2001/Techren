@@ -16,6 +16,7 @@ const sentenceService = require('./sentenceService');
 const listeningService = require('./listeningService');
 const gamificationService = require('./gamificationService');
 const { getBranchFilter } = require('../utils/branchFilter');
+const { assertParentChild } = require('../utils/resourceAccess');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 
 const resolveTeacherGroupIds = async (req) => {
@@ -65,6 +66,15 @@ const resolveStudentId = async (req, studentId) => {
 
   if (!studentId) {
     throw Object.assign(new Error('studentId is required'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (req.userType === 'parent') {
+    assertParentChild(req.user, studentId);
+    const child = await Student.findById(studentId).select('_id');
+    if (!child) {
+      throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
+    }
+    return child._id;
   }
 
   const student = await Student.findOne({ _id: studentId, ...getBranchFilter(req) });

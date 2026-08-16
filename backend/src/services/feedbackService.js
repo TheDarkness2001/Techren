@@ -6,6 +6,7 @@ const { getBranchFilter } = require('../utils/branchFilter');
 const { getTashkentParts, isWithinClassWindow, canBypassTimeWindow } = require('../utils/classWindow');
 const { isPrivilegedStaff } = require('../middleware/auth');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
+const { parentStudentScope } = require('../utils/resourceAccess');
 const logger = require('../config/logger');
 
 const isEnglishSubject = (schedule) => {
@@ -94,6 +95,8 @@ const list = async (req) => {
   if (req.userType === 'student') {
     // Never allow query overrides to read another student's feedback.
     filter.student = req.user._id;
+  } else if (req.userType === 'parent') {
+    filter.student = parentStudentScope(req.user, req.query.studentId);
   } else if (req.query.studentId) {
     filter.student = req.query.studentId;
   }

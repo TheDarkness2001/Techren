@@ -61,6 +61,12 @@ class NotificationApi {
     await _client.dio.delete('/notifications/device-token', data: {'token': token});
   }
 
+  Future<TestPushResult> sendTestPush() async {
+    final response = await _client.dio.post('/notifications/test-push');
+    final data = response.data['data'] as Map<String, dynamic>? ?? {};
+    return TestPushResult.fromJson(data);
+  }
+
   Future<StudentNotificationSettings> getMySettings() async {
     final response = await _client.dio.get('/notifications/settings/me');
     return StudentNotificationSettings.fromJson(response.data['data'] as Map<String, dynamic>);

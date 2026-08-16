@@ -2,11 +2,9 @@ const Branch = require('../models/Branch');
 const { Teacher, Student } = require('../models');
 const { getBranchStats } = require('./branchService');
 const { buildDuesByStudent } = require('./paymentService');
+const { tashkentBillingPeriod } = require('../utils/classWindow');
 
-const currentMonthYear = () => {
-  const now = new Date();
-  return { month: now.getMonth() + 1, year: now.getFullYear() };
-};
+const currentMonthYear = () => tashkentBillingPeriod();
 
 /** Active students with at least one course still due this month. */
 const countUnpaidStudents = async (studentFilter = {}) => {
@@ -125,6 +123,13 @@ const getStudentDashboard = async (student) => {
 const getDashboard = async (req) => {
   if (req.userType === 'student') {
     return getStudentDashboard(req.user);
+  }
+
+  if (req.userType === 'parent') {
+    return {
+      role: 'parent',
+      childrenCount: (req.user.children || []).length,
+    };
   }
 
   if (req.user.role === 'founder') {

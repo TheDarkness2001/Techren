@@ -141,4 +141,4 @@ const sendPush = async ({ tokens, title, body, data = {} }) => {
   }
 };
 
-module.exports = { initFirebase, sendPush };
+module.exports = { initFirebase, sendPush, isFirebaseReady: () => Boolean(messaging) };

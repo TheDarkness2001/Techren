@@ -4,6 +4,7 @@ const ExamGroup = require('../models/ExamGroup');
 const Student = require('../models/Student');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
+const { addCalendarDays } = require('../utils/classWindow');
 
 const PENALTY_TYPES = ['spoken_uzbek', 'missed_presentation', 'missed_writing_homework', 'missed_word_memorization', 'other', 'bonus'];
 
@@ -97,9 +98,9 @@ const getGroupPenalties = async (req, groupId, { date } = {}) => {
 
   const query = { studentId: { $in: studentIds }, isReverted: false };
   if (date) {
-    const d = new Date(date);
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    const dateString = String(date).slice(0, 10);
+    const start = new Date(`${dateString}T00:00:00+05:00`);
+    const end = new Date(`${addCalendarDays(dateString, 1)}T00:00:00+05:00`);
     query.date = { $gte: start, $lt: end };
   }
 

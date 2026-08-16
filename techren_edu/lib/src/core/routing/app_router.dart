@@ -391,6 +391,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/parent/child/:studentId/exams',
         builder: (_, state) => ParentChildExamsScreen(studentId: state.pathParameters['studentId']!),
       ),
+      AppPageTransitions.route(
+        path: '/parent/child/:studentId/schedule',
+        builder: (_, state) => ParentChildScheduleScreen(studentId: state.pathParameters['studentId']!),
+      ),
+      AppPageTransitions.route(
+        path: '/parent/child/:studentId/homework',
+        builder: (_, state) => ParentChildHomeworkScreen(studentId: state.pathParameters['studentId']!),
+      ),
+      AppPageTransitions.route(path: '/parent/messages', builder: (_, __) => const ParentMessagesScreen()),
     ],
   );
 });

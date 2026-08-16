@@ -4,7 +4,7 @@ import '../widgets/staff_permissions.dart';
 const staffDashboardRoute = '/admin/dashboard';
 
 String? staffRouteGuard(AppUser user, String path, Map<String, bool> rolePerms) {
-  if (user.hasFullStaffAccess) return null;
+  if (user.isFounder) return null;
   if (!path.startsWith('/admin') && !path.startsWith('/founder') && !path.startsWith('/teacher')) {
     return null;
   }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/academy_time.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_data_table.dart';
 import '../../../../core/widgets/app_dialogs.dart';
@@ -50,7 +53,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
     final canManagePayments = user != null && canAccessStaffRoute(user, '$prefix/more', rolePerms);
 
     return AdaptiveScaffold(
-      title: 'Payments',
+      title: context.l10n.navPaymentsExams,
       selectedIndex: selectedIndex < 0 ? 3 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
@@ -77,7 +80,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final students = await ref.read(studentsProvider(const PageMeta()).future);
     if (!context.mounted || students.items.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('No students found')));
+      messenger.showSnackBar(SnackBar(content: Text(context.l10n.noStudentsFound)));
       return;
     }
 
@@ -91,27 +94,27 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AppDialog(
-          title: 'Record Payment',
+          title: context.l10n.recordPayment,
           icon: Icons.payments_outlined,
           content: AppFormColumn(
             children: [
               DropdownButtonFormField(
                 value: selected.id,
-                decoration: const InputDecoration(labelText: 'Student'),
+                decoration: InputDecoration(labelText: context.l10n.student),
                 items: students.items.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
                 onChanged: (v) => setState(() => selected = students.items.firstWhere((s) => s.id == v)),
               ),
-              TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'Amount'), keyboardType: TextInputType.number),
-              TextField(controller: subjectCtrl, decoration: const InputDecoration(labelText: 'Subject')),
+              TextField(controller: amountCtrl, decoration: InputDecoration(labelText: context.l10n.amount), keyboardType: TextInputType.number),
+              TextField(controller: subjectCtrl, decoration: InputDecoration(labelText: context.l10n.subject)),
               Row(
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       value: selectedMonth,
-                      decoration: const InputDecoration(labelText: 'Month'),
+                      decoration: InputDecoration(labelText: context.l10n.month),
                       items: [
                         for (var i = 1; i <= 12; i++)
-                          DropdownMenuItem(value: i, child: Text(_monthLabels[i - 1])),
+                          DropdownMenuItem(value: i, child: Text(context.l10n.monthShort(i))),
                       ],
                       onChanged: (v) {
                         if (v != null) setState(() => selectedMonth = v);
@@ -122,9 +125,9 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       value: selectedYear,
-                      decoration: const InputDecoration(labelText: 'Year'),
+                      decoration: InputDecoration(labelText: context.l10n.year),
                       items: [
-                        for (var y = DateTime.now().year + 1; y >= DateTime.now().year - 4; y--)
+                        for (var y = AcademyTime.year + 1; y >= AcademyTime.year - 4; y--)
                           DropdownMenuItem(value: y, child: Text('$y')),
                       ],
                       onChanged: (v) {
@@ -140,7 +143,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
             AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context)),
             AppDialogActions.confirm(
               context,
-              label: 'Save',
+              label: context.l10n.save,
               onPressed: () async {
                 final now = DateTime.now();
                 await ref.read(financeApiProvider).createPayment({
@@ -178,12 +181,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
   }
 }
 
-const _monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-String _moneyLabel(double amount) {
-  final rounded = amount == amount.roundToDouble() ? amount.toStringAsFixed(0) : amount.toStringAsFixed(2);
-  return '\$$rounded';
-}
+String _moneyLabel(double amount) => formatUzs(amount);
 
 String _courseStatusLabel(String status) {
   switch (status) {
@@ -224,15 +223,14 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _month = now.month;
-    _year = now.year;
+    _month = AcademyTime.month;
+    _year = AcademyTime.year;
   }
 
   PaymentRosterQuery get _query => (month: _month, year: _year, search: widget.search);
 
   void _resetFilters() {
-    final now = DateTime.now();
+    final now = AcademyTime.now();
     widget.searchController.clear();
     widget.onSearchCleared();
     setState(() {
@@ -269,25 +267,25 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AppDialog(
-          title: 'Accept payment',
+          title: context.l10n.acceptPayment,
           icon: Icons.payments_outlined,
           content: AppFormColumn(
             children: [
               Text(student.name, style: Theme.of(context).textTheme.titleMedium),
               Text(
                 '${student.studentCode.isEmpty ? '' : '#${student.studentCode} · '}'
-                '${_monthLabels[roster.month - 1]} ${roster.year}',
+                '${context.l10n.monthShort(roster.month)} ${roster.year}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               if (unpaidCourses.length > 1)
                 DropdownButtonFormField<PaymentCourseStatus>(
                   value: selected,
-                  decoration: const InputDecoration(labelText: 'Course'),
+                  decoration: InputDecoration(labelText: context.l10n.course),
                   items: unpaidCourses
                       .map(
                         (c) => DropdownMenuItem(
                           value: c,
-                          child: Text('${c.subjectName} — ${_moneyLabel(c.remaining)} left'),
+                          child: Text('${c.subjectName} — ${context.l10n.remainingLeft(_moneyLabel(c.remaining))}'),
                         ),
                       )
                       .toList(),
@@ -304,22 +302,22 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               else
                 TextField(
                   controller: subjectCtrl,
-                  decoration: const InputDecoration(labelText: 'Course / subject'),
+                  decoration: InputDecoration(labelText: context.l10n.courseOrSubject),
                   readOnly: selected != null,
                 ),
               TextField(
                 controller: amountCtrl,
-                decoration: const InputDecoration(labelText: 'Amount received'),
+                decoration: InputDecoration(labelText: context.l10n.amountReceived),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               DropdownButtonFormField<String>(
                 value: method,
-                decoration: const InputDecoration(labelText: 'Method'),
-                items: const [
-                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'card', child: Text('Card')),
-                  DropdownMenuItem(value: 'transfer', child: Text('Bank transfer')),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                decoration: InputDecoration(labelText: context.l10n.method),
+                items: [
+                  DropdownMenuItem(value: 'cash', child: Text(context.l10n.methodCash)),
+                  DropdownMenuItem(value: 'card', child: Text(context.l10n.methodCard)),
+                  DropdownMenuItem(value: 'transfer', child: Text(context.l10n.methodBankTransfer)),
+                  DropdownMenuItem(value: 'other', child: Text(context.l10n.methodOther)),
                 ],
                 onChanged: (v) => setDialogState(() => method = v ?? 'cash'),
               ),
@@ -329,7 +327,7 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
             AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context)),
             AppDialogActions.confirm(
               context,
-              label: 'Record paid',
+              label: context.l10n.recordPaid,
               onPressed: () async {
                 final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
                 final subject = (selected?.subjectName ?? subjectCtrl.text).trim();
@@ -352,7 +350,7 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not record payment: $e')),
+                      SnackBar(content: Text(context.l10n.couldNotRecordPayment('$e'))),
                     );
                   }
                 }
@@ -372,7 +370,7 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
       ref.invalidate(revenueSummaryProvider);
       ref.invalidate(pendingPaymentsProvider);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment recorded for ${student.name}')),
+        SnackBar(content: Text(context.l10n.paymentRecordedFor(student.name))),
       );
     }
   }
@@ -392,12 +390,12 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FilledButton(onPressed: _resetFilters, child: const Text('Reset')),
+        FilledButton(onPressed: _resetFilters, child: Text(context.l10n.reset)),
         const SizedBox(width: AppSpacing.sm),
-        OutlinedButton(onPressed: _refresh, child: const Text('Refresh Data')),
+        OutlinedButton(onPressed: _refresh, child: Text(context.l10n.refreshData)),
         if (widget.canManage) ...[
           const SizedBox(width: AppSpacing.sm),
-          FilledButton(onPressed: () => widget.onRecordPayment(_month, _year), child: const Text('Record')),
+          FilledButton(onPressed: () => widget.onRecordPayment(_month, _year), child: Text(context.l10n.record)),
         ],
       ],
     );
@@ -419,8 +417,8 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               final searchField = TextField(
                 controller: widget.searchController,
                 decoration: _filterDecoration(
-                  'Search Student',
-                  hint: 'Name or ID',
+                  context.l10n.searchStudent,
+                  hint: context.l10n.nameOrId,
                   suffix: widget.search.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -432,10 +430,10 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               );
               final monthField = DropdownButtonFormField<int>(
                 value: _month,
-                decoration: _filterDecoration('Month'),
+                decoration: _filterDecoration(context.l10n.month),
                 items: [
                   for (var i = 1; i <= 12; i++)
-                    DropdownMenuItem(value: i, child: Text(_monthLabels[i - 1])),
+                    DropdownMenuItem(value: i, child: Text(context.l10n.monthShort(i))),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
@@ -444,9 +442,9 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               );
               final yearField = DropdownButtonFormField<int>(
                 value: _year,
-                decoration: _filterDecoration('Year'),
+                decoration: _filterDecoration(context.l10n.year),
                 items: [
-                  for (var y = DateTime.now().year + 1; y >= DateTime.now().year - 4; y--)
+                  for (var y = AcademyTime.year + 1; y >= AcademyTime.year - 4; y--)
                     DropdownMenuItem(value: y, child: Text('$y')),
                 ],
                 onChanged: (v) {
@@ -496,21 +494,21 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               children: [
                 SizedBox(height: AppSpacing.emptyStateTop),
                 EmptyState(
-                  title: 'Could not load payments',
+                  title: context.l10n.couldNotLoadPayments,
                   message: '$e',
                   icon: Icons.error_outline,
-                  action: TextButton(onPressed: _refresh, child: const Text('Retry')),
+                  action: TextButton(onPressed: _refresh, child: Text(context.l10n.retry)),
                 ),
               ],
             ),
             data: (roster) {
               if (roster.items.isEmpty) {
                 return ListView(
-                  children: const [
-                    SizedBox(height: AppSpacing.emptyStateTop),
+                  children: [
+                    const SizedBox(height: AppSpacing.emptyStateTop),
                     EmptyState(
-                      title: 'No students',
-                      message: 'No active students match this month’s filters.',
+                      title: context.l10n.noStudents,
+                      message: context.l10n.noStudentsMatchFilters,
                       icon: Icons.payments_outlined,
                     ),
                   ],

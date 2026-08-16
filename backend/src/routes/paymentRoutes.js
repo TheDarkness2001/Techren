@@ -16,7 +16,7 @@ const allowViewPayments = (req, res, next) => {
 router.use(protect);
 
 router.get('/', enforceBranchIsolation, allowViewPayments, paginationRules, validate, controller.list);
-router.get('/roster', enforceBranchIsolation, allowViewPayments, validate, controller.roster);
+router.get('/roster', enforceBranchIsolation, checkPermission('canViewPayments'), validate, controller.roster);
 router.get('/my-dues', enforceBranchIsolation, allowViewPayments, validate, controller.myDues);
 router.post(
   '/',

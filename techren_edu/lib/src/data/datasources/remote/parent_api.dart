@@ -1,6 +1,7 @@
 import '../../../core/network/dio_client.dart';
 import '../../../domain/entities/paginated_result.dart';
 import '../../../domain/entities/parent_portal.dart';
+import '../../../domain/entities/scheduling.dart';
 
 class ParentApi {
   ParentApi(this._client);
@@ -97,6 +98,16 @@ class ParentApi {
       total: meta['total'] as int? ?? items.length,
       totalPages: meta['totalPages'] as int? ?? 1,
     );
+  }
+
+  Future<ParentHomeworkProgress> getHomework(String studentId) async {
+    final response = await _client.dio.get('/parent/children/$studentId/homework');
+    return ParentHomeworkProgress.fromJson(response.data['data'] as Map<String, dynamic>? ?? {});
+  }
+
+  Future<TimetableData> getSchedule(String studentId) async {
+    final response = await _client.dio.get('/parent/children/$studentId/schedule');
+    return TimetableData.fromJson(response.data['data'] as Map<String, dynamic>? ?? {});
   }
 
   Future<void> addParentComment(String feedbackId, String comment) async {

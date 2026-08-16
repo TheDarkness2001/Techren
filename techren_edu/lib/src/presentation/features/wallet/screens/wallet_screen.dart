@@ -5,6 +5,7 @@ import '../../../../core/widgets/go_back_icon_button.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/app_hub_card.dart';
@@ -89,7 +90,7 @@ class _StudentWalletScreenState extends ConsumerState<StudentWalletScreen> {
                             Text('Available balance', style: Theme.of(context).textTheme.labelLarge),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              "${balance.balanceSom.toStringAsFixed(0)} so'm",
+                              formatUzs(balance.balanceSom),
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             if (balance.isLocked) ...[
@@ -332,7 +333,7 @@ class _AdminWalletScreenState extends ConsumerState<AdminWalletScreen> {
                                 data: (balance) => Card(
                                   child: ListTile(
                                     leading: const Icon(Icons.account_balance_wallet_outlined),
-                                    title: Text("${balance.balanceSom.toStringAsFixed(0)} so'm"),
+                                    title: Text(formatUzs(balance.balanceSom)),
                                     subtitle: Text(balance.isLocked ? 'Locked' : 'Active'),
                                   ),
                                 ),

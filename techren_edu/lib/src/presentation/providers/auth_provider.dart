@@ -92,12 +92,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.status != AuthStatus.authenticated) return;
     _ref.read(taskIntegrityProvider.notifier).endTask();
     await _runBeforeLogoutHook();
-    await _repository.logout(
-      reason: 'Signed out because you left the app during a learning task.',
-    );
-    _clearSessionState(
-      message: 'Signed out because you left the app during a learning task.',
-    );
+    await _repository.logout(reason: 'TASK_LEAVE');
+    _clearSessionState(message: 'TASK_LEAVE');
   }
 
   Future<void> _runBeforeLogoutHook() async {
@@ -117,14 +113,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     if (started != null && now.difference(started) > SessionPolicy.maxSessionAge) {
       await _runBeforeLogoutHook();
-      await _repository.logout(reason: 'Your session expired. Please sign in again.');
-      _clearSessionState(message: 'Your session expired. Please sign in again.');
+      await _repository.logout(reason: 'SESSION_EXPIRED');
+      _clearSessionState(message: 'SESSION_EXPIRED');
       return;
     }
     if (backgrounded != null && now.difference(backgrounded) > SessionPolicy.maxIdleAge) {
       await _runBeforeLogoutHook();
-      await _repository.logout(reason: 'Signed out after being idle. Please sign in again.');
-      _clearSessionState(message: 'Signed out after being idle. Please sign in again.');
+      await _repository.logout(reason: 'SESSION_IDLE');
+      _clearSessionState(message: 'SESSION_IDLE');
       return;
     }
     await _repository.clearBackgrounded();

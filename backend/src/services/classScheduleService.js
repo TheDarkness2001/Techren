@@ -5,6 +5,38 @@ const { daysOverlap, timesOverlap } = require('../utils/timeUtils');
 const { normalizeScheduledDays } = require('../utils/dayNames');
 const { syncScheduleToGroup } = require('./scheduleSyncService');
 
+const isObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
+/** Fix legacy schedules that stored a subject name string instead of an ObjectId. */
+const healLegacySubject = async (schedule) => {
+  const raw = schedule.subject;
+  if (raw && typeof raw === 'object' && raw._id) {
+    schedule.subject = raw._id;
+    return;
+  }
+  if (isObjectId(raw)) return;
+
+  if (schedule.subjectGroup) {
+    const ExamGroup = require('../models/ExamGroup');
+    const group = await ExamGroup.findById(schedule.subjectGroup).select('subject');
+    if (group?.subject) {
+      schedule.subject = group.subject;
+      return;
+    }
+  }
+  schedule.subject = undefined;
+};
+
+const resolveSubjectId = async (data) => {
+  if (isObjectId(data.subject)) return data.subject;
+  if (data.subjectGroup) {
+    const ExamGroup = require('../models/ExamGroup');
+    const group = await ExamGroup.findById(data.subjectGroup).select('subject');
+    if (group?.subject) return group.subject;
+  }
+  return undefined;
+};
+
 const formatSchedule = (doc) => {
   const subjectDoc = doc.subject && typeof doc.subject === 'object' && doc.subject._id
     ? doc.subject
@@ -71,9 +103,18 @@ const getSchedule = async (id, filter) => {
 
 const createSchedule = async (data) => {
   const payload = {
-    ...data,
+    className: data.className,
+    teacher: data.teacher,
     scheduledDays: normalizeScheduledDays(data.scheduledDays),
+    startTime: data.startTime,
+    endTime: data.endTime,
+    branchId: data.branchId,
   };
+  if (data.subjectGroup) payload.subjectGroup = data.subjectGroup;
+  if (data.enrolledStudents) payload.enrolledStudents = data.enrolledStudents;
+  const subject = await resolveSubjectId(data);
+  if (subject) payload.subject = subject;
+
   const schedule = await ClassSchedule.create(payload);
   await syncScheduleToGroup(schedule);
   return getSchedule(schedule._id, {});
@@ -85,11 +126,21 @@ const updateSchedule = async (id, filter, data) => {
     throw Object.assign(new Error('Class schedule not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  const payload = { ...data };
-  if (payload.scheduledDays) {
-    payload.scheduledDays = normalizeScheduledDays(payload.scheduledDays);
+  await healLegacySubject(schedule);
+
+  if (data.teacher !== undefined) schedule.teacher = data.teacher;
+  if (data.className !== undefined) schedule.className = data.className;
+  if (data.startTime !== undefined) schedule.startTime = data.startTime;
+  if (data.endTime !== undefined) schedule.endTime = data.endTime;
+  if (data.enrolledStudents !== undefined) schedule.enrolledStudents = data.enrolledStudents;
+  if (data.subjectGroup !== undefined) schedule.subjectGroup = data.subjectGroup;
+  if (data.scheduledDays !== undefined) {
+    schedule.scheduledDays = normalizeScheduledDays(data.scheduledDays);
   }
-  Object.assign(schedule, payload);
+  if (data.subject !== undefined && isObjectId(data.subject)) {
+    schedule.subject = data.subject;
+  }
+
   await schedule.save();
   await syncScheduleToGroup(schedule);
   return getSchedule(schedule._id, filter);

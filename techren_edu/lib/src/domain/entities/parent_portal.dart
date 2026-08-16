@@ -1,3 +1,5 @@
+import '../../core/utils/academy_time.dart';
+
 class ParentChild {
   const ParentChild({
     required this.id,
@@ -145,6 +147,38 @@ class ParentAttendanceSummary {
       present: json['present'] as int? ?? 0,
       absent: json['absent'] as int? ?? 0,
       total: json['total'] as int? ?? 0,
+    );
+  }
+}
+
+class ParentHomeworkProgress {
+  const ParentHomeworkProgress({
+    this.totalAttempts = 0,
+    this.correctAnswers = 0,
+    this.accuracy = 0,
+    this.enToUzAccuracy = 0,
+    this.uzToEnAccuracy = 0,
+    this.lastUpdated,
+  });
+
+  final int totalAttempts;
+  final int correctAnswers;
+  final int accuracy;
+  final int enToUzAccuracy;
+  final int uzToEnAccuracy;
+  final DateTime? lastUpdated;
+
+  factory ParentHomeworkProgress.fromJson(Map<String, dynamic> json) {
+    final nested = json['progress'] is Map<String, dynamic>
+        ? json['progress'] as Map<String, dynamic>
+        : json;
+    return ParentHomeworkProgress(
+      totalAttempts: (nested['totalAttempts'] as num?)?.toInt() ?? 0,
+      correctAnswers: (nested['correctAnswers'] as num?)?.toInt() ?? 0,
+      accuracy: (nested['accuracy'] as num?)?.toInt() ?? 0,
+      enToUzAccuracy: (nested['enToUzAccuracy'] as num?)?.toInt() ?? 0,
+      uzToEnAccuracy: (nested['uzToEnAccuracy'] as num?)?.toInt() ?? 0,
+      lastUpdated: DateTime.tryParse(nested['lastUpdated']?.toString() ?? ''),
     );
   }
 }
@@ -308,8 +342,8 @@ class ParentPaymentsPage {
 
   factory ParentPaymentsPage.fromJson(Map<String, dynamic> json) {
     return ParentPaymentsPage(
-      month: json['month'] as int? ?? DateTime.now().month,
-      year: json['year'] as int? ?? DateTime.now().year,
+      month: json['month'] as int? ?? AcademyTime.month,
+      year: json['year'] as int? ?? AcademyTime.year,
       overallStatus: json['overallStatus'] as String? ?? 'paid',
       amountRemaining: (json['amountRemaining'] as num?)?.toDouble() ?? 0,
       amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? 0,

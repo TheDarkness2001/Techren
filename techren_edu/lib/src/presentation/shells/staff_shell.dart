@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_spacing.dart';
+
+import '../../core/l10n/app_localizations.dart';
 import '../../domain/entities/app_user.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/adaptive_scaffold.dart';
 import '../../core/widgets/staff_permissions.dart';
 import '../features/branches/screens/branches_screen.dart';
@@ -28,7 +30,7 @@ class FounderDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
     return AdaptiveScaffold(
-      title: 'Dashboard',
+      title: context.l10n.navDashboard,
       selectedIndex: 0,
       selectedRoute: '/founder/dashboard',
       items: founderNavItems,
@@ -105,7 +107,7 @@ class AdminDashboardScreen extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
 
     return AdaptiveScaffold(
-      title: 'Dashboard',
+      title: context.l10n.navDashboard,
       selectedIndex: 0,
       selectedRoute: '/admin/dashboard',
       items: adminNavItems,
@@ -135,25 +137,26 @@ class _StaffQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final actions = <({String label, IconData icon, String route})>[
       if (canAccessStaffRoute(user, '$prefix/people', rolePerms))
-        (label: 'People', icon: Icons.people_outline, route: '$prefix/people'),
+        (label: l10n.navPeople, icon: Icons.people_outline, route: '$prefix/people'),
       if (canAccessStaffRoute(user, '$prefix/schedule', rolePerms))
-        (label: 'Schedule', icon: Icons.calendar_month_outlined, route: '$prefix/schedule'),
+        (label: l10n.navSchedule, icon: Icons.calendar_month_outlined, route: '$prefix/schedule'),
       if (canAccessStaffRoute(user, '$prefix/attendance', rolePerms))
-        (label: 'Attendance', icon: Icons.fact_check_outlined, route: '$prefix/attendance'),
+        (label: l10n.navAttendance, icon: Icons.fact_check_outlined, route: '$prefix/attendance'),
       if (canAccessStaffRoute(user, '$prefix/feedback', rolePerms))
-        (label: 'Feedback', icon: Icons.rate_review_outlined, route: '$prefix/feedback'),
+        (label: l10n.navFeedback, icon: Icons.rate_review_outlined, route: '$prefix/feedback'),
       if (canAccessStaffRoute(user, '$prefix/news', rolePerms))
-        (label: 'News', icon: Icons.newspaper_outlined, route: '$prefix/news'),
+        (label: l10n.navNews, icon: Icons.newspaper_outlined, route: '$prefix/news'),
       if (canAccessStaffRoute(user, '$prefix/messages', rolePerms))
-        (label: 'Messages', icon: Icons.chat_bubble_outline, route: '$prefix/messages'),
+        (label: l10n.navMessages, icon: Icons.chat_bubble_outline, route: '$prefix/messages'),
       if (canAccessStaffRoute(user, '$prefix/exams', rolePerms))
-        (label: 'Exams', icon: Icons.quiz_outlined, route: '$prefix/exams'),
+        (label: l10n.navExams, icon: Icons.quiz_outlined, route: '$prefix/exams'),
       if (canAccessStaffRoute(user, '$prefix/revenue-reports', rolePerms))
-        (label: 'Revenue', icon: Icons.bar_chart_outlined, route: '$prefix/revenue-reports'),
+        (label: l10n.navRevenueReports, icon: Icons.bar_chart_outlined, route: '$prefix/revenue-reports'),
       if (canAccessStaffRoute(user, '$prefix/more', rolePerms))
-        (label: 'Payments', icon: Icons.payments_outlined, route: '$prefix/more'),
+        (label: l10n.navPaymentsExams, icon: Icons.payments_outlined, route: '$prefix/more'),
     ];
 
     if (actions.isEmpty) return const SizedBox.shrink();

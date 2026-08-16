@@ -19,8 +19,8 @@ const _dayFullNames = {
   'Sun': 'Sunday',
 };
 
-const _timeColWidth = 76.0;
-const _minDayColWidth = 112.0;
+const _timeColWidth = 56.0;
+const _minDayColWidth = 72.0;
 const _dividerWidth = 1.0;
 
 /// Weekly timetable grid — days across top, hourly rows, fills available width.
@@ -91,8 +91,14 @@ class TimetableWeekGrid extends StatelessWidget {
             child: SizedBox(
               width: tableWidth,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _HeaderRow(monday: monday, dayWidth: dayWidth, border: border),
+                  _HeaderRow(
+                    monday: monday,
+                    dayWidth: dayWidth,
+                    border: border,
+                    shortNames: dayWidth < 108,
+                  ),
                   for (final slot in _timeSlots)
                     _TimeRow(
                       slot: slot,
@@ -118,11 +124,13 @@ class _HeaderRow extends StatelessWidget {
     required this.monday,
     required this.dayWidth,
     required this.border,
+    required this.shortNames,
   });
 
   final DateTime monday;
   final double dayWidth;
   final Color border;
+  final bool shortNames;
 
   Color _dayColor(String day) {
     if (day == 'Sat') return const Color(0xFF2563EB);
@@ -143,7 +151,7 @@ class _HeaderRow extends StatelessWidget {
           SizedBox(
             width: _timeColWidth,
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.sm),
               child: Text(
                 'Time',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -151,25 +159,31 @@ class _HeaderRow extends StatelessWidget {
             ),
           ),
           for (var i = 0; i < TimetableData.days.length; i++) ...[
-            Container(width: _dividerWidth, height: 60, color: border),
+            Container(width: _dividerWidth, height: 56, color: border),
             SizedBox(
               width: dayWidth,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.xs),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm, horizontal: 2),
                 child: Column(
                   children: [
                     Text(
-                      _dayFullNames[TimetableData.days[i]]!,
+                      shortNames
+                          ? TimetableData.days[i]
+                          : _dayFullNames[TimetableData.days[i]]!,
                       textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                        fontSize: shortNames ? 12 : 13,
                         color: _dayColor(TimetableData.days[i]),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.micro),
                     Text(
                       _formatDate(monday.add(Duration(days: i))),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: muted),
                     ),
                   ],
@@ -218,8 +232,8 @@ class _TimeRow extends StatelessWidget {
             SizedBox(
               width: _timeColWidth,
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(slot, style: TextStyle(fontSize: 12, color: muted)),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.sm),
+                child: Text(slot, style: TextStyle(fontSize: 11, color: muted)),
               ),
             ),
             for (final day in TimetableData.days) ...[

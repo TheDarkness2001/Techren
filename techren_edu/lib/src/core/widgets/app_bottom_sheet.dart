@@ -82,7 +82,12 @@ class AppBottomSheet extends StatelessWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         if (subtitle != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted)),

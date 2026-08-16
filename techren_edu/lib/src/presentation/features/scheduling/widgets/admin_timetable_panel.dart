@@ -176,6 +176,8 @@ class _AdminTimetablePanelState extends ConsumerState<AdminTimetablePanel> {
             const SizedBox(height: AppSpacing.lg),
             Text(
               _showWeekGrid ? "${selected.name}'s week grid" : "${selected.name}'s lessons",
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
@@ -278,7 +280,7 @@ class _TeacherFilterBar extends StatelessWidget {
 
           if (stacked) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 filter,
                 const SizedBox(height: AppSpacing.sm),
@@ -343,7 +345,10 @@ class _TeacherLessonsTable extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: MediaQuery.sizeOf(context).width - 320),
+          constraints: BoxConstraints(
+            minWidth: (MediaQuery.sizeOf(context).width - (MediaQuery.sizeOf(context).width < 600 ? 32 : 320))
+                .clamp(0.0, double.infinity),
+          ),
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(semantic.surfaceContainer),
             headingTextStyle: Theme.of(context).textTheme.labelMedium?.copyWith(

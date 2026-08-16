@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_spacing.dart';
+import '../l10n/app_localizations.dart';
 import '../../domain/entities/paginated_result.dart';
 import 'common_widgets.dart';
 
@@ -27,12 +28,13 @@ class PaginatedScrollFooter extends StatelessWidget {
     if (total == 0) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final label = loadedCount >= total
-        ? 'All $total $itemLabel loaded'
-        : 'Showing $loadedCount of $total $itemLabel';
+        ? l10n.paginationAll(total, itemLabel)
+        : l10n.paginationShowing(loadedCount, total, itemLabel);
 
     return Semantics(
-      label: loadingMore ? '$label. Loading more.' : label,
+      label: loadingMore ? '$label. ${l10n.paginationLoadingMore}' : label,
       child: Material(
         elevation: 2,
         child: SafeArea(

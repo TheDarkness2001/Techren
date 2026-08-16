@@ -24,7 +24,9 @@ class PeopleFormSection extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: EdgeInsets.all(
+        MediaQuery.sizeOf(context).width < 600 ? AppSpacing.md : AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,
@@ -36,6 +38,8 @@ class PeopleFormSection extends StatelessWidget {
         children: [
           Text(
             title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           if (subtitle != null) ...[
@@ -148,13 +152,14 @@ class PeopleStatStrip extends StatelessWidget {
             ],
           );
         }
+        final cellWidth = ((c.maxWidth - AppSpacing.sm) / 2).floorToDouble();
         return Wrap(
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,
           children: [
             for (final item in items)
               SizedBox(
-                width: (c.maxWidth - AppSpacing.sm) / 2,
+                width: cellWidth,
                 child: _MiniStat(label: item.$1, value: item.$2, color: item.$3),
               ),
           ],
@@ -186,6 +191,8 @@ class _MiniStat extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,

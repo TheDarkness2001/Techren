@@ -124,14 +124,15 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                       letterSpacing: -0.3,
                     ),
                   )
-                else
+                else if (!hasActions)
                   const Spacer(),
                 if (!widget.compact && user != null)
                   KeyboardShortcutHint(
                     prefix: user.isFounder ? '/founder' : '/admin',
                     isFounder: user.isFounder,
                   ),
-                if (isFounder)
+                // Branch chrome is too wide next to page actions at 320–414px.
+                if (isFounder && !(widget.compact && hasActions))
                   Flexible(
                     child: Align(
                       alignment: Alignment.centerRight,
@@ -142,9 +143,24 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                       ),
                     ),
                   ),
-                if (!isFounder && user?.branchId != null)
+                if (!widget.compact && !isFounder && user?.branchId != null)
                   _BranchLabel(branchesAsync: branchesAsync, branchId: user!.branchId!),
-                if (hasActions) ...widget.actions!,
+                if (hasActions)
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: IconTheme(
+                        data: IconThemeData(color: shell.textPrimary),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: widget.actions!,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (user != null) ...[
                   NotificationIconButton(
                     route: user.isFounder ? '/founder/notifications' : '/admin/notifications',

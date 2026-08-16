@@ -3,6 +3,8 @@ const Student = require('../models/Student');
 const ExamGroup = require('../models/ExamGroup');
 const { getBranchFilter } = require('../utils/branchFilter');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
+const { forbidden } = require('../utils/resourceAccess');
+const { billingPeriodFromQuery } = require('../utils/classWindow');
 
 const generateReceipt = () => `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -294,8 +296,10 @@ const getStudentDues = async (studentId, month, year) => {
  * Monthly student × course payment matrix for staff "accept money" UI.
  */
 const listRoster = async (req) => {
-  const month = Math.min(12, Math.max(1, Number(req.query.month) || new Date().getMonth() + 1));
-  const year = Number(req.query.year) || new Date().getFullYear();
+  if (req.userType !== 'teacher') {
+    throw forbidden();
+  }
+  const { month, year } = billingPeriodFromQuery(req.query);
   const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
   const branchFilter = getBranchFilter(req);
 

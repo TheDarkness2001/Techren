@@ -29,7 +29,9 @@ class StudentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final navItems = studentNavItemsFor(l10n);
+    final user = ref.watch(authProvider).user;
+    final inactive = user?.isInactiveStudent == true;
+    final navItems = studentNavItemsFor(l10n, inactive: inactive);
     final dashboard = ref.watch(dashboardProvider);
 
     return AdaptiveScaffold(
@@ -40,11 +42,12 @@ class StudentDashboardScreen extends ConsumerWidget {
       actions: [
         const MessagesIconButton(route: '/student/messages'),
         const NotificationIconButton(route: '/student/notifications'),
-        IconButton(
-          icon: const Icon(Icons.military_tech_outlined),
-          tooltip: l10n.xpAchievements,
-          onPressed: () => context.go('/student/gamification'),
-        ),
+        if (!inactive)
+          IconButton(
+            icon: const Icon(Icons.military_tech_outlined),
+            tooltip: l10n.xpAchievements,
+            onPressed: () => context.go('/student/gamification'),
+          ),
       ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,13 +173,15 @@ class StudentProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final navItems = studentNavItemsFor(l10n);
     final user = ref.watch(authProvider).user;
+    final inactive = user?.isInactiveStudent == true;
+    final navItems = studentNavItemsFor(l10n, inactive: inactive);
     final walletEnabled = ref.watch(walletEnabledProvider);
+    final profileIndex = navItems.indexWhere((item) => item.route == '/student/profile');
 
     return AdaptiveScaffold(
       title: l10n.navProfile,
-      selectedIndex: 4,
+      selectedIndex: profileIndex < 0 ? 0 : profileIndex,
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
       body: ListView(
@@ -209,26 +214,28 @@ class StudentProfileScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/student/notification-settings'),
           ),
-          ListTile(
-            leading: const Icon(Icons.rate_review_outlined),
-            title: Text(l10n.teacherFeedback),
-            subtitle: Text(l10n.commentsAfterClass),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/student/feedback'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.quiz_outlined),
-            title: Text(l10n.myExams),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/student/exams'),
-          ),
+          if (!inactive) ...[
+            ListTile(
+              leading: const Icon(Icons.rate_review_outlined),
+              title: Text(l10n.teacherFeedback),
+              subtitle: Text(l10n.commentsAfterClass),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/student/feedback'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.quiz_outlined),
+              title: Text(l10n.myExams),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/student/exams'),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.payments_outlined),
             title: Text(l10n.myPayments),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/student/payments'),
           ),
-          if (walletEnabled)
+          if (!inactive && walletEnabled)
             ListTile(
               leading: const Icon(Icons.account_balance_wallet_outlined),
               title: Text(l10n.myWallet),
@@ -236,20 +243,22 @@ class StudentProfileScreen extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.go('/student/wallet'),
             ),
-          ListTile(
-            leading: const Icon(Icons.emoji_events_outlined),
-            title: Text(l10n.navCompetition),
-            subtitle: Text(l10n.competitionSubtitle),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/student/competition'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.military_tech_outlined),
-            title: Text(l10n.xpAchievements),
-            subtitle: Text(l10n.gamificationSubtitle),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/student/gamification'),
-          ),
+          if (!inactive) ...[
+            ListTile(
+              leading: const Icon(Icons.emoji_events_outlined),
+              title: Text(l10n.navCompetition),
+              subtitle: Text(l10n.competitionSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/student/competition'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.military_tech_outlined),
+              title: Text(l10n.xpAchievements),
+              subtitle: Text(l10n.gamificationSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/student/gamification'),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           FilledButton.tonalIcon(
             onPressed: () => ref.read(authProvider.notifier).logout(),

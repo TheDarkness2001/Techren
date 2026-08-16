@@ -37,6 +37,29 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
     return '/admin';
   }
 
+  static const _implementedModuleKeys = {
+    'words',
+    'sentences',
+    'listening',
+    'video',
+    'ielts',
+    'cms',
+    'import',
+    'progress',
+    'exam',
+    'quiz',
+    'typing',
+  };
+
+  List<LearningModuleDef> _visibleModules(List<LearningModuleDef> modules) {
+    return [
+      for (final module in modules)
+        if (_implementedModuleKeys.contains(module.key) &&
+            !(isStudent && (module.key == 'cms' || module.key == 'import' || module.key == 'exam')))
+          module,
+    ];
+  }
+
   void _openModule(BuildContext context, WidgetRef ref, LearningModuleDef module) {
     if (module.key == 'ielts' && isStudent) {
       final access = ref.read(authProvider).user?.ieltsAccess == true;
@@ -164,14 +187,22 @@ class LearningSubjectDashboardScreen extends ConsumerWidget {
           ),
           data: (dash) {
             final accent = parseSubjectColor(dash.color);
-            final learning = dash.modulesByCategory['learning'] ??
-                dash.modules.where((m) => m.category == 'learning').toList();
-            final assessment = dash.modulesByCategory['assessment'] ??
-                dash.modules.where((m) => m.category == 'assessment').toList();
-            final management = dash.modulesByCategory['management'] ??
-                dash.modules.where((m) => m.category == 'management').toList();
-            final statistics = dash.modulesByCategory['statistics'] ??
-                dash.modules.where((m) => m.category == 'statistics').toList();
+            final learning = _visibleModules(
+              dash.modulesByCategory['learning'] ??
+                  dash.modules.where((m) => m.category == 'learning').toList(),
+            );
+            final assessment = _visibleModules(
+              dash.modulesByCategory['assessment'] ??
+                  dash.modules.where((m) => m.category == 'assessment').toList(),
+            );
+            final management = _visibleModules(
+              dash.modulesByCategory['management'] ??
+                  dash.modules.where((m) => m.category == 'management').toList(),
+            );
+            final statistics = _visibleModules(
+              dash.modulesByCategory['statistics'] ??
+                  dash.modules.where((m) => m.category == 'statistics').toList(),
+            );
             final ieltsLocked = isStudent && ref.watch(authProvider).user?.ieltsAccess != true;
             final user = ref.watch(authProvider).user;
             final rolePerms = ref.watch(staffRolePermissionsProvider);

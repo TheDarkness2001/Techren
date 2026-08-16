@@ -3,6 +3,7 @@ const Parent = require('../models/Parent');
 const uploadService = require('./uploadService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
+const { assertParentChild, forbidden } = require('../utils/resourceAccess');
 
 const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
 
@@ -155,12 +156,18 @@ const getStudent = async (req, id) => {
     throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  if (req.userType === 'student' && String(student._id) !== String(req.user._id)) {
-    throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
-  }
-
-  if (req.userType === 'teacher' && !canAccessBranch(req, student.branchId)) {
-    throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
+  if (req.userType === 'student') {
+    if (String(student._id) !== String(req.user._id)) {
+      throw forbidden();
+    }
+  } else if (req.userType === 'parent') {
+    assertParentChild(req.user, student._id);
+  } else if (req.userType === 'teacher') {
+    if (!canAccessBranch(req, student.branchId)) {
+      throw forbidden();
+    }
+  } else {
+    throw forbidden();
   }
 
   return formatStudentWithParent(student.toPublicJSON(), student._id);

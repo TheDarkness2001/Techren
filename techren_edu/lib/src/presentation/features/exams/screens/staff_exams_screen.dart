@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -42,7 +43,7 @@ class _StaffExamsScreenState extends ConsumerState<StaffExamsScreen> {
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
 
     return AdaptiveScaffold(
-      title: 'Exams',
+      title: context.l10n.navExams,
       selectedIndex: selectedIndex < 0 ? 3 : selectedIndex,
       selectedRoute: widget.selectedRoute,
       items: widget.navItems,
@@ -62,7 +63,7 @@ class _StaffExamsScreenState extends ConsumerState<StaffExamsScreen> {
               withPage: (q, page) => (page: page, search: q.search, archived: q.archived),
               queryCacheKey: '${baseQuery.search}|${baseQuery.archived}',
               onInvalidate: (ref, q) => ref.invalidate(examsProvider(q)),
-              itemLabel: 'exams',
+              itemLabel: context.l10n.itemsExams,
               initialLoadingKind: LoadingSkeletonKind.dashboard,
               empty: ExamsEmptyStateCard(
                 showArchived: _showArchived,

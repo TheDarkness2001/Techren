@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -62,13 +63,13 @@ class IeltsHubScreen extends ConsumerWidget {
                   Icon(Icons.lock_outline, size: 56, color: muted),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'IELTS Preparation is locked',
+                    context.l10n.ieltsLocked,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Ask your academy founder to unlock IELTS for your account.',
+                    context.l10n.ieltsLockedMessage,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
                     textAlign: TextAlign.center,
                   ),
@@ -76,7 +77,7 @@ class IeltsHubScreen extends ConsumerWidget {
                   OutlinedButton.icon(
                     onPressed: () => context.go(_subjectHome),
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('Back to subject'),
+                    label: Text(context.l10n.backToSubject),
                   ),
                 ],
               ),
@@ -93,7 +94,7 @@ class IeltsHubScreen extends ConsumerWidget {
 
     final actions = <Widget>[
       IconButton(
-        tooltip: 'Back to subject',
+        tooltip: context.l10n.backToSubject,
         onPressed: () => context.go(_subjectHome),
         icon: const Icon(Icons.arrow_back),
       ),
@@ -106,7 +107,7 @@ class IeltsHubScreen extends ConsumerWidget {
           : (routePrefix.startsWith('/founder') ? founderNavItems : adminNavItems);
       final selectedIndex = items.indexWhere((i) => _learningSelected.startsWith(i.route) || i.route.contains('/learning'));
       return AdaptiveScaffold(
-        title: 'IELTS Preparation',
+        title: context.l10n.ieltsPreparation,
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         selectedRoute: _learningSelected,
         items: items,
@@ -118,7 +119,7 @@ class IeltsHubScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('IELTS Preparation'),
+        title: Text(context.l10n.ieltsPreparation),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(_subjectHome),
@@ -149,16 +150,17 @@ class _HubBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Six primary cards only — keep the hub tidy.
+    final l10n = context.l10n;
     final tiles = <_HubTile>[
-      _HubTile('Mock Exams', Icons.quiz_outlined, '$base/exams', 'Full mock L→R→W→S'),
-      _HubTile('Listening', Icons.headphones_outlined, '$base/listening', 'Listening exams'),
-      _HubTile('Reading', Icons.menu_book_outlined, '$base/reading', 'Reading exams'),
-      _HubTile('Writing', Icons.edit_note_outlined, '$base/writing', 'Writing exams'),
-      _HubTile('Speaking', Icons.record_voice_over_outlined, '$base/speaking', 'Speaking exams'),
+      _HubTile(l10n.mockExams, Icons.quiz_outlined, '$base/exams', l10n.mockExamsSubtitle),
+      _HubTile(l10n.listening, Icons.headphones_outlined, '$base/listening', l10n.listeningExams),
+      _HubTile(l10n.reading, Icons.menu_book_outlined, '$base/reading', l10n.readingExams),
+      _HubTile(l10n.writing, Icons.edit_note_outlined, '$base/writing', l10n.writingExams),
+      _HubTile(l10n.speaking, Icons.record_voice_over_outlined, '$base/speaking', l10n.speakingExams),
       if (isStudent)
-        _HubTile('Results & History', Icons.history_edu_outlined, '$base/history', 'Past attempts')
+        _HubTile(l10n.resultsAndHistory, Icons.history_edu_outlined, '$base/history', l10n.pastAttempts)
       else
-        _HubTile('IELTS Access', Icons.lock_open_outlined, '$base/access', 'Unlock / lock students'),
+        _HubTile(l10n.ieltsAccess, Icons.lock_open_outlined, '$base/access', l10n.unlockLockStudents),
     ];
 
     return ListView(
@@ -189,12 +191,12 @@ class _HubBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'IELTS Preparation',
+                  context.l10n.ieltsPreparation,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Open a skill to add or edit exams. Mock Exams holds full L→R→W→S tests.',
+                  context.l10n.ieltsStaffIntro,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted, height: 1.4),
                 ),
               ],
@@ -214,7 +216,7 @@ class _HubBody extends ConsumerWidget {
         ),
         if (!isStudent) ...[
           const SizedBox(height: AppSpacing.xl),
-          Text('More tools', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: muted)),
+          Text(context.l10n.moreTools, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: muted)),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: 8,
@@ -223,32 +225,32 @@ class _HubBody extends ConsumerWidget {
               TextButton.icon(
                 onPressed: () => context.go('$base/manage'),
                 icon: const Icon(Icons.settings_outlined, size: 18),
-                label: const Text('All exams'),
+                label: Text(context.l10n.allExams),
               ),
               TextButton.icon(
                 onPressed: () => context.go('$base/writing-review'),
                 icon: const Icon(Icons.rate_review_outlined, size: 18),
-                label: const Text('Writing review'),
+                label: Text(context.l10n.writingReview),
               ),
               TextButton.icon(
                 onPressed: () => context.go('$base/speaking-review'),
                 icon: const Icon(Icons.mic_outlined, size: 18),
-                label: const Text('Speaking review'),
+                label: Text(context.l10n.speakingReview),
               ),
               TextButton.icon(
                 onPressed: () => context.go('$base/sources'),
                 icon: const Icon(Icons.source_outlined, size: 18),
-                label: const Text('Sources'),
+                label: Text(context.l10n.sources),
               ),
               TextButton.icon(
                 onPressed: () => context.go('$base/bank'),
                 icon: const Icon(Icons.storage_outlined, size: 18),
-                label: const Text('Question bank'),
+                label: Text(context.l10n.questionBank),
               ),
               TextButton.icon(
                 onPressed: () => context.go('$base/analytics'),
                 icon: const Icon(Icons.bar_chart_outlined, size: 18),
-                label: const Text('Analytics'),
+                label: Text(context.l10n.analytics),
               ),
             ],
           ),
@@ -338,7 +340,7 @@ class _StudentDashboard extends ConsumerWidget {
                       ),
                       TextButton(
                         onPressed: () => context.go('$base/exams'),
-                        child: const Text('Start mock'),
+                        child: Text(context.l10n.startMock),
                       ),
                     ],
                   ),
@@ -354,11 +356,11 @@ class _StudentDashboard extends ConsumerWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      _DashBandChip(label: 'Overall', value: _band(latest?['overallBand']), emphasize: true),
-                      _DashBandChip(label: 'Listening', value: _band(latest?['listeningBand'])),
-                      _DashBandChip(label: 'Reading', value: _band(latest?['readingBand'])),
-                      _DashBandChip(label: 'Writing', value: _band(latest?['writingBand'])),
-                      _DashBandChip(label: 'Speaking', value: _band(latest?['speakingBand'])),
+                      _DashBandChip(label: context.l10n.overall, value: _band(latest?['overallBand']), emphasize: true),
+                      _DashBandChip(label: context.l10n.listening, value: _band(latest?['listeningBand'])),
+                      _DashBandChip(label: context.l10n.reading, value: _band(latest?['readingBand'])),
+                      _DashBandChip(label: context.l10n.writing, value: _band(latest?['writingBand'])),
+                      _DashBandChip(label: context.l10n.speaking, value: _band(latest?['speakingBand'])),
                     ],
                   ),
                   if (data.bandTrend.length >= 2) ...[

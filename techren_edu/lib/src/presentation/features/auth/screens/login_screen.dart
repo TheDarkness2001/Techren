@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -27,14 +28,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _errorMessage;
+  String? _errorCode;
+  String? _errorFallback;
 
   @override
   void initState() {
     super.initState();
     final msg = ref.read(authProvider).logoutMessage;
     if (msg != null && msg.isNotEmpty) {
-      _errorMessage = msg;
+      _errorCode = msg;
+      _errorFallback = msg;
       ref.read(authProvider.notifier).clearLogoutMessage();
     }
   }
@@ -52,7 +55,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _errorCode = null;
+      _errorFallback = null;
     });
 
     try {
@@ -61,10 +65,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
     } on AppException catch (e) {
-      if (mounted) setState(() => _errorMessage = e.message);
+      if (mounted) {
+        setState(() {
+          _errorCode = e.code;
+          _errorFallback = e.message;
+        });
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e is StateError ? e.message : context.l10n.signInFailed);
+        setState(() {
+          _errorCode = null;
+          _errorFallback = e is StateError ? e.message : context.l10n.signInFailed;
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -76,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 900;
+          final wide = constraints.maxWidth >= AppConstants.expandedBreakpoint;
           if (wide) {
             return Row(
               children: [
@@ -123,13 +135,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.username, AutofillHints.email],
                   style: Theme.of(context).textTheme.bodyMedium,
-                  decoration: const InputDecoration(
-                    labelText: 'Username or email',
-                    hintText: 'Staff/student email, or parent username',
-                    prefixIcon: Icon(Icons.person_outline),
+                  decoration: InputDecoration(
+                    labelText: l10n.usernameOrEmail,
+                    hintText: l10n.usernameOrEmailHint,
+                    prefixIcon: const Icon(Icons.person_outline),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Username or email is required';
+                    if (v == null || v.trim().isEmpty) return l10n.usernameOrEmailRequired;
                     return null;
                   },
                 ),
@@ -147,7 +159,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     labelText: l10n.password,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                      tooltip: _obscurePassword ? l10n.showPassword : l10n.hidePassword,
                       icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
@@ -156,15 +168,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ],
             ),
-            if (_errorMessage != null) ...[
+            if (_errorCode != null || _errorFallback != null) ...[
               const SizedBox(height: AppSpacing.md),
               Semantics(
                 liveRegion: true,
                 child: ErrorState(
-                  title: _errorMessage!.startsWith('Signed out') || _errorMessage!.startsWith('Your session')
-                      ? 'Session ended'
-                      : 'Sign-in failed',
-                  message: _errorMessage!,
+                  title: l10n.isSessionError(code: _errorCode, fallback: _errorFallback)
+                      ? l10n.sessionEnded
+                      : l10n.signInFailedTitle,
+                  message: l10n.messageForError(
+                    code: _errorCode,
+                    fallback: _errorFallback,
+                    forLogin: !l10n.isSessionError(code: _errorCode, fallback: _errorFallback),
+                  ),
                   icon: Icons.lock_outline,
                 ),
               ),

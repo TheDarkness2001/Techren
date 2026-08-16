@@ -1,7 +1,8 @@
 const DeviceToken = require('../models/DeviceToken');
 const Student = require('../models/Student');
 const Parent = require('../models/Parent');
-const { sendPush } = require('../config/firebase');
+const Teacher = require('../models/Teacher');
+const { sendPush, isFirebaseReady } = require('../config/firebase');
 const logger = require('../config/logger');
 
 const INVALID_TOKEN_CODES = new Set([
@@ -25,6 +26,10 @@ const collectLegacyTokens = async (userId, userType) => {
   if (userType === 'parent') {
     const p = await Parent.findById(userId).select('fcmTokens').lean();
     return p?.fcmTokens || [];
+  }
+  if (userType === 'teacher') {
+    const t = await Teacher.findById(userId).select('fcmTokens').lean();
+    return t?.fcmTokens || [];
   }
   return [];
 };
@@ -51,6 +56,7 @@ const deactivateTokens = async (tokens = []) => {
   await Promise.all([
     Student.updateMany({}, { $pull: { fcmTokens: { $in: tokens } } }),
     Parent.updateMany({}, { $pull: { fcmTokens: { $in: tokens } } }),
+    Teacher.updateMany({}, { $pull: { fcmTokens: { $in: tokens } } }),
   ]);
   return result.modifiedCount || 0;
 };
@@ -107,6 +113,8 @@ const upsertDeviceToken = async ({
     await Student.findByIdAndUpdate(userId, { $addToSet: { fcmTokens: token } });
   } else if (userType === 'parent') {
     await Parent.findByIdAndUpdate(userId, { $addToSet: { fcmTokens: token } });
+  } else if (userType === 'teacher') {
+    await Teacher.findByIdAndUpdate(userId, { $addToSet: { fcmTokens: token } });
   }
 
   return { registered: true };
@@ -124,6 +132,8 @@ const removeDeviceToken = async ({ userId, userType, token }) => {
     await Student.findByIdAndUpdate(userId, { $pull: { fcmTokens: token } });
   } else if (userType === 'parent') {
     await Parent.findByIdAndUpdate(userId, { $pull: { fcmTokens: token } });
+  } else if (userType === 'teacher') {
+    await Teacher.findByIdAndUpdate(userId, { $pull: { fcmTokens: token } });
   }
   return { removed: true };
 };
@@ -192,4 +202,5 @@ module.exports = {
   sendToUsers,
   sendToParentsOfStudent,
   INVALID_TOKEN_CODES,
+  isFirebaseReady,
 };

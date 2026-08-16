@@ -60,13 +60,14 @@ class AppUser extends Equatable {
   bool get isParent => userType == UserType.parent;
   bool get isStaff => userType == UserType.teacher;
   bool get isInactiveStudent => isStudent && status == 'inactive';
-  bool get hasFullStaffAccess => isFounder || isAdmin;
+  /// Matches backend `checkPermission`: only founder bypasses the role matrix.
+  bool get hasFullStaffAccess => isFounder;
   bool get isPrivilegedStaff => isFounder || isAdmin || isManager;
   bool get usesAdminShell =>
       isAdmin || isManager || role == StaffRole.sales || role == StaffRole.receptionist;
 
   bool hasPermission(String key, Map<String, bool> rolePerms) {
-    if (hasFullStaffAccess) return true;
+    if (isFounder) return true;
     final direct = permissions[key];
     if (direct == true) return true;
     if (direct == false) return false;

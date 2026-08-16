@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/person.dart';
@@ -245,7 +246,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Student'),
+        title: Text(context.l10n.addStudent),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('${widget.prefix}/people/students'),
@@ -255,7 +256,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: FilledButton.tonal(
               onPressed: () => context.go('${widget.prefix}/people/students'),
-              child: const Text('← Back'),
+              child: Text(context.l10n.goBackArrow),
             ),
           ),
         ],
@@ -599,7 +600,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   children: [
                     OutlinedButton(
                       onPressed: _saving ? null : () => context.go('${widget.prefix}/people/students'),
-                      child: const Text('Cancel'),
+                      child: Text(context.l10n.cancel),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton(
@@ -610,7 +611,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Add Student'),
+                          : Text(context.l10n.addStudent),
                     ),
                   ],
                 ),

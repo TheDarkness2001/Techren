@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/go_back_icon_button.dart';
+import '../../../../core/widgets/send_test_push_button.dart';
 import '../../../../domain/entities/notification.dart';
 import '../../../providers/notification_provider.dart';
 
@@ -161,6 +162,7 @@ class _StudentSettingsFormState extends ConsumerState<_StudentSettingsForm> {
           value: true,
           onChanged: null,
         ),
+        const SendTestPushButton(),
         const SizedBox(height: AppSpacing.lg),
         Align(
           alignment: Alignment.centerLeft,

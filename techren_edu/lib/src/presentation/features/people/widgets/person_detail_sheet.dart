@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
@@ -104,7 +105,7 @@ Future<void> showPersonDetailSheet({
           if (person.isStudent && (person.coursePrice ?? 0) > 0) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Course price: \$${person.coursePrice!.toStringAsFixed(person.coursePrice! == person.coursePrice!.roundToDouble() ? 0 : 2)} / month',
+              'Course price: ${formatUzs(person.coursePrice!)} / month',
               style: Theme.of(sheetContext).textTheme.bodyMedium,
             ),
           ],

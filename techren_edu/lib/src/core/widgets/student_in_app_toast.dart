@@ -12,6 +12,7 @@ import '../../presentation/providers/notification_provider.dart';
 import '../push/push_providers.dart';
 import '../routing/app_router.dart';
 import '../theme/app_spacing.dart';
+import '../utils/format_money.dart';
 
 /// Telegram-style slide-down toast for student in-app notifications
 /// (attendance, daily feedback, payment reminders) while anywhere in the app.
@@ -146,7 +147,7 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
     final syntheticId = 'dues-$dayKey';
     if (_seenIds.contains(syntheticId) || _queue.any((q) => q.id == syntheticId)) return;
 
-    final amount = dues.amountRemaining.round().toString();
+    final amount = formatUzs(dues.amountRemaining);
     final note = AppNotification(
       id: syntheticId,
       userId: user.id,
@@ -154,8 +155,8 @@ class _StudentInAppToastOverlayState extends ConsumerState<StudentInAppToastOver
       studentId: user.id,
       title: user.isInactiveStudent ? 'App locked — payment required' : 'Payment due',
       body: user.isInactiveStudent
-          ? 'Your account is locked until the unpaid balance ($amount UZS) is cleared. Open Payments or contact administration.'
-          : 'You still owe $amount UZS this month. Please pay by the 10th or the app will be locked.',
+          ? 'Your account is locked until the unpaid balance ($amount) is cleared. Open Payments or contact administration.'
+          : 'You still owe $amount this month. Please pay by the 10th or the app will be locked.',
       eventType: 'payment_due',
       channel: 'in_app',
       date: dayKey.split(':').first,
