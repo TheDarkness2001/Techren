@@ -34,6 +34,8 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   String _status = 'active';
   String? _branchId;
   final Set<String> _subjects = {};
+
+  bool get _assignsSubjects => _role == 'teacher';
   bool _obscure = true;
   bool _saving = false;
   Uint8List? _photoBytes;
@@ -69,9 +71,9 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
       );
       return;
     }
-    if (_subjects.isEmpty) {
+    if (_assignsSubjects && _subjects.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one subject')),
+        SnackBar(content: Text(context.l10n.selectAtLeastOneSubject)),
       );
       return;
     }
@@ -98,7 +100,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
         password: password,
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         role: _role,
-        subjects: _subjects.toList(),
+        subjects: _assignsSubjects ? _subjects.toList() : const [],
         department: _department.text.trim().isEmpty ? null : _department.text.trim(),
         status: _status,
         branchId: branchId,
@@ -179,49 +181,6 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
             ),
           ),
           PeopleFormSection(
-            title: 'Subjects *',
-            subtitle: 'Tap subjects to assign (not comma-separated)',
-            child: subjectsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(e.toString()),
-              data: (_) {
-                if (subjectNames.isEmpty) {
-                  return TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Subjects (comma separated)',
-                      hintText: 'e.g. English, IT, Computer',
-                    ),
-                    onChanged: (v) {
-                      _subjects
-                        ..clear()
-                        ..addAll(
-                          v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
-                        );
-                    },
-                  );
-                }
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final name in subjectNames)
-                      FilterChip(
-                        label: Text(name),
-                        selected: _subjects.contains(name),
-                        onSelected: (selected) => setState(() {
-                          if (selected) {
-                            _subjects.add(name);
-                          } else {
-                            _subjects.remove(name);
-                          }
-                        }),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-          PeopleFormSection(
             title: 'Role & branch',
             child: Column(
               children: [
@@ -260,7 +219,10 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                         const DropdownMenuItem(value: 'receptionist', child: Text('Receptionist')),
                       ],
                     ],
-                    onChanged: (v) => setState(() => _role = v ?? 'teacher'),
+                    onChanged: (v) => setState(() {
+                      _role = v ?? 'teacher';
+                      if (!_assignsSubjects) _subjects.clear();
+                    }),
                   ),
                 ),
                 if (user?.isFounder == true) ...[
@@ -279,29 +241,73 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: AppSpacing.lg),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: _saving ? null : () => context.go('${widget.prefix}/people/teachers'),
-                      child: Text(context.l10n.cancel),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    FilledButton(
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(context.l10n.add),
-                    ),
-                  ],
-                ),
               ],
             ),
+          ),
+          if (_assignsSubjects)
+            PeopleFormSection(
+              title: context.l10n.subjectsRequired,
+              subtitle: context.l10n.tapSubjectsToAssign,
+              child: subjectsAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text(e.toString()),
+                data: (_) {
+                  if (subjectNames.isEmpty) {
+                    return TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Subjects (comma separated)',
+                        hintText: 'e.g. English, IT, Computer',
+                      ),
+                      onChanged: (v) {
+                        _subjects
+                          ..clear()
+                          ..addAll(
+                            v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+                          );
+                      },
+                    );
+                  }
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final name in subjectNames)
+                        FilterChip(
+                          label: Text(name),
+                          selected: _subjects.contains(name),
+                          onSelected: (selected) => setState(() {
+                            if (selected) {
+                              _subjects.add(name);
+                            } else {
+                              _subjects.remove(name);
+                            }
+                          }),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: _saving ? null : () => context.go('${widget.prefix}/people/teachers'),
+                child: Text(context.l10n.cancel),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(context.l10n.add),
+              ),
+            ],
           ),
         ],
       ),
