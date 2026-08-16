@@ -58,12 +58,16 @@ class SentenceLesson {
     required this.order,
     required this.sentenceCount,
     required this.status,
+    this.completedCount = 0,
+    this.progressPercent = 0,
   });
 
   final String id;
   final String name;
   final int order;
   final int sentenceCount;
+  final int completedCount;
+  final int progressPercent;
   final String status;
 
   bool get isLocked => status == 'locked';
@@ -71,8 +75,10 @@ class SentenceLesson {
   factory SentenceLesson.fromJson(Map<String, dynamic> json) => SentenceLesson(
         id: json['id']?.toString() ?? '',
         name: json['name'] as String? ?? '',
-        order: json['order'] as int? ?? 0,
-        sentenceCount: json['sentenceCount'] as int? ?? 0,
+        order: (json['order'] as num?)?.toInt() ?? 0,
+        sentenceCount: (json['sentenceCount'] as num?)?.toInt() ?? 0,
+        completedCount: (json['completedCount'] as num?)?.toInt() ?? 0,
+        progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
         status: json['status'] as String? ?? 'locked',
       );
 }

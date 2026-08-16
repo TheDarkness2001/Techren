@@ -79,11 +79,25 @@ class ExamGroup extends Equatable {
         .whereType<Map>()
         .map((e) => ExamGroupMember.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    String? subjectId;
+    String? subjectName = json['subjectName'] as String?;
+    if (subject is Map) {
+      subjectId = subject['id']?.toString() ?? subject['_id']?.toString();
+      subjectName = subject['name'] as String? ?? subjectName;
+    } else if (subject != null) {
+      final raw = subject.toString();
+      // Ignore legacy free-text subject names — only keep real Mongo ids.
+      if (RegExp(r'^[a-f\d]{24}$', caseSensitive: false).hasMatch(raw)) {
+        subjectId = raw;
+      } else {
+        subjectName ??= raw;
+      }
+    }
     return ExamGroup(
       id: json['id']?.toString() ?? '',
       groupName: json['groupName'] as String? ?? '',
-      subjectId: subject is Map ? subject['id']?.toString() ?? subject['_id']?.toString() : subject?.toString(),
-      subjectName: subject is Map ? subject['name'] as String? : json['subjectName'] as String?,
+      subjectId: subjectId,
+      subjectName: subjectName,
       pricePerClass: subject is Map
           ? (subject['pricePerClass'] as num? ?? 0)
           : (json['pricePerClass'] as num? ?? 0),

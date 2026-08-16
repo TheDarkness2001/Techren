@@ -128,6 +128,7 @@ const updateSchedule = async (id, filter, data) => {
 
   await healLegacySubject(schedule);
 
+  // Whitelist only editable fields — never blindly assign req.body (can poison `subject`).
   if (data.teacher !== undefined) schedule.teacher = data.teacher;
   if (data.className !== undefined) schedule.className = data.className;
   if (data.startTime !== undefined) schedule.startTime = data.startTime;

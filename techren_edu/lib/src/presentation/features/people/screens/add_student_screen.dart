@@ -29,6 +29,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _email = TextEditingController();
+  final _studentId = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _parentName = TextEditingController();
@@ -40,6 +41,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   final _nameFocus = FocusNode();
   final _emailFocus = FocusNode();
+  final _studentIdFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _branchFocus = FocusNode();
   final _parentNameFocus = FocusNode();
@@ -68,6 +70,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _studentId.dispose();
     _phone.dispose();
     _password.dispose();
     _parentName.dispose();
@@ -78,6 +81,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     _medical.dispose();
     _nameFocus.dispose();
     _emailFocus.dispose();
+    _studentIdFocus.dispose();
     _passwordFocus.dispose();
     _branchFocus.dispose();
     _parentNameFocus.dispose();
@@ -107,6 +111,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       target = _nameFocus;
     } else if (email.isEmpty || !email.contains('@')) {
       target = _emailFocus;
+    } else if (_studentId.text.trim().isEmpty) {
+      target = _studentIdFocus;
     } else if (needsBranch) {
       target = _branchFocus;
     } else if (password.length < 8) {
@@ -195,6 +201,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         name: name,
         email: email,
         password: password,
+        studentId: _studentId.text.trim(),
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         parentName: _parentName.text.trim().isEmpty ? null : _parentName.text.trim(),
         parentPhone: _parentPhone.text.trim().isEmpty ? null : _parentPhone.text.trim(),
@@ -284,6 +291,23 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     },
                   ),
                   right: TextFormField(
+                    controller: _studentId,
+                    focusNode: _studentIdFocus,
+                    decoration: const InputDecoration(
+                      labelText: 'Student ID *',
+                      hintText: 'e.g. #0045 or STU-2026-01',
+                      helperText: 'You choose this ID — shown in People lists',
+                    ),
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Student ID is required';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PeopleFormRow(
+                  left: TextFormField(
                     controller: _email,
                     focusNode: _emailFocus,
                     decoration: const InputDecoration(labelText: 'Email *'),
@@ -298,15 +322,15 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                       return null;
                     },
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                PeopleFormRow(
-                  left: TextFormField(
+                  right: TextFormField(
                     controller: _phone,
                     decoration: const InputDecoration(labelText: 'Phone'),
                     keyboardType: TextInputType.phone,
                   ),
-                  right: user?.isFounder == true
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PeopleFormRow(
+                  left: user?.isFounder == true
                       ? branchesAsync.when(
                           loading: () => const LinearProgressIndicator(),
                           error: (e, _) => Text(e.toString()),
@@ -335,6 +359,18 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                           ],
                           onChanged: (v) => setState(() => _status = v ?? 'active'),
                         ),
+                  right: user?.isFounder == true
+                      ? DropdownButtonFormField<String>(
+                          value: _status,
+                          decoration: const InputDecoration(labelText: 'Status'),
+                          items: const [
+                            DropdownMenuItem(value: 'active', child: Text('Active')),
+                            DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                            DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
+                          ],
+                          onChanged: (v) => setState(() => _status = v ?? 'active'),
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 if (subjectNames.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -392,18 +428,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     ],
                     onChanged: (v) => setState(() => _bloodGroup = v ?? ''),
                   ),
-                  right: user?.isFounder == true
-                      ? DropdownButtonFormField<String>(
-                          value: _status,
-                          decoration: const InputDecoration(labelText: 'Status'),
-                          items: const [
-                            DropdownMenuItem(value: 'active', child: Text('Active')),
-                            DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                            DropdownMenuItem(value: 'graduated', child: Text('Graduated')),
-                          ],
-                          onChanged: (v) => setState(() => _status = v ?? 'active'),
-                        )
-                      : const SizedBox.shrink(),
+                  right: const SizedBox.shrink(),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextField(

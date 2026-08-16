@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -10,14 +12,96 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
+import '../../../../domain/entities/branch.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/scheduling_provider.dart';
+import '../../../providers/staff_branch_provider.dart';
 import '../widgets/admin_timetable_panel.dart';
 import '../widgets/scheduling_widgets.dart';
+
+String _groupsUiError(Object e) {
+  if (e is AppException) return e.message;
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['error'] is Map) {
+      final err = data['error'] as Map;
+      final details = err['details'];
+      if (details is List && details.isNotEmpty) {
+        final first = details.first;
+        if (first is Map) {
+          final detailMsg = first['msg'] ?? first['message'];
+          if (detailMsg != null && detailMsg.toString().trim().isNotEmpty) {
+            return detailMsg.toString();
+          }
+        }
+      }
+      final message = err['message']?.toString();
+      if (message != null && message.trim().isNotEmpty) return message;
+    }
+    final status = e.response?.statusCode;
+    if (status == 400) return 'Invalid request. Please try again.';
+    if (status == 401 || status == 403) return 'You do not have permission for this action.';
+    if (status != null && status >= 500) return 'Server error. Please try again in a moment.';
+    return 'Network error. Please try again.';
+  }
+  final raw = e.toString();
+  if (raw.contains('DioException')) return 'Could not complete the request. Please try again.';
+  return raw.replaceFirst('Exception: ', '');
+}
+
+TimeOfDay _parseGroupTime(String raw, {required TimeOfDay fallback}) {
+  final parts = raw.trim().split(':');
+  if (parts.length < 2) return fallback;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return fallback;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+String _formatGroupTime(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+int _groupTimeMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
+
+Widget _groupTimePickerField({
+  required BuildContext context,
+  required String label,
+  required TimeOfDay value,
+  required ValueChanged<TimeOfDay> onChanged,
+}) {
+  return InkWell(
+    onTap: () async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: value,
+        helpText: label,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+      );
+      if (picked != null) onChanged(picked);
+    },
+    borderRadius: BorderRadius.circular(12),
+    child: InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: const Icon(Icons.schedule_outlined),
+      ),
+      child: Text(
+        _formatGroupTime(value),
+        style: Theme.of(context).textTheme.bodyLarge,
+      ),
+    ),
+  );
+}
 
 /// Active students available for a group:
 /// - exclude inactive students (unless already in [editingGroupId])
@@ -159,25 +243,57 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
   Future<void> _showCreateUnified(BuildContext context) async {
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
+    final user = ref.read(authProvider).user;
+    final filterBranch = ref.read(staffBranchFilterProvider.notifier).activeBranchId;
+    String? branchId = user?.isFounder == true
+        ? filterBranch
+        : (user?.branchId ?? filterBranch);
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Loading teachers & students…'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
     List<Person> teachers;
     List<Person> students;
+    var branches = <Branch>[];
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
-      final groups = await ref.read(examGroupsProvider.future);
+      final teachersFuture =
+          ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
+      final studentsFuture =
+          ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future);
+      final groupsFuture = ref.read(examGroupsProvider.future);
+      final results = await Future.wait([teachersFuture, studentsFuture, groupsFuture]);
+      final teachersResult = results[0] as PaginatedResult<Person>;
+      final studentsResult = results[1] as PaginatedResult<Person>;
+      final groups = results[2] as List<ExamGroup>;
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
         students: studentsResult.items,
         groups: groups,
       );
+      if (user?.isFounder == true && (branchId == null || branchId!.isEmpty)) {
+        branches = (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items;
+        if (branches.length == 1) branchId = branches.first.id;
+      }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople('$e'))));
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople(_groupsUiError(e)))));
       return;
     }
+    messenger.hideCurrentSnackBar();
 
     if (!context.mounted) return;
     if (teachers.isEmpty) {
       messenger.showSnackBar(SnackBar(content: Text(context.l10n.createTeacherFirst)));
+      return;
+    }
+    if (user?.isFounder == true &&
+        (branchId == null || branchId!.isEmpty) &&
+        branches.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Create a branch first, then create a group.')));
       return;
     }
 
@@ -185,10 +301,11 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     final groupController = TextEditingController();
     final priceController = TextEditingController();
     String? teacherId = teachers.first.id;
-    final startController = TextEditingController(text: '10:00');
-    final endController = TextEditingController(text: '11:30');
+    var startTime = const TimeOfDay(hour: 10, minute: 0);
+    var endTime = const TimeOfDay(hour: 11, minute: 30);
     final selectedDays = <String>{'Mon', 'Wed', 'Fri'};
     final selectedStudentIds = <String>{};
+    final needsBranchPicker = user?.isFounder == true && branches.isNotEmpty;
 
     final created = await showAppDialog<bool>(
       context: context,
@@ -198,6 +315,16 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
           maxWidth: 560,
           content: AppFormColumn(
               children: [
+                if (needsBranchPicker)
+                  DropdownButtonFormField<String>(
+                    value: branchId,
+                    decoration: const InputDecoration(labelText: 'Branch *'),
+                    items: [
+                      for (final b in branches)
+                        DropdownMenuItem(value: b.id, child: Text(b.name)),
+                    ],
+                    onChanged: (v) => setDialogState(() => branchId = v),
+                  ),
                 TextField(controller: subjectController, decoration: InputDecoration(labelText: context.l10n.subjectName)),
                 TextField(
                   controller: priceController,
@@ -216,8 +343,18 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: InputDecoration(labelText: context.l10n.startTime)),
-                TextField(controller: endController, decoration: InputDecoration(labelText: context.l10n.endTime)),
+                _groupTimePickerField(
+                  context: context,
+                  label: context.l10n.startTime,
+                  value: startTime,
+                  onChanged: (v) => setDialogState(() => startTime = v),
+                ),
+                _groupTimePickerField(
+                  context: context,
+                  label: context.l10n.endTime,
+                  value: endTime,
+                  onChanged: (v) => setDialogState(() => endTime = v),
+                ),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -265,10 +402,22 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
               onPressed: () async {
                 if (subjectController.text.isEmpty || groupController.text.isEmpty || teacherId == null) return;
                 if (selectedDays.isEmpty) return;
+                if (branchId == null || branchId!.trim().isEmpty) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Select a branch (or pick one in the top bar).')),
+                  );
+                  return;
+                }
                 final price = num.tryParse(priceController.text.trim());
                 if (price == null || price <= 0) {
                   messenger.showSnackBar(
                     SnackBar(content: Text(l10n.enterPriceGreaterThanZero)),
+                  );
+                  return;
+                }
+                if (_groupTimeMinutes(endTime) <= _groupTimeMinutes(startTime)) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('End time must be after start time')),
                   );
                   return;
                 }
@@ -278,14 +427,15 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         groupName: groupController.text.trim(),
                         teacherId: teacherId!,
                         scheduledDays: selectedDays.toList(),
-                        startTime: startController.text.trim(),
-                        endTime: endController.text.trim(),
+                        startTime: _formatGroupTime(startTime),
+                        endTime: _formatGroupTime(endTime),
                         studentIds: selectedStudentIds.toList(),
                         pricePerClass: price,
+                        branchId: branchId!,
                       );
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotCreateGroup('$e'))));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotCreateGroup(_groupsUiError(e)))));
                 }
               },
             ),
@@ -308,12 +458,23 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
   Future<void> _showEditGroup(BuildContext context, UnifiedGroupView view) async {
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Loading teachers & students…'),
+        duration: Duration(seconds: 2),
+      ),
+    );
     List<Person> teachers;
     List<Person> students;
     try {
-      final teachersResult = await ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future);
-      final studentsResult = await ref.read(studentsProvider(const PageMeta(limit: 300, status: 'active')).future);
-      final groups = await ref.read(examGroupsProvider.future);
+      final results = await Future.wait([
+        ref.read(teachersProvider(const PageMeta(limit: 100, status: 'active')).future),
+        ref.read(studentsProvider(const PageMeta(limit: 200, status: 'active')).future),
+        ref.read(examGroupsProvider.future),
+      ]);
+      final teachersResult = results[0] as PaginatedResult<Person>;
+      final studentsResult = results[1] as PaginatedResult<Person>;
+      final groups = results[2] as List<ExamGroup>;
       teachers = teachersResult.items.where((t) => t.isActive).toList();
       students = studentsAvailableForGroup(
         students: studentsResult.items,
@@ -322,9 +483,11 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
         currentMembers: view.group.students,
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople('$e'))));
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotLoadPeople(_groupsUiError(e)))));
       return;
     }
+    messenger.hideCurrentSnackBar();
     if (!context.mounted) return;
     if (teachers.isEmpty) {
       messenger.showSnackBar(SnackBar(content: Text(l10n.noTeachersAvailable)));
@@ -335,8 +498,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
     final priceController = TextEditingController(
       text: view.group.pricePerClass > 0 ? '${view.group.pricePerClass}' : '',
     );
-    final startController = TextEditingController(text: view.schedule?.startTime ?? '10:00');
-    final endController = TextEditingController(text: view.schedule?.endTime ?? '11:30');
+    var startTime = _parseGroupTime(
+      view.schedule?.startTime ?? '10:00',
+      fallback: const TimeOfDay(hour: 10, minute: 0),
+    );
+    var endTime = _parseGroupTime(
+      view.schedule?.endTime ?? '11:30',
+      fallback: const TimeOfDay(hour: 11, minute: 30),
+    );
     final dayAliases = <String, String>{
       for (final d in TimetableData.days) d: d,
       'Monday': 'Mon',
@@ -384,8 +553,18 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                       .toList(),
                   onChanged: (v) => setDialogState(() => teacherId = v),
                 ),
-                TextField(controller: startController, decoration: InputDecoration(labelText: context.l10n.startTime)),
-                TextField(controller: endController, decoration: InputDecoration(labelText: context.l10n.endTime)),
+                _groupTimePickerField(
+                  context: context,
+                  label: context.l10n.startTime,
+                  value: startTime,
+                  onChanged: (v) => setDialogState(() => startTime = v),
+                ),
+                _groupTimePickerField(
+                  context: context,
+                  label: context.l10n.endTime,
+                  value: endTime,
+                  onChanged: (v) => setDialogState(() => endTime = v),
+                ),
                 Wrap(
                   spacing: AppSpacing.xs,
                   children: TimetableData.days.map((day) {
@@ -438,6 +617,12 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                   messenger.showSnackBar(SnackBar(content: Text(l10n.enterValidCoursePrice)));
                   return;
                 }
+                if (_groupTimeMinutes(endTime) <= _groupTimeMinutes(startTime)) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('End time must be after start time')),
+                  );
+                  return;
+                }
                 try {
                   await ref.read(schedulingApiProvider).updateGroup(
                         groupId: view.group.id,
@@ -446,7 +631,9 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                         teacherIds: [teacherId!],
                       );
                   final subjectId = view.group.subjectId;
-                  if (subjectId != null && subjectId.isNotEmpty && price != null) {
+                  final subjectIdOk = subjectId != null &&
+                      RegExp(r'^[a-f\d]{24}$', caseSensitive: false).hasMatch(subjectId);
+                  if (subjectIdOk && price != null) {
                     await ref.read(schedulingApiProvider).updateSubject(
                           subjectId: subjectId,
                           pricePerClass: price,
@@ -458,14 +645,14 @@ class _GroupsHubScreenState extends ConsumerState<GroupsHubScreen> {
                           scheduleId: scheduleId,
                           teacherId: teacherId,
                           scheduledDays: selectedDays.toList(),
-                          startTime: startController.text.trim(),
-                          endTime: endController.text.trim(),
+                          startTime: _formatGroupTime(startTime),
+                          endTime: _formatGroupTime(endTime),
                           className: groupController.text.trim(),
                         );
                   }
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotUpdateGroup('$e'))));
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotUpdateGroup(_groupsUiError(e)))));
                 }
               },
             ),

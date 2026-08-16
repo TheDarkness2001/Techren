@@ -72,11 +72,13 @@ class SchedulingApi {
     required List<String> scheduledDays,
     required String startTime,
     required String endTime,
+    required String branchId,
     List<String>? studentIds,
     String? subjectCode,
     num? pricePerClass,
   }) async {
     final response = await _client.dio.post('/exam-groups/unified', data: {
+      'branchId': branchId,
       'subject': {
         'name': subjectName,
         if (subjectCode != null) 'code': subjectCode,

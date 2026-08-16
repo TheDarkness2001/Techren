@@ -50,16 +50,24 @@ const studentCreateRules = [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('studentId').trim().notEmpty().withMessage('Student ID is required'),
   body('parentName').optional().trim(),
   body('parentPhone').optional().trim(),
   body('coursePrice').optional().isFloat({ min: 0 }),
   body('branchId').optional().isMongoId(),
+  body('address').optional().trim(),
+  body('phone').optional().trim(),
+  body('gender').optional().isIn(['male', 'female', 'other', '']),
+  body('bloodGroup').optional().trim(),
+  body('medicalConditions').optional().trim(),
+  body('status').optional().isIn(['active', 'inactive', 'graduated']),
 ];
 
 const studentUpdateRules = [
   param('id').isMongoId(),
   body('name').optional().trim().notEmpty(),
   body('email').optional().isEmail().normalizeEmail(),
+  body('studentId').optional().trim().notEmpty().withMessage('Student ID cannot be empty'),
   // Empty string = "keep current password" — do not run min-length on blanks.
   body('password')
     .optional({ values: 'falsy' })
@@ -68,7 +76,12 @@ const studentUpdateRules = [
   body('parentName').optional().trim(),
   body('parentPhone').optional().trim(),
   body('coursePrice').optional().isFloat({ min: 0 }),
-  body('status').optional().isIn(['active', 'inactive']),
+  body('status').optional().isIn(['active', 'inactive', 'graduated']),
+  body('address').optional().trim(),
+  body('phone').optional().trim(),
+  body('gender').optional().isIn(['male', 'female', 'other', '']),
+  body('bloodGroup').optional().trim(),
+  body('medicalConditions').optional().trim(),
   body('parentAccount').optional().isObject(),
   body('parentAccount.username')
     .optional({ values: 'falsy' })

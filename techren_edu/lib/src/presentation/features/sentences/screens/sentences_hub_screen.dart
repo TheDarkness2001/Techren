@@ -55,17 +55,26 @@ class SentencesHubScreen extends ConsumerWidget {
                   ...level.lessons.map(
                     (lesson) => AppHubCard(
                       title: lesson.name,
-                      subtitle: '${lesson.sentenceCount} sentences · ${lesson.status}',
+                      subtitle: lesson.isLocked
+                          ? '${lesson.sentenceCount} sentences · locked'
+                          : '${lesson.completedCount}/${lesson.sentenceCount} sentences · ${lesson.progressPercent}% done',
                       accentColor: AppColors.secondary,
                       leadingLabel: '${lesson.order}',
                       locked: lesson.isLocked,
+                      progressPercent: lesson.isLocked ? null : lesson.progressPercent,
                       onTap: lesson.isLocked
                           ? null
-                          : () => Navigator.of(context).push(
+                          : () async {
+                              await Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => SentencePracticeScreen(lessonId: lesson.id, lessonName: lesson.name),
+                                  builder: (_) => SentencePracticeScreen(
+                                    lessonId: lesson.id,
+                                    lessonName: lesson.name,
+                                  ),
                                 ),
-                              ),
+                              );
+                              ref.invalidate(studentSentencesTreeProvider);
+                            },
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
