@@ -11,7 +11,7 @@ const studentSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     parentName: { type: String, trim: true },
     parentPhone: { type: String, trim: true },
-    /** Monthly course fee for this student (dues). Falls back to subject pricePerClass when 0. */
+    /** Monthly total fee (sum of subjectFees). Used when per-subject amounts are empty. */
     coursePrice: { type: Number, default: 0, min: 0 },
     subjectFees: [
       {

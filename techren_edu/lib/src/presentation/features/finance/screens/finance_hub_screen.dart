@@ -541,8 +541,8 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
                                         ),
                                       ),
                                       _OverallPaidLabel(
-                                        paid: row.isPaid,
-                                        onAccept: row.isPaid
+                                        status: row.hasBillableCourses ? row.summaryStatus : 'none',
+                                        onAccept: row.isPaid || !row.hasBillableCourses
                                             ? null
                                             : () => _acceptPayment(
                                                   student: row,
@@ -552,27 +552,14 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
                                     ],
                                   ),
                                   const SizedBox(height: AppSpacing.sm),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      for (final course in row.courses)
-                                        _CoursePaymentChip(
-                                          course: course,
-                                          onTap: course.isPaid
-                                              ? null
-                                              : () => _acceptPayment(
-                                                    student: row,
-                                                    course: course,
-                                                    roster: roster,
-                                                  ),
-                                        ),
-                                      if (row.courses.isEmpty)
-                                        Text(
-                                          'No enrolled courses',
-                                          style: theme.textTheme.bodySmall,
-                                        ),
-                                    ],
+                                  _StudentPaymentSummaryChip(
+                                    row: row,
+                                    onTap: row.isPaid
+                                        ? null
+                                        : () => _acceptPayment(
+                                              student: row,
+                                              roster: roster,
+                                            ),
                                   ),
                                 ],
                               ),
@@ -598,30 +585,20 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(row.name, overflow: TextOverflow.ellipsis),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: [
-                                      if (row.courses.isEmpty)
-                                        Text('—', style: theme.textTheme.bodySmall),
-                                      for (final course in row.courses)
-                                        _CoursePaymentChip(
-                                          course: course,
-                                          onTap: course.isPaid
-                                              ? null
-                                              : () => _acceptPayment(
-                                                    student: row,
-                                                    course: course,
-                                                    roster: roster,
-                                                  ),
-                                        ),
-                                    ],
+                                  _StudentPaymentSummaryChip(
+                                    row: row,
+                                    onTap: row.isPaid
+                                        ? null
+                                        : () => _acceptPayment(
+                                              student: row,
+                                              roster: roster,
+                                            ),
                                   ),
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: _OverallPaidLabel(
-                                      paid: row.isPaid,
-                                      onAccept: row.isPaid
+                                      status: row.hasBillableCourses ? row.summaryStatus : 'none',
+                                      onAccept: row.isPaid || !row.hasBillableCourses
                                           ? null
                                           : () => _acceptPayment(student: row, roster: roster),
                                     ),
@@ -643,19 +620,38 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
   }
 }
 
-class _CoursePaymentChip extends StatelessWidget {
-  const _CoursePaymentChip({required this.course, this.onTap});
+class _StudentPaymentSummaryChip extends StatelessWidget {
+  const _StudentPaymentSummaryChip({required this.row, this.onTap});
 
-  final PaymentCourseStatus course;
+  final PaymentRosterRow row;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final paid = course.isPaid;
-    final bg = paid ? AppColors.success.withValues(alpha: 0.15) : AppColors.error.withValues(alpha: 0.15);
-    final fg = paid ? AppColors.success : AppColors.error;
-    final label =
-        '${course.subjectName} — ${_moneyLabel(course.amountPaid)} / ${_moneyLabel(course.amountDue)} (${_courseStatusLabel(course.status)})';
+    if (!row.hasBillableCourses) {
+      return Text('—', style: Theme.of(context).textTheme.bodySmall);
+    }
+
+    final status = row.summaryStatus;
+    final paid = status == 'paid';
+    final partial = status == 'partial';
+    final bg = paid
+        ? AppColors.success.withValues(alpha: 0.15)
+        : partial
+            ? AppColors.warning.withValues(alpha: 0.18)
+            : AppColors.error.withValues(alpha: 0.15);
+    final fg = paid
+        ? AppColors.success
+        : partial
+            ? AppColors.warning
+            : AppColors.error;
+    final money =
+        '${_moneyLabel(row.totalPaid)} / ${_moneyLabel(row.totalDue)} (${_courseStatusLabel(status)})';
+    final label = row.courses.length == 1
+        ? '${row.courses.first.subjectName} — $money'
+        : row.courses.length == 2
+            ? '${row.courses.map((c) => c.subjectName).join(' + ')} — $money'
+            : '${row.courses.length} subjects — $money';
 
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -671,7 +667,9 @@ class _CoursePaymentChip extends StatelessWidget {
 
     if (onTap == null) return chip;
     return Tooltip(
-      message: 'Tap to accept payment',
+      message: row.courses.length > 1
+          ? 'Tap to accept payment — choose the subject in the dialog'
+          : 'Tap to accept payment',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -682,19 +680,28 @@ class _CoursePaymentChip extends StatelessWidget {
 }
 
 class _OverallPaidLabel extends StatelessWidget {
-  const _OverallPaidLabel({required this.paid, this.onAccept});
+  const _OverallPaidLabel({required this.status, this.onAccept});
 
-  final bool paid;
+  final String status;
   final VoidCallback? onAccept;
 
   @override
   Widget build(BuildContext context) {
+    if (status == 'none') {
+      return Text('—', style: Theme.of(context).textTheme.bodySmall);
+    }
+    final paid = status == 'paid';
+    final partial = status == 'partial';
     final style = TextStyle(
-      color: paid ? AppColors.success : AppColors.error,
+      color: paid
+          ? AppColors.success
+          : partial
+              ? AppColors.warning
+              : AppColors.error,
       fontWeight: FontWeight.w700,
       height: 1.2,
     );
-    final label = Text(paid ? 'Paid' : 'Unpaid', style: style);
+    final label = Text(_courseStatusLabel(status), style: style);
 
     if (paid || onAccept == null) {
       return label;

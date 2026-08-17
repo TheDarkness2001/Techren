@@ -222,6 +222,19 @@ class PaymentRosterRow {
 
   bool get isPaid => overallStatus == 'paid';
 
+  double get totalDue => courses.fold<double>(0, (sum, c) => sum + c.amountDue);
+
+  double get totalPaid => courses.fold<double>(0, (sum, c) => sum + c.amountPaid);
+
+  bool get hasBillableCourses => courses.any((c) => c.amountDue > 0 || c.amountPaid > 0);
+
+  String get summaryStatus {
+    if (!hasBillableCourses) return 'unpaid';
+    if (courses.every((c) => c.isPaid)) return 'paid';
+    if (courses.any((c) => c.amountPaid > 0)) return 'partial';
+    return 'unpaid';
+  }
+
   factory PaymentRosterRow.fromJson(Map<String, dynamic> json) => PaymentRosterRow(
         id: json['id']?.toString() ?? '',
         studentCode: json['studentCode'] as String? ?? '',

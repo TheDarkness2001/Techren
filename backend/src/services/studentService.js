@@ -277,13 +277,18 @@ const updateStudent = async (req, id, data) => {
   if (data.phone !== undefined) student.phone = data.phone;
   if (data.parentName !== undefined) student.parentName = data.parentName;
   if (data.parentPhone !== undefined) student.parentPhone = data.parentPhone;
-  if (data.coursePrice !== undefined) student.coursePrice = Number(data.coursePrice) || 0;
   if (data.subjectFees !== undefined) {
     student.subjectFees = Array.isArray(data.subjectFees)
       ? data.subjectFees
           .filter((f) => f && String(f.subject || '').trim())
           .map((f) => ({ subject: String(f.subject).trim(), amount: Number(f.amount) || 0 }))
       : [];
+  }
+  const feesTotal = (student.subjectFees || []).reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
+  if (feesTotal > 0) {
+    student.coursePrice = feesTotal;
+  } else if (data.coursePrice !== undefined) {
+    student.coursePrice = Number(data.coursePrice) || 0;
   }
   if (data.dateOfBirth !== undefined) {
     student.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../domain/entities/person.dart';
@@ -64,6 +65,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   bool _obscureParentPassword = true;
   bool _saving = false;
   final Set<String> _subjects = {};
+  final Map<String, TextEditingController> _feeAmountControllers = {};
 
   /// Server / client errors shown under specific fields (red).
   String? _nameError;
@@ -120,6 +122,9 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     if (_subjects.isEmpty) {
       _subjects.addAll(person.subjects.map((s) => s.trim()).where((s) => s.isNotEmpty));
     }
+    for (final name in _subjects) {
+      _ensureFeeController(name);
+    }
   }
 
   @override
@@ -136,6 +141,9 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _passwordController.dispose();
     _addressController.dispose();
     _medicalController.dispose();
+    for (final controller in _feeAmountControllers.values) {
+      controller.dispose();
+    }
     _nameFocus.dispose();
     _emailFocus.dispose();
     _studentIdFocus.dispose();
@@ -267,14 +275,53 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     if (picked != null) setState(() => _dob = picked);
   }
 
+  String _formatAmount(double amount) {
+    if (amount <= 0) return '';
+    return amount == amount.roundToDouble()
+        ? amount.toStringAsFixed(0)
+        : amount.toStringAsFixed(2);
+  }
+
+  double _existingFeeAmount(String subject) {
+    for (final fee in widget.person.subjectFees) {
+      if (fee.subject.trim().toLowerCase() == subject.trim().toLowerCase() && fee.amount > 0) {
+        return fee.amount;
+      }
+    }
+    return 0;
+  }
+
+  void _ensureFeeController(String subject) {
+    if (_feeAmountControllers.containsKey(subject)) return;
+    var amount = _existingFeeAmount(subject);
+    final hasPerSubjectFees = widget.person.subjectFees.any((f) => f.amount > 0);
+    if (amount <= 0 &&
+        _subjects.length == 1 &&
+        !hasPerSubjectFees &&
+        (widget.person.coursePrice ?? 0) > 0) {
+      amount = widget.person.coursePrice!;
+    }
+    _feeAmountControllers[subject] = TextEditingController(text: _formatAmount(amount));
+  }
+
+  void _syncFeeControllers() {
+    for (final name in _subjects) {
+      _ensureFeeController(name);
+    }
+    for (final key in _feeAmountControllers.keys.toList()) {
+      if (!_subjects.contains(key)) {
+        _feeAmountControllers.remove(key)?.dispose();
+      }
+    }
+  }
+
   List<SubjectFee> _subjectFeesPayload() {
-    final amounts = {
-      for (final fee in widget.person.subjectFees)
-        if (fee.subject.trim().isNotEmpty) fee.subject.trim(): fee.amount,
-    };
     return [
       for (final name in _subjects)
-        SubjectFee(subject: name, amount: amounts[name] ?? 0),
+        SubjectFee(
+          subject: name,
+          amount: double.tryParse(_feeAmountControllers[name]?.text.trim() ?? '') ?? 0,
+        ),
     ];
   }
 
@@ -319,9 +366,15 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     final password = _passwordController.text;
 
     double? coursePrice;
+    List<SubjectFee> subjectFees = const [];
     if (widget.person.isStudent) {
-      final priceText = _coursePriceController.text.trim();
-      coursePrice = priceText.isEmpty ? 0.0 : double.tryParse(priceText);
+      subjectFees = _subjectFeesPayload();
+      if (subjectFees.isNotEmpty) {
+        coursePrice = subjectFees.fold<double>(0, (sum, fee) => sum + fee.amount);
+      } else {
+        final priceText = _coursePriceController.text.trim();
+        coursePrice = priceText.isEmpty ? 0.0 : double.tryParse(priceText);
+      }
     }
 
     setState(() => _saving = true);
@@ -354,7 +407,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
           parentPhone: parentPhone,
           parentAccount: parentAccount,
           coursePrice: coursePrice,
-          subjectFees: _subjectFeesPayload(),
+          subjectFees: subjectFees,
           dateOfBirth: _dob,
           gender: _gender,
           bloodGroup: _bloodGroup,
@@ -582,11 +635,14 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                               isDense: true,
                             ),
                             onChanged: (v) {
-                              _subjects
-                                ..clear()
-                                ..addAll(
-                                  v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
-                                );
+                              setState(() {
+                                _subjects
+                                  ..clear()
+                                  ..addAll(
+                                    v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+                                  );
+                                _syncFeeControllers();
+                              });
                             },
                           );
                         }
@@ -604,6 +660,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                                   } else {
                                     _subjects.remove(name);
                                   }
+                                  _syncFeeControllers();
                                 }),
                               ),
                           ],
@@ -611,21 +668,46 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                       },
                     ),
                   ),
-                TextFormField(
-                  controller: _coursePriceController,
-                  focusNode: _coursePriceFocus,
-                  decoration: const InputDecoration(
-                    labelText: 'Course price (monthly)',
-                    hintText: 'Student monthly fee',
-                    prefixText: '\$ ',
-                    helperText: 'Used for dues. Leave empty to use the group/subject price.',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: _validateCoursePrice,
-                  onChanged: (_) {
-                    if (_coursePriceError != null) setState(() => _coursePriceError = null);
-                  },
-                ),
+                if (_subjects.isEmpty)
+                  TextFormField(
+                    controller: _coursePriceController,
+                    focusNode: _coursePriceFocus,
+                    decoration: const InputDecoration(
+                      labelText: 'Course price (monthly)',
+                      hintText: 'Student monthly fee',
+                      helperText: 'Select subjects above to set a price for each one.',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: _validateCoursePrice,
+                    onChanged: (_) {
+                      if (_coursePriceError != null) setState(() => _coursePriceError = null);
+                    },
+                  )
+                else ...[
+                  for (final name in _subjects)
+                    if (_feeAmountControllers[name] != null)
+                      TextFormField(
+                        controller: _feeAmountControllers[name],
+                        decoration: InputDecoration(
+                          labelText: '$name (monthly)',
+                          hintText: 'e.g. 150',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: _validateCoursePrice,
+                        onChanged: (_) {
+                          if (_coursePriceError != null) setState(() => _coursePriceError = null);
+                          if (_subjects.length > 1) setState(() {});
+                        },
+                      ),
+                  if (_subjects.length > 1)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Total: ${formatUzs(_subjectFeesPayload().fold<double>(0, (s, f) => s + f.amount))} / month',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                ],
                 DropdownButtonFormField<String>(
                   value: _parentRelation,
                   decoration: const InputDecoration(labelText: 'Parent relation'),

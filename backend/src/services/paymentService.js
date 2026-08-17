@@ -5,6 +5,12 @@ const { getBranchFilter } = require('../utils/branchFilter');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { forbidden } = require('../utils/resourceAccess');
 const { billingPeriodFromQuery } = require('../utils/classWindow');
+const {
+  resolveBillableCourses,
+  paidTowardCourse,
+  courseStatus,
+  summarizeCourses,
+} = require('../utils/studentDues');
 
 const generateReceipt = () => `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -178,94 +184,79 @@ const termFromMonth = (month) => {
 
 /**
  * Build course dues for one or many students for a given month/year.
+ * Uses the student's subjectFees / coursePrice so a fee shows even if they
+ * are not in an ExamGroup. Zero-fee subjects are omitted.
  * @returns {Map<string, { courses: object[], overallStatus: string, amountRemaining: number }>}
  */
 const buildDuesByStudent = async ({ studentIds, month, year, branchFilter = {} }) => {
   if (!studentIds.length) return new Map();
 
-  const groups = await ExamGroup.find({
-    students: { $in: studentIds },
-    ...branchFilter,
-  })
-    .populate('subject', 'name pricePerClass code')
-    .select('subject students groupName');
+  const [groups, students, payments] = await Promise.all([
+    ExamGroup.find({
+      students: { $in: studentIds },
+      ...branchFilter,
+    })
+      .populate('subject', 'name pricePerClass code')
+      .select('subject students groupName'),
+    Student.find({ _id: { $in: studentIds } }).select('_id coursePrice subjectFees'),
+    Payment.find({
+      student: { $in: studentIds },
+      month,
+      year,
+      ...branchFilter,
+    }).select('student subject amount status'),
+  ]);
 
-  const students = await Student.find({ _id: { $in: studentIds } }).select('_id coursePrice');
-  const studentPriceById = new Map(
-    students.map((s) => [String(s._id), Number(s.coursePrice || 0)])
-  );
-
-  const payments = await Payment.find({
-    student: { $in: studentIds },
-    month,
-    year,
-    ...branchFilter,
-  }).select('student subject amount status');
-
-  const paidByStudentSubject = new Map();
-  for (const payment of payments) {
-    if (payment.status !== 'paid' && payment.status !== 'partial') continue;
-    const sid = String(payment.student);
-    const subj = String(payment.subject || '').trim().toLowerCase();
-    const key = `${sid}::${subj}`;
-    paidByStudentSubject.set(key, (paidByStudentSubject.get(key) || 0) + Number(payment.amount || 0));
-  }
-
-  const coursesByStudent = new Map();
+  const groupsByStudent = new Map();
   for (const group of groups) {
     const subjectDoc = group.subject;
     const subjectName = subjectDoc?.name || group.groupName || 'Course';
     const subjectId = subjectDoc?._id ? String(subjectDoc._id) : null;
-    const subjectPrice = Number(subjectDoc?.pricePerClass || 0);
+    const pricePerClass = Number(subjectDoc?.pricePerClass || 0);
     for (const studentRef of group.students || []) {
       const sid = String(studentRef);
-      const studentPrice = studentPriceById.get(sid) || 0;
-      const amountDue = studentPrice > 0 ? studentPrice : subjectPrice;
-      if (!coursesByStudent.has(sid)) coursesByStudent.set(sid, new Map());
-      const map = coursesByStudent.get(sid);
-      const courseKey = subjectName.toLowerCase();
-      if (!map.has(courseKey)) {
-        map.set(courseKey, {
-          subjectId,
-          subjectName,
-          amountDue,
-        });
-      } else if (amountDue > 0 && map.get(courseKey).amountDue === 0) {
-        map.get(courseKey).amountDue = amountDue;
-      }
+      if (!groupsByStudent.has(sid)) groupsByStudent.set(sid, []);
+      groupsByStudent.get(sid).push({ subjectId, subjectName, pricePerClass });
     }
+  }
+
+  const studentById = new Map(students.map((s) => [String(s._id), s]));
+
+  const paidByStudentSubject = new Map();
+  const paidByStudent = new Map();
+  for (const payment of payments) {
+    if (payment.status !== 'paid' && payment.status !== 'partial') continue;
+    const sid = String(payment.student);
+    const amount = Number(payment.amount || 0);
+    const subj = String(payment.subject || '').trim().toLowerCase();
+    paidByStudentSubject.set(`${sid}::${subj}`, (paidByStudentSubject.get(`${sid}::${subj}`) || 0) + amount);
+    paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + amount);
   }
 
   const result = new Map();
   for (const studentId of studentIds) {
     const sid = String(studentId);
-    const courseMap = coursesByStudent.get(sid) || new Map();
-    const courses = [...courseMap.values()].map((course) => {
-      const paidKey = `${sid}::${course.subjectName.toLowerCase()}`;
-      const amountPaid = Number(paidByStudentSubject.get(paidKey) || 0);
+    const student = studentById.get(sid) || {};
+    const billable = resolveBillableCourses(student, groupsByStudent.get(sid) || []);
+    const courses = billable.map((course) => {
+      const amountPaid = paidTowardCourse({
+        studentId: sid,
+        course,
+        courseCount: billable.length,
+        paidByStudentSubject,
+        paidByStudent,
+      });
       const amountDue = course.amountDue > 0 ? course.amountDue : Math.max(amountPaid, 0);
-      let status = 'unpaid';
-      if (amountDue > 0 && amountPaid >= amountDue) status = 'paid';
-      else if (amountPaid > 0) status = 'partial';
-      else if (amountDue === 0 && amountPaid > 0) status = 'paid';
-
       return {
         subjectId: course.subjectId,
         subjectName: course.subjectName,
-        amountDue: amountDue || course.amountDue,
+        amountDue,
         amountPaid,
-        status,
+        status: courseStatus(amountDue, amountPaid),
       };
-    });
+    }).filter((course) => course.amountDue > 0 || course.amountPaid > 0);
 
-    const overallStatus =
-      courses.length > 0 && courses.every((c) => c.status === 'paid') ? 'paid' : 'unpaid';
-    const amountRemaining = courses.reduce((sum, course) => {
-      if (course.status === 'paid') return sum;
-      return sum + Math.max(0, Number(course.amountDue || 0) - Number(course.amountPaid || 0));
-    }, 0);
-
-    result.set(sid, { courses, overallStatus, amountRemaining });
+    result.set(sid, summarizeCourses(courses));
   }
 
   return result;

@@ -104,12 +104,26 @@ Future<void> showPersonDetailSheet({
             if (person.parentPhone != null)
               Text(person.parentPhone!, style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(color: muted)),
           ],
-          if (person.isStudent && (person.coursePrice ?? 0) > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Course price: ${formatUzs(person.coursePrice!)} / month',
-              style: Theme.of(sheetContext).textTheme.bodyMedium,
-            ),
+          if (person.isStudent) ...[
+            if (person.subjectFees.any((f) => f.amount > 0)) ...[
+              const SizedBox(height: AppSpacing.sm),
+              for (final fee in person.subjectFees.where((f) => f.amount > 0))
+                Text(
+                  '${fee.subject}: ${formatUzs(fee.amount)} / month',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium,
+                ),
+              if (person.subjectFees.where((f) => f.amount > 0).length > 1)
+                Text(
+                  'Total: ${formatUzs(person.subjectFees.fold<double>(0, (s, f) => s + f.amount))} / month',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+            ] else if ((person.coursePrice ?? 0) > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Course price: ${formatUzs(person.coursePrice!)} / month',
+                style: Theme.of(sheetContext).textTheme.bodyMedium,
+              ),
+            ],
           ],
           if (person.isStudent && (user?.isFounder ?? false)) ...[
             const SizedBox(height: AppSpacing.lg),
