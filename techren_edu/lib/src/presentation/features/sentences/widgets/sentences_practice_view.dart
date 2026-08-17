@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
@@ -72,8 +73,10 @@ class _SentencesPracticeViewState extends ConsumerState<SentencesPracticeView> {
         );
     setState(() {
       _result = result;
-      _attempts += 1;
-      if (result.isCorrect) _correct += 1;
+      if (result.resolved) {
+        _attempts += 1;
+        if (result.isCorrect) _correct += 1;
+      }
     });
   }
 
@@ -161,12 +164,21 @@ class _SentencesPracticeViewState extends ConsumerState<SentencesPracticeView> {
                 if (_result != null) ...[
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    _result!.isCorrect ? 'Correct!' : 'Correct answer: ${_result!.correctAnswer}',
+                    _result!.isCorrect
+                        ? 'Correct!'
+                        : _result!.resolved
+                            ? 'Correct answer: ${_result!.correctAnswer}'
+                            : '${AppLocalizations.of(context).incorrectTryAgain} ${AppLocalizations.of(context).chancesLeft(_result!.triesLeft)}',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: _result!.isCorrect ? AppColors.success : AppColors.danger),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton(onPressed: _loadSentence, child: const Text('Next sentence')),
+                  if (_result!.resolved) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton(onPressed: _loadSentence, child: const Text('Next sentence')),
+                  ] else ...[
+                    const SizedBox(height: AppSpacing.md),
+                    FilledButton(onPressed: _check, child: const Text('Check')),
+                  ],
                 ] else ...[
                   const SizedBox(height: AppSpacing.md),
                   FilledButton(onPressed: _check, child: const Text('Check')),

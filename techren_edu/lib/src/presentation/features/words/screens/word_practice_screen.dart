@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/task_integrity_scope.dart';
 import '../../../../domain/entities/words.dart';
@@ -39,6 +41,13 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
   Set<String> _matched = {};
   final List<List<String>> _memoryMatches = [];
   String? _firstFlipId;
+  final Set<String> _usedChoices = {};
+  DateTime? _questionStarted;
+  final Set<String> _mismatchIds = {};
+  int _memoryRound = 0;
+  int _memoryCombo = 0;
+  int _memoryMoves = 0;
+  bool _memoryBusy = false;
 
   @override
   void initState() {
@@ -81,6 +90,12 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
       _matched = {};
       _memoryMatches.clear();
       _firstFlipId = null;
+      _usedChoices.clear();
+      _mismatchIds.clear();
+      _memoryBusy = false;
+      _memoryCombo = 0;
+      _memoryMoves = 0;
+      _memoryRound += 1;
     });
     try {
       final question = await ref.read(homeworkApiProvider).nextPractice(
@@ -90,6 +105,7 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
           );
       if (!mounted) return;
       setState(() => _question = question);
+      _questionStarted = DateTime.now();
       _armRushTimer(question);
     } catch (e) {
       if (mounted) {
@@ -103,8 +119,14 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
   void _armRushTimer(PracticeQuestion question) {
     _rushTimer?.cancel();
     if (_mode != 'wordRush' || question.timeLimitMs == null) return;
-    _rushTimer = Timer(Duration(milliseconds: question.timeLimitMs!), () {
-      if (!mounted || _lastResult != null) return;
+    final elapsed = DateTime.now().difference(_questionStarted ?? DateTime.now()).inMilliseconds;
+    final left = question.timeLimitMs! - elapsed;
+    if (left <= 0) {
+      _submit(answer: '');
+      return;
+    }
+    _rushTimer = Timer(Duration(milliseconds: left), () {
+      if (!mounted || (_lastResult?.resolved ?? false)) return;
       _submit(answer: '');
     });
   }
@@ -171,19 +193,26 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
       if (!mounted) return;
       setState(() {
         _lastResult = result;
-        _attempts += 1;
-        if (result.isCorrect) {
-          _correct += 1;
-          _streak += 1;
-          if (_mode == 'wordRush') _rushStep += 1;
-        } else {
-          _streak = 0;
+        if (!result.isCorrect && result.userAnswer.isNotEmpty) {
+          _usedChoices.add(result.userAnswer);
+        }
+        if (result.resolved) {
+          _attempts += 1;
+          if (result.isCorrect) {
+            _correct += 1;
+            _streak += 1;
+            if (_mode == 'wordRush') _rushStep += 1;
+          } else {
+            _streak = 0;
+          }
         }
         _xp += result.stats.xpAwarded;
       });
-      if (_mode == 'timeAttack' || _mode == 'wordRush' || _mode == 'streak') {
+      if (result.resolved && (_mode == 'timeAttack' || _mode == 'wordRush' || _mode == 'streak')) {
         await Future<void>.delayed(const Duration(milliseconds: 450));
         if (mounted && !_sessionOver) await _loadQuestion();
+      } else if (!result.resolved && _mode == 'wordRush') {
+        _armRushTimer(question);
       }
     } catch (e) {
       if (mounted) {
@@ -195,7 +224,10 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
   }
 
   void _onMemoryTap(PracticeQuestionCard card) {
-    if (_matched.contains(card.id) || _flipped.contains(card.id) || _lastResult != null) return;
+    if (_memoryBusy || _matched.contains(card.id) || _flipped.contains(card.id) || (_lastResult?.resolved ?? false)) {
+      return;
+    }
+    HapticFeedback.selectionClick();
     setState(() => _flipped = {..._flipped, card.id});
     final firstId = _firstFlipId;
     if (firstId == null) {
@@ -204,21 +236,36 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
     }
     final first = _question!.cards.firstWhere((c) => c.id == firstId);
     if (first.wordId == card.wordId && first.side != card.side) {
+      HapticFeedback.mediumImpact();
       setState(() {
         _matched = {..._matched, first.id, card.id};
         _memoryMatches.add([first.id, card.id]);
+        _memoryCombo += 1;
+        _memoryMoves += 1;
         _firstFlipId = null;
       });
       if (_matched.length == _question!.cards.length) {
         _submit(matches: _memoryMatches);
       }
     } else {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _memoryBusy = true;
+        _memoryCombo = 0;
+        _memoryMoves += 1;
+        _mismatchIds
+          ..clear()
+          ..add(first.id)
+          ..add(card.id);
+      });
       Future<void>.delayed(const Duration(milliseconds: 700), () {
         if (!mounted) return;
         setState(() {
           _flipped.remove(first.id);
           _flipped.remove(card.id);
+          _mismatchIds.clear();
           _firstFlipId = null;
+          _memoryBusy = false;
         });
       });
     }
@@ -274,33 +321,52 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
             else if (_loading && question == null)
               const Center(child: Padding(padding: EdgeInsets.all(AppSpacing.xl), child: CircularProgressIndicator()))
             else if (question != null) ...[
-              if (question.direction == 'en-to-uz' || question.direction == 'uz-to-en')
-                Text(
-                  question.direction == 'en-to-uz' ? 'English → Uzbek' : 'Uzbek → English',
-                  style: Theme.of(context).textTheme.bodySmall,
+              if (question.mode == 'memory') ...[
+                WordsMemoryHud(
+                  found: _matched.length ~/ 2,
+                  total: question.cards.length ~/ 2,
+                  combo: _memoryCombo,
+                  moves: _memoryMoves,
                 ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                question.statement ??
-                    question.masked ??
-                    question.scrambled ??
-                    question.promptText,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              if (question.hint != null && question.hint!.isNotEmpty && (question.masked != null || question.scrambled != null)) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    _LangDot(color: AppColors.primary, label: 'English'),
+                    const SizedBox(width: AppSpacing.md),
+                    _LangDot(color: AppColors.secondary, label: 'Uzbek'),
+                  ],
+                ),
+              ] else ...[
+                if (question.direction == 'en-to-uz' || question.direction == 'uz-to-en')
+                  Text(
+                    question.direction == 'en-to-uz' ? 'English → Uzbek' : 'Uzbek → English',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 const SizedBox(height: AppSpacing.xs),
-                Text('Uzbek: ${question.hint}', style: Theme.of(context).textTheme.bodyLarge),
+                Text(
+                  question.statement ??
+                      question.masked ??
+                      question.scrambled ??
+                      question.promptText,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                if (question.hint != null && question.hint!.isNotEmpty && (question.masked != null || question.scrambled != null)) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Uzbek: ${question.hint}', style: Theme.of(context).textTheme.bodyLarge),
+                ],
               ],
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               ..._buildInteractive(question),
               if (_lastResult != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 WordsPracticeFeedback(result: _lastResult!),
-                const SizedBox(height: AppSpacing.sm),
-                FilledButton(
-                  onPressed: _sessionOver ? null : _loadQuestion,
-                  child: const Text('Next word'),
-                ),
+                if (_lastResult!.resolved) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  FilledButton(
+                    onPressed: _sessionOver ? null : _loadQuestion,
+                    child: Text(question.mode == 'memory' ? 'Play again' : 'Next word'),
+                  ),
+                ],
               ],
             ],
           ],
@@ -310,7 +376,7 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
   }
 
   List<Widget> _buildInteractive(PracticeQuestion question) {
-    if (_lastResult != null && question.mode != 'memory') return const [];
+    if ((_lastResult?.resolved ?? false) && question.mode != 'memory') return const [];
     switch (question.mode) {
       case 'multipleChoice':
         return [
@@ -318,7 +384,7 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: OutlinedButton(
-                onPressed: _loading ? null : () => _submit(answer: choice),
+                onPressed: _loading || _usedChoices.contains(choice) ? null : () => _submit(answer: choice),
                 child: Align(alignment: Alignment.centerLeft, child: Text(choice)),
               ),
             ),
@@ -346,9 +412,11 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
       case 'memory':
         return [
           WordsMemoryBoard(
+            key: ValueKey(_memoryRound),
             cards: question.cards,
             flippedIds: _flipped,
             matchedIds: _matched,
+            mismatchIds: _mismatchIds,
             onTap: _onMemoryTap,
           ),
         ];
@@ -365,6 +433,29 @@ class _WordPracticeScreenState extends ConsumerState<WordPracticeScreen> with Wi
           FilledButton(onPressed: _loading ? null : () => _submit(), child: const Text('Check')),
         ];
     }
+  }
+}
+
+class _LangDot extends StatelessWidget {
+  const _LangDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+      ],
+    );
   }
 }
 

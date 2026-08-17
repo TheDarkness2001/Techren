@@ -10,6 +10,13 @@ extension L10nCommon on AppLocalizations {
   String get refresh => t(en: 'Refresh', ru: 'Обновить', uz: 'Yangilash');
   String get retry => t(en: 'Retry', ru: 'Повторить', uz: 'Qayta urinish');
   String get tryAgain => t(en: 'Try again', ru: 'Попробовать снова', uz: 'Qayta urinib ko\'ring');
+  String get incorrectTryAgain =>
+      t(en: 'Incorrect. Try again.', ru: 'Неверно. Попробуйте ещё раз.', uz: 'Noto\'g\'ri. Qayta urinib ko\'ring.');
+  String chancesLeft(int n) => t(
+        en: n == 1 ? '1 chance left' : '$n chances left',
+        ru: n == 1 ? 'Осталась 1 попытка' : 'Осталось $n попыток',
+        uz: n == 1 ? '1 imkoniyat qoldi' : '$n ta imkoniyat qoldi',
+      );
   String get search => t(en: 'Search', ru: 'Поиск', uz: 'Qidirish');
   String get filter => t(en: 'Filter', ru: 'Фильтр', uz: 'Filtr');
   String get close => t(en: 'Close', ru: 'Закрыть', uz: 'Yopish');

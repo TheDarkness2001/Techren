@@ -32,6 +32,8 @@ class SentenceCheckResult {
     required this.similarityScore,
     required this.categories,
     required this.diff,
+    this.resolved = true,
+    this.triesLeft = 0,
   });
 
   final bool isCorrect;
@@ -40,15 +42,23 @@ class SentenceCheckResult {
   final int similarityScore;
   final List<String> categories;
   final List<Map<String, dynamic>> diff;
+  final bool resolved;
+  final int triesLeft;
 
-  factory SentenceCheckResult.fromJson(Map<String, dynamic> json) => SentenceCheckResult(
-        isCorrect: json['isCorrect'] as bool? ?? false,
-        correctAnswer: json['correctAnswer'] as String? ?? '',
-        yourAnswer: json['yourAnswer'] as String? ?? '',
-        similarityScore: json['similarityScore'] as int? ?? 0,
-        categories: (json['categories'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
-        diff: (json['diff'] as List<dynamic>? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-      );
+  factory SentenceCheckResult.fromJson(Map<String, dynamic> json) {
+    final isCorrect = json['isCorrect'] as bool? ?? false;
+    final correctAnswer = json['correctAnswer'] as String? ?? '';
+    return SentenceCheckResult(
+      isCorrect: isCorrect,
+      correctAnswer: correctAnswer,
+      yourAnswer: json['yourAnswer'] as String? ?? '',
+      similarityScore: json['similarityScore'] as int? ?? 0,
+      categories: (json['categories'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      diff: (json['diff'] as List<dynamic>? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      resolved: json['resolved'] as bool? ?? (isCorrect || correctAnswer.isNotEmpty),
+      triesLeft: (json['triesLeft'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class SentenceLesson {

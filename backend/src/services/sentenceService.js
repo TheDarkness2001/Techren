@@ -12,6 +12,29 @@ const {
   isPracticeUnlockedForStudent,
 } = require('./examGateService');
 
+const MAX_ANSWER_TRIES = 3;
+const TRY_TTL_MS = 10 * 60 * 1000;
+const pendingTries = new Map();
+
+const tryKey = (studentId, sentenceId) => `${studentId || 'staff'}:${sentenceId}`;
+
+const cleanupTries = () => {
+  const now = Date.now();
+  for (const [key, row] of pendingTries.entries()) {
+    if (row.expiresAt <= now) pendingTries.delete(key);
+  }
+};
+
+const getTryCount = (key) => {
+  cleanupTries();
+  const row = pendingTries.get(key);
+  return row ? row.tries : 0;
+};
+
+const setTryCount = (key, tries) => {
+  pendingTries.set(key, { tries, expiresAt: Date.now() + TRY_TTL_MS });
+};
+
 const formatSentence = (doc) => ({
   id: doc._id,
   english: doc.english,
@@ -58,7 +81,10 @@ const getRandomSentence = async (query, opts = {}) => {
   const random = Math.floor(Math.random() * count);
   const sentence = await Sentence.findOne(filter).skip(random);
   const direction = query.direction === 'uzToEn' ? 'uzToEn' : 'enToUz';
-  return { sentence: formatSentence(sentence), direction };
+  const formatted = formatSentence(sentence);
+  if (direction === 'enToUz') formatted.uzbek = '';
+  else formatted.english = '';
+  return { sentence: formatted, direction };
 };
 
 const createSentence = async (data) => {
@@ -102,8 +128,14 @@ const checkAnswer = async (studentId, { sentenceId, answer, direction }) => {
   const dir = direction === 'uzToEn' ? 'uzToEn' : 'enToUz';
   const correctAnswer = dir === 'uzToEn' ? sentence.english : sentence.uzbek;
   const analysis = analyzeSentenceAnswer(correctAnswer, normalizeText(answer));
+  const key = tryKey(studentId, sentenceId);
+  const tries = getTryCount(key) + 1;
+  const resolved = Boolean(analysis.isCorrect || tries >= MAX_ANSWER_TRIES);
 
-  if (studentId) {
+  if (resolved) pendingTries.delete(key);
+  else setTryCount(key, tries);
+
+  if (studentId && resolved) {
     let progress = await StudentSentenceProgress.findOne({ studentId, sentenceId });
     if (!progress) progress = new StudentSentenceProgress({ studentId, sentenceId });
     progress.attempts += 1;
@@ -123,11 +155,13 @@ const checkAnswer = async (studentId, { sentenceId, answer, direction }) => {
 
   return {
     isCorrect: analysis.isCorrect,
-    correctAnswer,
+    correctAnswer: resolved ? correctAnswer : '',
     yourAnswer: answer.trim(),
     similarityScore: analysis.similarityScore,
-    categories: analysis.categories,
-    diff: analysis.diff,
+    categories: resolved ? analysis.categories : [],
+    diff: resolved ? analysis.diff : [],
+    resolved,
+    triesLeft: resolved ? 0 : Math.max(0, MAX_ANSWER_TRIES - tries),
   };
 };
 
@@ -248,4 +282,5 @@ module.exports = {
   getProgress,
   getLeaderboard,
   getStudentLessonTree,
+  MAX_ANSWER_TRIES,
 };

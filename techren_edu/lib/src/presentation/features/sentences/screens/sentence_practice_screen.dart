@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/task_integrity_scope.dart';
@@ -59,8 +60,10 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
         );
     setState(() {
       _result = result;
-      _attempts += 1;
-      if (result.isCorrect) _correct += 1;
+      if (result.resolved) {
+        _attempts += 1;
+        if (result.isCorrect) _correct += 1;
+      }
     });
   }
 
@@ -117,7 +120,10 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
                       onSubmitted: (_) => _check(),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    FilledButton(onPressed: _check, child: const Text('Check')),
+                    FilledButton(
+                      onPressed: (_result?.resolved ?? false) ? null : _check,
+                      child: const Text('Check'),
+                    ),
                     if (_result != null) ...[
                       const SizedBox(height: AppSpacing.md),
                       Card(
@@ -129,11 +135,19 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(_result!.isCorrect ? 'Correct!' : 'Needs improvement'),
-                              Text('Similarity: ${_result!.similarityScore}%'),
-                              if (!_result!.isCorrect) ...[
+                              Text(
+                                _result!.isCorrect
+                                    ? 'Correct!'
+                                    : _result!.resolved
+                                        ? 'Needs improvement'
+                                        : AppLocalizations.of(context).incorrectTryAgain,
+                              ),
+                              if (!_result!.isCorrect && !_result!.resolved && _result!.triesLeft > 0)
+                                Text(AppLocalizations.of(context).chancesLeft(_result!.triesLeft)),
+                              if (_result!.resolved) Text('Similarity: ${_result!.similarityScore}%'),
+                              if (!_result!.isCorrect && _result!.resolved) ...[
                                 const SizedBox(height: AppSpacing.xs),
-                                Text('Correct: ${_result!.correctAnswer}'),
+                                if (_result!.correctAnswer.isNotEmpty) Text('Correct: ${_result!.correctAnswer}'),
                                 if (_result!.categories.isNotEmpty) ...[
                                   const SizedBox(height: AppSpacing.xs),
                                   Wrap(
@@ -148,8 +162,10 @@ class _SentencePracticeScreenState extends ConsumerState<SentencePracticeScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      OutlinedButton(onPressed: _loadSentence, child: const Text('Next sentence')),
+                      if (_result!.resolved) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        OutlinedButton(onPressed: _loadSentence, child: const Text('Next sentence')),
+                      ],
                     ],
                   ],
                 ],

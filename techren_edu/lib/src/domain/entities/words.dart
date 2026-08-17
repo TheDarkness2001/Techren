@@ -279,6 +279,8 @@ class PracticeAnswerResult {
     required this.correctAnswer,
     required this.userAnswer,
     this.timedOut = false,
+    this.resolved = true,
+    this.triesLeft = 0,
     this.stats = const PracticeAnswerStats(),
   });
 
@@ -286,15 +288,24 @@ class PracticeAnswerResult {
   final String correctAnswer;
   final String userAnswer;
   final bool timedOut;
+  final bool resolved;
+  final int triesLeft;
   final PracticeAnswerStats stats;
 
-  factory PracticeAnswerResult.fromJson(Map<String, dynamic> json) => PracticeAnswerResult(
-        isCorrect: json['isCorrect'] as bool? ?? false,
-        correctAnswer: json['correctAnswer'] as String? ?? '',
-        userAnswer: json['userAnswer'] as String? ?? '',
-        timedOut: json['timedOut'] as bool? ?? false,
-        stats: PracticeAnswerStats.fromJson(json['stats'] as Map<String, dynamic>?),
-      );
+  factory PracticeAnswerResult.fromJson(Map<String, dynamic> json) {
+    final isCorrect = json['isCorrect'] as bool? ?? false;
+    final correctAnswer = json['correctAnswer'] as String? ?? '';
+    final timedOut = json['timedOut'] as bool? ?? false;
+    return PracticeAnswerResult(
+      isCorrect: isCorrect,
+      correctAnswer: correctAnswer,
+      userAnswer: json['userAnswer'] as String? ?? '',
+      timedOut: timedOut,
+      resolved: json['resolved'] as bool? ?? (isCorrect || timedOut || correctAnswer.isNotEmpty),
+      triesLeft: (json['triesLeft'] as num?)?.toInt() ?? 0,
+      stats: PracticeAnswerStats.fromJson(json['stats'] as Map<String, dynamic>?),
+    );
+  }
 }
 
 class WordsLeaderboard {

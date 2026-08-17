@@ -25,6 +25,16 @@ const PRACTICE_MODES = [
 const DAILY_XP_CAP = 200;
 const PER_CORRECT_XP = gamificationService.XP_REWARDS.word_correct || 5;
 const QUESTION_TTL_MS = 10 * 60 * 1000;
+const MAX_ANSWER_TRIES = 3;
+const RETRY_MODES = new Set([
+  'classic',
+  'timeAttack',
+  'streak',
+  'wordRush',
+  'multipleChoice',
+  'missingLetters',
+  'scramble',
+]);
 const pendingQuestions = new Map();
 
 const pick = (items) => items[Math.floor(Math.random() * items.length)];
@@ -39,11 +49,11 @@ const cleanupPending = () => {
 const storeQuestion = (payload) => {
   cleanupPending();
   const id = crypto.randomUUID();
-  pendingQuestions.set(id, { ...payload, expiresAt: Date.now() + QUESTION_TTL_MS });
+  pendingQuestions.set(id, { ...payload, tries: 0, expiresAt: Date.now() + QUESTION_TTL_MS });
   return id;
 };
 
-const takeQuestion = (questionId, studentId) => {
+const getPendingQuestion = (questionId, studentId) => {
   const question = pendingQuestions.get(questionId);
   if (!question || question.expiresAt <= Date.now()) {
     pendingQuestions.delete(questionId);
@@ -52,7 +62,6 @@ const takeQuestion = (questionId, studentId) => {
   if (String(question.studentId) !== String(studentId)) {
     throw Object.assign(new Error('This question does not belong to you.'), { statusCode: 403, code: 'FORBIDDEN' });
   }
-  pendingQuestions.delete(questionId);
   return question;
 };
 
@@ -308,29 +317,27 @@ const recordAttempt = async (studentId, lessonId, { isCorrect, direction, mode, 
 };
 
 const submitAnswer = async (studentId, body = {}, { userType } = {}) => {
-  const question = takeQuestion(body.questionId, String(studentId || 'staff'));
+  const questionId = body.questionId;
+  const question = getPendingQuestion(questionId, String(studentId || 'staff'));
   if (userType === 'student' && question.lessonId) {
     await homeworkService.assertStudentCanPracticeLesson(studentId, question.lessonId);
   }
 
+  let timedOut = false;
   if (question.mode === 'wordRush' && question.timeLimitMs) {
     const elapsed = Date.now() - question.issuedAt;
-    if (elapsed > question.timeLimitMs + 2000) {
-      const stats = await recordAttempt(studentId, question.lessonId, {
-        isCorrect: false,
-        direction: question.direction,
-        mode: question.mode,
-        streak: 0,
-      });
-      return { isCorrect: false, correctAnswer: question.expectedForm || '', userAnswer: '', timedOut: true, stats };
-    }
+    if (elapsed > question.timeLimitMs + 2000) timedOut = true;
   }
 
   let isCorrect = false;
   let correctAnswer = '';
   let userAnswer = '';
 
-  if (question.mode === 'memory') {
+  if (timedOut) {
+    isCorrect = false;
+    correctAnswer = question.expectedForm || question.correctChoice || '';
+    userAnswer = String(body.answer || '').trim();
+  } else if (question.mode === 'memory') {
     const matches = Array.isArray(body.matches) ? body.matches : [];
     const byId = new Map((question.cards || []).map((card) => [card.id, card]));
     const used = new Set();
@@ -375,11 +382,29 @@ const submitAnswer = async (studentId, body = {}, { userType } = {}) => {
     userAnswer = result.userAnswer;
   }
 
-  if (userType !== 'student') {
-    return { isCorrect, correctAnswer, userAnswer, direction: question.direction, mode: question.mode, stats: null };
-  }
+  question.tries = (question.tries || 0) + 1;
+  const allowRetry = RETRY_MODES.has(question.mode) && !timedOut;
+  const resolved = Boolean(isCorrect || !allowRetry || question.tries >= MAX_ANSWER_TRIES);
+  if (resolved) pendingQuestions.delete(questionId);
 
-  const stats = await recordAttempt(studentId, question.lessonId, {
+  const publicCorrect = resolved ? correctAnswer : '';
+  const triesLeft = resolved ? 0 : Math.max(0, MAX_ANSWER_TRIES - question.tries);
+  const payload = {
+    isCorrect,
+    correctAnswer: publicCorrect,
+    userAnswer,
+    timedOut,
+    resolved,
+    triesLeft,
+    direction: question.direction,
+    mode: question.mode,
+    stats: null,
+  };
+
+  if (userType !== 'student') return payload;
+  if (!resolved) return payload;
+
+  payload.stats = await recordAttempt(studentId, question.lessonId, {
     isCorrect,
     direction: question.direction,
     mode: question.mode,
@@ -389,7 +414,7 @@ const submitAnswer = async (studentId, body = {}, { userType } = {}) => {
     wordRushScore: body.wordRushScore,
   });
 
-  return { isCorrect, correctAnswer, userAnswer, direction: question.direction, mode: question.mode, stats };
+  return payload;
 };
 
 const getPracticeStats = async (studentId) => {
@@ -419,6 +444,7 @@ const getPracticeStats = async (studentId) => {
 module.exports = {
   PRACTICE_MODES,
   DAILY_XP_CAP,
+  MAX_ANSWER_TRIES,
   nextQuestion,
   submitAnswer,
   getPracticeStats,
