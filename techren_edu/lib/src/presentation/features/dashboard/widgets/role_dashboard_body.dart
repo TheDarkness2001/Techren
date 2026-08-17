@@ -6,6 +6,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/academy_time.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/update_banner.dart';
 import '../../../../domain/entities/branch.dart';
@@ -16,7 +17,9 @@ import '../../../providers/app_update_provider.dart';
 import '../../../providers/attendance_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/news_provider.dart';
+import '../../../providers/finance_provider.dart';
 import '../../news/widgets/dashboard_news_feed.dart';
+import '../../finance/widgets/branch_collections_panel.dart';
 import 'dashboard_header.dart';
 import 'dashboard_portfolio_panel.dart';
 import 'dashboard_widgets.dart';
@@ -48,6 +51,9 @@ class RoleDashboardBody extends ConsumerWidget {
           ref.invalidate(dashboardProvider);
           ref.invalidate(appUpdateProvider);
           ref.invalidate(newsFeedProvider);
+          if (data.role == 'founder') {
+            ref.invalidate(branchCollectionsProvider);
+          }
           if (data.role == 'student') {
             ref.invalidate(feedbackListProvider((studentId: null, page: 1, search: '')));
           }
@@ -60,6 +66,10 @@ class RoleDashboardBody extends ConsumerWidget {
             const DashboardNewsFeed(),
             if (data.role == 'student') const StudentDashboardFeedbackStrip(),
             DashboardStatRow(children: _statsForRole(context, data)),
+            if (data.role == 'founder') ...[
+              const SizedBox(height: AppSpacing.xl),
+              BranchCollectionsPanel(month: AcademyTime.month, year: AcademyTime.year),
+            ],
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),
               RoleDashboardShortcuts(role: data.role),

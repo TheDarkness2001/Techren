@@ -35,7 +35,6 @@ const ensureSentencesDemoContent = async () => {
     type: 'sentences',
     examUnlockedFor: [group._id],
     directionMode: 'mixed',
-    maxWords: 20,
   });
 
   for (const item of SAMPLE_SENTENCES) {

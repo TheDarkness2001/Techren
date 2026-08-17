@@ -113,6 +113,18 @@ final pendingPaymentsProvider = FutureProvider.autoDispose<PendingPaymentsSummar
 
 });
 
+typedef BranchCollectionsQuery = ({int month, int year});
+
+final branchCollectionsProvider =
+    FutureProvider.autoDispose.family<BranchCollectionsResult, BranchCollectionsQuery>((ref, query) async {
+  return ref.watch(financeApiProvider).getBranchCollections(month: query.month, year: query.year);
+});
+
+final branchExpensesProvider =
+    FutureProvider.autoDispose.family<BranchExpenseListResult, BranchCollectionsQuery>((ref, query) async {
+  return ref.watch(financeApiProvider).getBranchExpenses(month: query.month, year: query.year);
+});
+
 
 
 final revenueChartProvider = FutureProvider.autoDispose<RevenueChartData>((ref) async {

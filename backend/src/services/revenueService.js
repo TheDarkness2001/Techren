@@ -1,6 +1,12 @@
 const Payment = require('../models/Payment');
+const Branch = require('../models/Branch');
+const Student = require('../models/Student');
 const { getBranchFilter } = require('../utils/branchFilter');
-const { getTashkentParts } = require('../utils/classWindow');
+const { getTashkentParts, billingPeriodFromQuery } = require('../utils/classWindow');
+const { forbidden } = require('../utils/resourceAccess');
+const { buildDuesByStudent } = require('./paymentService');
+const { aggregateBranchCollections } = require('../utils/branchCollections');
+const { totalsByBranch } = require('./branchExpenseService');
 
 const paidFilter = (req) => ({
   ...getBranchFilter(req),
@@ -135,4 +141,47 @@ const getExport = async (req) => {
   };
 };
 
-module.exports = { getSummary, getPending, getChart, getExport };
+/** Founder-only: expected dues vs collected, per branch, for a billing month. */
+const getBranchCollections = async (req) => {
+  if (req.userType !== 'teacher' || req.user?.role !== 'founder') {
+    throw forbidden('Founder only');
+  }
+
+  const { month, year } = billingPeriodFromQuery(req.query);
+  const [branches, students] = await Promise.all([
+    Branch.find().select('_id name').sort({ name: 1 }),
+    Student.find({ status: 'active' }).select('_id branchId'),
+  ]);
+
+  const duesMap = await buildDuesByStudent({
+    studentIds: students.map((student) => student._id),
+    month,
+    year,
+  });
+
+  const { items, totals } = aggregateBranchCollections({ branches, students, duesMap });
+  const expenseMap = await totalsByBranch({ month, year });
+
+  const withExpenses = items.map((row) => {
+    const extra = expenseMap.get(row.branchId) || { expenses: 0, byCategory: {} };
+    return {
+      ...row,
+      expenses: extra.expenses,
+      leftover: row.collected - extra.expenses,
+      expensesByCategory: extra.byCategory,
+    };
+  });
+  const expenseTotal = withExpenses.reduce((sum, row) => sum + row.expenses, 0);
+  return {
+    month,
+    year,
+    items: withExpenses,
+    totals: {
+      ...totals,
+      expenses: expenseTotal,
+      leftover: totals.collected - expenseTotal,
+    },
+  };
+};
+
+module.exports = { getSummary, getPending, getChart, getExport, getBranchCollections };

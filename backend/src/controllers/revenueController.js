@@ -31,3 +31,10 @@ exports.exportData = asyncHandler(async (req, res) => {
     sendSuccess(res, data);
   } catch (e) { handle(res, e); }
 });
+
+exports.branchCollections = asyncHandler(async (req, res) => {
+  try {
+    const data = await revenueService.getBranchCollections(req);
+    sendSuccess(res, data);
+  } catch (e) { handle(res, e); }
+});

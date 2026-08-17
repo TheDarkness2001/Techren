@@ -482,3 +482,137 @@ class PendingPaymentsSummary {
     );
   }
 }
+
+class BranchCollectionRow {
+  const BranchCollectionRow({
+    required this.branchId,
+    required this.branchName,
+    required this.expected,
+    required this.collected,
+    required this.remaining,
+    required this.studentCount,
+    required this.unpaidCount,
+    this.expenses = 0,
+    this.leftover = 0,
+  });
+
+  final String branchId;
+  final String branchName;
+  final double expected;
+  final double collected;
+  final double remaining;
+  final int studentCount;
+  final int unpaidCount;
+  final double expenses;
+  final double leftover;
+
+  double get progress => expected <= 0 ? 0 : (collected / expected).clamp(0, 1);
+
+  factory BranchCollectionRow.fromJson(Map<String, dynamic> json) => BranchCollectionRow(
+        branchId: json['branchId']?.toString() ?? '',
+        branchName: json['branchName'] as String? ?? 'Unassigned',
+        expected: (json['expected'] as num?)?.toDouble() ?? 0,
+        collected: (json['collected'] as num?)?.toDouble() ?? 0,
+        remaining: (json['remaining'] as num?)?.toDouble() ?? 0,
+        studentCount: (json['studentCount'] as num?)?.toInt() ?? 0,
+        unpaidCount: (json['unpaidCount'] as num?)?.toInt() ?? 0,
+        expenses: (json['expenses'] as num?)?.toDouble() ?? 0,
+        leftover: (json['leftover'] as num?)?.toDouble() ??
+            ((json['collected'] as num?)?.toDouble() ?? 0) - ((json['expenses'] as num?)?.toDouble() ?? 0),
+      );
+}
+
+class BranchCollectionsResult {
+  const BranchCollectionsResult({
+    required this.month,
+    required this.year,
+    required this.items,
+    required this.totals,
+  });
+
+  final int month;
+  final int year;
+  final List<BranchCollectionRow> items;
+  final BranchCollectionRow totals;
+
+  factory BranchCollectionsResult.fromJson(Map<String, dynamic> json) {
+    final totalsJson = json['totals'] as Map<String, dynamic>? ?? {};
+    return BranchCollectionsResult(
+      month: (json['month'] as num?)?.toInt() ?? 1,
+      year: (json['year'] as num?)?.toInt() ?? AcademyTime.year,
+      items: (json['items'] as List<dynamic>? ?? [])
+          .map((e) => BranchCollectionRow.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      totals: BranchCollectionRow.fromJson({
+        'branchId': 'totals',
+        'branchName': 'All branches',
+        ...totalsJson,
+      }),
+    );
+  }
+}
+
+class BranchExpense {
+  const BranchExpense({
+    required this.id,
+    required this.branchId,
+    required this.branchName,
+    required this.category,
+    required this.amount,
+    required this.month,
+    required this.year,
+    this.notes = '',
+    this.teacherId,
+    this.teacherName = '',
+    this.recordedByName = '',
+  });
+
+  final String id;
+  final String branchId;
+  final String branchName;
+  final String category;
+  final double amount;
+  final int month;
+  final int year;
+  final String notes;
+  final String? teacherId;
+  final String teacherName;
+  final String recordedByName;
+
+  factory BranchExpense.fromJson(Map<String, dynamic> json) => BranchExpense(
+        id: json['id']?.toString() ?? '',
+        branchId: json['branchId']?.toString() ?? '',
+        branchName: json['branchName'] as String? ?? '',
+        category: json['category'] as String? ?? 'other',
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        month: (json['month'] as num?)?.toInt() ?? 1,
+        year: (json['year'] as num?)?.toInt() ?? AcademyTime.year,
+        notes: json['notes'] as String? ?? '',
+        teacherId: json['teacherId']?.toString(),
+        teacherName: json['teacherName'] as String? ?? '',
+        recordedByName: json['recordedByName'] as String? ?? '',
+      );
+}
+
+class BranchExpenseListResult {
+  const BranchExpenseListResult({
+    required this.items,
+    required this.totalAmount,
+    this.byCategory = const {},
+  });
+
+  final List<BranchExpense> items;
+  final double totalAmount;
+  final Map<String, double> byCategory;
+
+  factory BranchExpenseListResult.fromResponse(List<dynamic> items, Map<String, dynamic> meta) {
+    final byCategoryRaw = meta['byCategory'] as Map<String, dynamic>? ?? {};
+    return BranchExpenseListResult(
+      items: items.map((e) => BranchExpense.fromJson(e as Map<String, dynamic>)).toList(),
+      totalAmount: (meta['totalAmount'] as num?)?.toDouble() ?? 0,
+      byCategory: {
+        for (final entry in byCategoryRaw.entries) entry.key: (entry.value as num?)?.toDouble() ?? 0,
+      },
+    );
+  }
+}

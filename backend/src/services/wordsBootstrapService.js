@@ -40,7 +40,6 @@ const ensureWordsDemoContent = async () => {
     type: 'words',
     examUnlockedFor: [group._id],
     directionMode: 'mixed',
-    maxWords: 20,
   });
 
   const wordDocs = [];

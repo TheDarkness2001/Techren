@@ -123,25 +123,18 @@ class _StaffTopBarState extends ConsumerState<StaffTopBar> {
                       fontSize: 18,
                       letterSpacing: -0.3,
                     ),
-                  )
-                else if (!hasActions)
-                  const Spacer(),
+                  ),
+                if (!showCompactTitle) const Spacer(),
                 if (!widget.compact && user != null)
                   KeyboardShortcutHint(
                     prefix: user.isFounder ? '/founder' : '/admin',
                     isFounder: user.isFounder,
                   ),
-                // Branch chrome is too wide next to page actions at 320–414px.
                 if (isFounder && !(widget.compact && hasActions))
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _BranchSelector(
-                        branchesAsync: branchesAsync,
-                        selectedBranchId: selectedBranchId,
-                        compact: widget.compact,
-                      ),
-                    ),
+                  _BranchSelector(
+                    branchesAsync: branchesAsync,
+                    selectedBranchId: selectedBranchId,
+                    compact: widget.compact,
                   ),
                 if (!widget.compact && !isFounder && user?.branchId != null)
                   _BranchLabel(branchesAsync: branchesAsync, branchId: user!.branchId!),

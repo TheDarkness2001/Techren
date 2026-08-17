@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../core/network/dio_client.dart';
 import '../../../domain/entities/finance.dart';
 import '../../../domain/entities/paginated_result.dart';
@@ -65,11 +67,21 @@ class FinanceApi {
     required int year,
     String search = '',
   }) async {
-    final response = await _client.dio.get('/payments/roster', queryParameters: {
-      'month': month,
-      'year': year,
-      if (search.isNotEmpty) 'search': search,
-    });
+    final response = await _client.dio.get(
+      '/payments/roster',
+      queryParameters: {
+        'month': month,
+        'year': year,
+        if (search.isNotEmpty) 'search': search,
+        '_': DateTime.now().millisecondsSinceEpoch,
+      },
+      options: Options(
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      ),
+    );
     final body = response.data as Map<String, dynamic>;
     final items = body['data'] as List<dynamic>? ?? [];
     final meta = body['meta'] as Map<String, dynamic>? ?? {};
@@ -103,6 +115,40 @@ class FinanceApi {
       if (endDate != null) 'endDate': endDate,
     });
     return RevenueExportData.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<BranchCollectionsResult> getBranchCollections({
+    required int month,
+    required int year,
+  }) async {
+    final response = await _client.dio.get('/revenue/branches', queryParameters: {
+      'month': month,
+      'year': year,
+    });
+    return BranchCollectionsResult.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<BranchExpenseListResult> getBranchExpenses({
+    required int month,
+    required int year,
+  }) async {
+    final response = await _client.dio.get('/branch-expenses', queryParameters: {
+      'month': month,
+      'year': year,
+      'limit': 200,
+    });
+    final items = response.data['data'] as List<dynamic>? ?? [];
+    final meta = response.data['meta'] as Map<String, dynamic>? ?? {};
+    return BranchExpenseListResult.fromResponse(items, meta);
+  }
+
+  Future<BranchExpense> createBranchExpense(Map<String, dynamic> payload) async {
+    final response = await _client.dio.post('/branch-expenses', data: payload);
+    return BranchExpense.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteBranchExpense(String id) async {
+    await _client.dio.delete('/branch-expenses/$id');
   }
 
   PaginatedResult<T> _parsePaginated<T>(

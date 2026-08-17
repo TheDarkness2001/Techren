@@ -7,7 +7,7 @@ const lessonSchema = new mongoose.Schema(
     levelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Level', required: true },
     order: { type: Number, required: true, default: 1 },
     wordIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Word' }],
-    maxWords: { type: Number, default: 20, min: 1 },
+    maxWords: { type: Number, default: 0, min: 0 },
     type: { type: String, enum: ['words', 'sentences', 'listening'], default: 'words' },
     examTimeLimit: { type: Number, default: 300 },
     minPassScore: { type: Number, default: 70 },

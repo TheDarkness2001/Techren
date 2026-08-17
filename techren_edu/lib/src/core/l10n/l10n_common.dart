@@ -13,6 +13,7 @@ extension L10nCommon on AppLocalizations {
   String get search => t(en: 'Search', ru: 'Поиск', uz: 'Qidirish');
   String get filter => t(en: 'Filter', ru: 'Фильтр', uz: 'Filtr');
   String get close => t(en: 'Close', ru: 'Закрыть', uz: 'Yopish');
+  String get notes => t(en: 'Notes', ru: 'Заметки', uz: 'Izoh');
   String get confirm => t(en: 'Confirm', ru: 'Подтвердить', uz: 'Tasdiqlash');
   String get back => t(en: 'Back', ru: 'Назад', uz: 'Orqaga');
   String get view => t(en: 'View', ru: 'Просмотр', uz: 'Ko\'rish');

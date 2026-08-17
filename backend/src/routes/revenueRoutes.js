@@ -13,5 +13,6 @@ router.get('/summary', controller.summary);
 router.get('/pending', controller.pending);
 router.get('/chart', controller.chart);
 router.get('/export', controller.exportData);
+router.get('/branches', controller.branchCollections);
 
 module.exports = router;

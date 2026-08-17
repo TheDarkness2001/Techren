@@ -218,10 +218,6 @@ const addWord = async ({ english, uzbek, lessonId, mergeDuplicates = false }) =>
     throw Object.assign(new Error('This word already exists in this lesson'), { statusCode: 409, code: 'DUPLICATE' });
   }
 
-  if (lesson.maxWords && lesson.wordIds.length >= lesson.maxWords) {
-    throw Object.assign(new Error(`Lesson is full. Maximum ${lesson.maxWords} words allowed.`), { statusCode: 400, code: 'LIMIT_REACHED' });
-  }
-
   const word = await Word.create({
     english: canonical.english,
     uzbek: canonical.uzbek,

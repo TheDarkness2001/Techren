@@ -18,6 +18,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/staff_navigation_provider.dart';
+import 'widgets/branch_collections_panel.dart';
+import 'widgets/branch_expenses_panel.dart';
 
 class FinanceHubScreen extends ConsumerStatefulWidget {
   const FinanceHubScreen({
@@ -62,6 +64,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
         search: _paymentsSearch,
         searchController: _paymentsSearchController,
         canManage: canManagePayments,
+        isFounder: isFounder,
+        canManageExpenses: user?.isPrivilegedStaff == true,
         onRecordPayment: (month, year) => _showCreatePayment(context, month: month, year: year),
         onSearchSubmitted: (value) => setState(() => _paymentsSearch = value.trim()),
         onSearchCleared: () {
@@ -202,6 +206,8 @@ class _PaymentsTab extends ConsumerStatefulWidget {
     required this.onSearchSubmitted,
     required this.onSearchCleared,
     required this.canManage,
+    required this.isFounder,
+    required this.canManageExpenses,
     required this.onRecordPayment,
   });
 
@@ -210,6 +216,8 @@ class _PaymentsTab extends ConsumerStatefulWidget {
   final ValueChanged<String> onSearchSubmitted;
   final VoidCallback onSearchCleared;
   final bool canManage;
+  final bool isFounder;
+  final bool canManageExpenses;
   final void Function(int month, int year) onRecordPayment;
 
   @override
@@ -219,6 +227,7 @@ class _PaymentsTab extends ConsumerStatefulWidget {
 class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
   late int _month;
   late int _year;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -240,8 +249,30 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
   }
 
   Future<void> _refresh() async {
-    ref.invalidate(paymentRosterProvider(_query));
-    await ref.read(paymentRosterProvider(_query).future);
+    if (_refreshing) return;
+    final typed = widget.searchController.text.trim();
+    if (typed != widget.search) {
+      widget.onSearchSubmitted(typed);
+    }
+    setState(() => _refreshing = true);
+    try {
+      ref.invalidate(paymentRosterProvider);
+      await ref.refresh(paymentRosterProvider((
+        month: _month,
+        year: _year,
+        search: typed,
+      )).future);
+      if (widget.isFounder) {
+        ref.invalidate(branchCollectionsProvider);
+        await ref.refresh(branchCollectionsProvider((month: _month, year: _year)).future);
+      }
+      if (widget.canManageExpenses) {
+        ref.invalidate(branchExpensesProvider);
+        await ref.refresh(branchExpensesProvider((month: _month, year: _year)).future);
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   Future<void> _acceptPayment({
@@ -369,6 +400,8 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
       ref.invalidate(paymentsProvider);
       ref.invalidate(revenueSummaryProvider);
       ref.invalidate(pendingPaymentsProvider);
+      if (widget.isFounder) ref.invalidate(branchCollectionsProvider);
+      if (widget.canManageExpenses) ref.invalidate(branchExpensesProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.paymentRecordedFor(student.name))),
       );
@@ -392,7 +425,17 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
       children: [
         FilledButton(onPressed: _resetFilters, child: Text(context.l10n.reset)),
         const SizedBox(width: AppSpacing.sm),
-        OutlinedButton(onPressed: _refresh, child: Text(context.l10n.refreshData)),
+        FilledButton.tonalIcon(
+          onPressed: _refreshing ? null : _refresh,
+          icon: _refreshing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh, size: 18),
+          label: Text(context.l10n.refreshData),
+        ),
         if (widget.canManage) ...[
           const SizedBox(width: AppSpacing.sm),
           FilledButton(onPressed: () => widget.onRecordPayment(_month, _year), child: Text(context.l10n.record)),
@@ -409,6 +452,7 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_refreshing) const LinearProgressIndicator(minHeight: 2),
         Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
           child: LayoutBuilder(
@@ -487,6 +531,16 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
             },
           ),
         ),
+        if (widget.isFounder)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+            child: BranchCollectionsPanel(month: _month, year: _year),
+          ),
+        if (widget.canManageExpenses)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+            child: BranchExpensesPanel(month: _month, year: _year),
+          ),
         Expanded(
           child: rosterAsync.when(
             loading: () => const LoadingState(kind: LoadingSkeletonKind.table),

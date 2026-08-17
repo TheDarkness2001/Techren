@@ -13,6 +13,7 @@ module.exports = {
   Feedback: require('./Feedback'),
   Exam: require('./Exam'),
   Payment: require('./Payment'),
+  BranchExpense: require('./BranchExpense'),
   Language: require('./Language'),
   Level: require('./Level'),
   Lesson: require('./Lesson'),
