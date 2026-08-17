@@ -4,12 +4,16 @@ class ImportPair {
     required this.uzbek,
     this.task,
     this.imageUrl,
+    this.englishForms = const [],
+    this.uzbekMeanings = const [],
   });
 
   final String english;
   final String uzbek;
   final String? task;
   final String? imageUrl;
+  final List<String> englishForms;
+  final List<String> uzbekMeanings;
 
   Map<String, String> toJson() => {
         'english': english,
@@ -23,6 +27,8 @@ class ImportPair {
         uzbek: json['uzbek'] as String? ?? '',
         task: json['task'] as String?,
         imageUrl: json['imageUrl'] as String?,
+        englishForms: (json['englishForms'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+        uzbekMeanings: (json['uzbekMeanings'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
       );
 }
 
@@ -47,6 +53,11 @@ class ParseImportResult {
     this.skippedLines = const [],
     this.tasks = const [],
     this.images = const [],
+    this.warnings = const [],
+    this.duplicates = const [],
+    this.validCount = 0,
+    this.warningCount = 0,
+    this.duplicateCount = 0,
     this.source,
     this.message,
     this.ocrEnabled = true,
@@ -58,6 +69,11 @@ class ParseImportResult {
   final List<String> skippedLines;
   final List<String> tasks;
   final List<ImportImageInfo> images;
+  final List<String> warnings;
+  final List<String> duplicates;
+  final int validCount;
+  final int warningCount;
+  final int duplicateCount;
   final String? source;
   final String? message;
   final bool ocrEnabled;
@@ -73,6 +89,17 @@ class ParseImportResult {
         images: (json['images'] as List<dynamic>? ?? [])
             .map((e) => ImportImageInfo.fromJson(e as Map<String, dynamic>))
             .toList(),
+        warnings: (json['warnings'] as List<dynamic>? ?? []).map((e) {
+          if (e is Map) return (e['message'] ?? e.toString()).toString();
+          return e.toString();
+        }).toList(),
+        duplicates: (json['duplicates'] as List<dynamic>? ?? []).map((e) {
+          if (e is Map) return (e['reason'] ?? e['english'] ?? e.toString()).toString();
+          return e.toString();
+        }).toList(),
+        validCount: json['validCount'] as int? ?? json['pairCount'] as int? ?? 0,
+        warningCount: json['warningCount'] as int? ?? 0,
+        duplicateCount: json['duplicateCount'] as int? ?? 0,
         source: json['source'] as String? ?? json['filename'] as String?,
         message: json['message'] as String?,
         ocrEnabled: json['ocrEnabled'] as bool? ?? true,
@@ -84,16 +111,19 @@ class BulkImportResult {
   const BulkImportResult({
     required this.created,
     required this.skipped,
+    this.merged = 0,
     this.errors = const [],
   });
 
   final int created;
   final int skipped;
+  final int merged;
   final List<dynamic> errors;
 
   factory BulkImportResult.fromJson(Map<String, dynamic> json) => BulkImportResult(
         created: json['created'] as int? ?? 0,
         skipped: json['skipped'] as int? ?? 0,
+        merged: json['merged'] as int? ?? 0,
         errors: json['errors'] as List<dynamic>? ?? [],
       );
 }

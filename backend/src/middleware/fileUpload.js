@@ -28,9 +28,9 @@ const docxUpload = multer({
   storage: makeStorage(DOCX_DIR, 'import'),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = /\.(docx|txt)$/i;
+    const allowed = /\.(docx|txt|csv)$/i;
     if (allowed.test(file.originalname)) cb(null, true);
-    else cb(new Error('Only .docx or .txt files are allowed'));
+    else cb(new Error('Only .docx, .txt, or .csv files are allowed'));
   },
 });
 

@@ -1,12 +1,14 @@
 const { normalizeText } = require('./textNormalizer');
+const { parseCsv, looksLikeCsv } = require('./csvParser');
+const { canonicalizeVocabPair } = require('./vocabList');
 
 const SEPARATOR_PATTERN = /^(.+?)\s*(?:[-–—|:|→>•·]|\t)\s*(.+)$/;
 const TASK_KEYWORD_PATTERN = /^(?:task|exercise|assignment|masala|vazifa|topshiriq)\b/i;
 const NUMBERED_LINE_PATTERN = /^\d+[\).:\-]\s+/;
+const CSV_HEADER_PATTERN = /^(english|en|word)$/i;
 
 const isTaskLine = (line) => {
   if (TASK_KEYWORD_PATTERN.test(line)) return true;
-  // Numbered instruction without an EN-UZ separator
   return NUMBERED_LINE_PATTERN.test(line) && !SEPARATOR_PATTERN.test(line);
 };
 
@@ -23,45 +25,189 @@ const stripHtml = (html) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const parsePairsFromText = (rawText) => {
+const toPairRecord = (englishRaw, uzbekRaw, extras = {}) => {
+  const canonical = canonicalizeVocabPair(englishRaw, uzbekRaw);
+  if (!canonical.english || !canonical.uzbek) return null;
+  return {
+    english: canonical.english,
+    uzbek: canonical.uzbek,
+    englishForms: canonical.englishForms,
+    uzbekMeanings: canonical.uzbekMeanings,
+    ...extras,
+  };
+};
+
+const emptyParseResult = () => ({
+  pairs: [],
+  tasks: [],
+  skippedLines: [],
+  warnings: [],
+  duplicates: [],
+  pairCount: 0,
+  validCount: 0,
+  warningCount: 0,
+  duplicateCount: 0,
+});
+
+const finalizeParseResult = (result) => {
+  const seen = new Map();
+  const pairs = [];
+  const duplicates = [...(result.duplicates || [])];
+
+  for (const pair of result.pairs || []) {
+    const key = (pair.englishForms || []).map((f) => f.toLowerCase()).sort().join('|');
+    if (seen.has(key)) {
+      duplicates.push({
+        english: pair.english,
+        uzbek: pair.uzbek,
+        reason: `Duplicate detected: ${pair.english} → ${pair.uzbek}`,
+      });
+      continue;
+    }
+    seen.set(key, true);
+    pairs.push(pair);
+  }
+
+  const warnings = result.warnings || [];
+  return {
+    pairs,
+    tasks: result.tasks || [],
+    skippedLines: result.skippedLines || [],
+    warnings,
+    duplicates,
+    pairCount: pairs.length,
+    validCount: pairs.length,
+    warningCount: warnings.length,
+    duplicateCount: duplicates.length,
+  };
+};
+
+const parseCsvPairs = (rawText) => {
+  const result = emptyParseResult();
+  let rows;
+  try {
+    rows = parseCsv(rawText);
+  } catch (error) {
+    result.warnings.push({ row: 0, message: error.message || 'Malformed CSV' });
+    return finalizeParseResult(result);
+  }
+
+  let start = 0;
+  if (rows.length > 0) {
+    const header = rows[0].map((cell) => String(cell || '').trim());
+    if (header.length >= 2 && CSV_HEADER_PATTERN.test(header[0]) && /^(uzbek|uz|translation|meaning)$/i.test(header[1])) {
+      start = 1;
+    } else if (header.length >= 2 && !header[0] && !header[1]) {
+      start = 1;
+    }
+  }
+
+  for (let i = start; i < rows.length; i += 1) {
+    const rowNumber = i + 1;
+    const cells = rows[i].map((cell) => String(cell || '').trim());
+    const isEmpty = cells.every((cell) => !cell);
+    if (isEmpty) continue;
+
+    if (cells.length > 2 && cells.slice(2).some(Boolean)) {
+      result.warnings.push({
+        row: rowNumber,
+        message: `Row ${rowNumber} has ${cells.length} columns. Wrap English and Uzbek in quotes so commas stay inside one vocabulary item.`,
+      });
+    }
+
+    const english = cells[0] || '';
+    const uzbek = cells[1] || '';
+    if (!english && !uzbek) continue;
+    if (!english) {
+      result.warnings.push({ row: rowNumber, message: `Row ${rowNumber} has no English word` });
+      result.skippedLines.push(cells.join(','));
+      continue;
+    }
+    if (!uzbek) {
+      result.warnings.push({ row: rowNumber, message: `Row ${rowNumber} has no Uzbek meaning` });
+      result.skippedLines.push(cells.join(','));
+      continue;
+    }
+
+    const pair = toPairRecord(english, uzbek);
+    if (!pair) {
+      result.skippedLines.push(cells.join(','));
+      continue;
+    }
+    pairsPush(result, pair, rowNumber);
+  }
+
+  return finalizeParseResult(result);
+};
+
+const pairsPush = (result, pair, rowNumber) => {
+  const duplicate = result.pairs.find((existing) =>
+    (existing.englishForms || []).map((f) => f.toLowerCase()).sort().join('|')
+    === (pair.englishForms || []).map((f) => f.toLowerCase()).sort().join('|')
+  );
+  if (duplicate) {
+    result.duplicates.push({
+      english: pair.english,
+      uzbek: pair.uzbek,
+      reason: `Row ${rowNumber} appears to duplicate "${duplicate.english}"`,
+    });
+    result.warnings.push({
+      row: rowNumber,
+      message: `Row ${rowNumber} appears to duplicate "${duplicate.english}"`,
+    });
+    return;
+  }
+  result.pairs.push(pair);
+};
+
+const parseSeparatedLines = (rawText) => {
+  const result = emptyParseResult();
   const lines = String(rawText || '')
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .map((line) => line.trim());
 
-  const pairs = [];
-  const tasks = [];
-  const skippedLines = [];
   let currentTask = null;
+  let rowNumber = 0;
 
   for (const line of lines) {
+    rowNumber += 1;
+    if (!line) continue;
+
     if (isTaskLine(line)) {
       currentTask = normalizeText(line).trim();
-      tasks.push(currentTask);
+      result.tasks.push(currentTask);
       continue;
     }
 
     const match = line.match(SEPARATOR_PATTERN);
     if (!match) {
-      skippedLines.push(line);
+      result.skippedLines.push(line);
+      result.warnings.push({
+        row: rowNumber,
+        message: `Row ${rowNumber} is not a vocabulary pair. Use: english | uzbek  or  english - uzbek`,
+      });
       continue;
     }
 
-    const english = normalizeText(match[1]).trim();
-    const uzbek = normalizeText(match[2]).trim();
-    if (!english || !uzbek) {
-      skippedLines.push(line);
+    const pair = toPairRecord(match[1], match[2], currentTask ? { task: currentTask } : {});
+    if (!pair) {
+      if (!normalizeText(match[1])) {
+        result.warnings.push({ row: rowNumber, message: `Row ${rowNumber} has no English word` });
+      } else {
+        result.warnings.push({ row: rowNumber, message: `Row ${rowNumber} has no Uzbek meaning` });
+      }
+      result.skippedLines.push(line);
       continue;
     }
-
-    pairs.push({
-      english,
-      uzbek,
-      ...(currentTask ? { task: currentTask } : {}),
-    });
+    pairsPush(result, pair, rowNumber);
   }
 
-  return { pairs, tasks, skippedLines, pairCount: pairs.length };
+  return finalizeParseResult(result);
+};
+
+const parsePairsFromText = (rawText) => {
+  if (looksLikeCsv(rawText)) return parseCsvPairs(rawText);
+  return parseSeparatedLines(rawText);
 };
 
 /**
@@ -84,11 +230,10 @@ const parseStructuredImport = (html, imageMetaBySrc = {}) => {
     return parsePairsFromText(stripHtml(html));
   }
 
-  const pairs = [];
-  const tasks = [];
-  const skippedLines = [];
+  const result = emptyParseResult();
   let currentTask = null;
   let pendingImageUrl = null;
+  let rowNumber = 0;
 
   for (const token of tokens) {
     if (token.type === 'image') {
@@ -97,45 +242,44 @@ const parseStructuredImport = (html, imageMetaBySrc = {}) => {
     }
 
     const line = token.text;
+    rowNumber += 1;
     if (isTaskLine(line)) {
       currentTask = normalizeText(line).trim();
-      tasks.push(currentTask);
+      result.tasks.push(currentTask);
       continue;
     }
 
     const pairMatch = line.match(SEPARATOR_PATTERN);
     if (!pairMatch) {
-      skippedLines.push(line);
+      result.skippedLines.push(line);
       continue;
     }
 
-    const english = normalizeText(pairMatch[1]).trim();
-    const uzbek = normalizeText(pairMatch[2]).trim();
-    if (!english || !uzbek) {
-      skippedLines.push(line);
-      continue;
-    }
-
-    const pair = { english, uzbek };
-    if (currentTask) pair.task = currentTask;
+    const extras = {};
+    if (currentTask) extras.task = currentTask;
     if (pendingImageUrl) {
-      pair.imageUrl = pendingImageUrl;
+      extras.imageUrl = pendingImageUrl;
       pendingImageUrl = null;
     }
-    pairs.push(pair);
+    const pair = toPairRecord(pairMatch[1], pairMatch[2], extras);
+    if (!pair) {
+      result.skippedLines.push(line);
+      continue;
+    }
+    pairsPush(result, pair, rowNumber);
   }
 
-  // Orphan trailing images: attach to last pair without an image
-  if (pendingImageUrl && pairs.length > 0) {
-    const last = pairs[pairs.length - 1];
+  if (pendingImageUrl && result.pairs.length > 0) {
+    const last = result.pairs[result.pairs.length - 1];
     if (!last.imageUrl) last.imageUrl = pendingImageUrl;
   }
 
-  return { pairs, tasks, skippedLines, pairCount: pairs.length };
+  return finalizeParseResult(result);
 };
 
 module.exports = {
   parsePairsFromText,
+  parseCsvPairs,
   parseStructuredImport,
   SEPARATOR_PATTERN,
   isTaskLine,

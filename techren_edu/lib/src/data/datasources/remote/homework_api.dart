@@ -231,10 +231,49 @@ class HomeworkApi {
     return CmsLesson.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
-  Future<CmsLesson> updateLesson(String id, {required String name, int? order}) async {
+  Future<PracticeQuestion> nextPractice({
+    required String lessonId,
+    required String mode,
+    String? direction,
+    int rushStep = 0,
+  }) async {
+    final response = await _client.dio.post('/homework/practice/next', data: {
+      'lessonId': lessonId,
+      'mode': mode,
+      if (direction != null) 'direction': direction,
+      'rushStep': rushStep,
+    });
+    return PracticeQuestion.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<PracticeAnswerResult> submitPracticeAnswer({
+    required String questionId,
+    String? answer,
+    List<String>? answers,
+    List<List<String>>? matches,
+    int? streak,
+    int? timeAttackScore,
+    int? timeAttackDuration,
+    int? wordRushScore,
+  }) async {
+    final response = await _client.dio.post('/homework/practice/answer', data: {
+      'questionId': questionId,
+      if (answer != null) 'answer': answer,
+      if (answers != null) 'answers': answers,
+      if (matches != null) 'matches': matches,
+      if (streak != null) 'streak': streak,
+      if (timeAttackScore != null) 'timeAttackScore': timeAttackScore,
+      if (timeAttackDuration != null) 'timeAttackDuration': timeAttackDuration,
+      if (wordRushScore != null) 'wordRushScore': wordRushScore,
+    });
+    return PracticeAnswerResult.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<CmsLesson> updateLesson(String id, {required String name, int? order, String? directionMode}) async {
     final response = await _client.dio.put('/homework/lessons/$id', data: {
       'name': name,
       if (order != null) 'order': order,
+      if (directionMode != null) 'directionMode': directionMode,
     });
     return CmsLesson.fromJson(response.data['data'] as Map<String, dynamic>);
   }

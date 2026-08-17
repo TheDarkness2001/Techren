@@ -35,6 +35,22 @@ router.post(
   validate,
   homeworkController.practiceStats
 );
+router.post(
+  '/practice/next',
+  body('lessonId').isMongoId(),
+  body('mode').optional().isString(),
+  body('direction').optional().isIn(['mixed', 'en-to-uz', 'uz-to-en']),
+  body('rushStep').optional().isInt({ min: 0, max: 40 }),
+  validate,
+  homeworkController.practiceNext
+);
+router.post(
+  '/practice/answer',
+  body('questionId').isString().notEmpty(),
+  validate,
+  homeworkController.practiceAnswer
+);
+router.get('/practice/stats', homeworkController.practiceOverview);
 
 router.get('/words', editHomework, homeworkController.listWords);
 router.post(

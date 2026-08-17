@@ -10,6 +10,16 @@ const homeworkProgressSchema = new mongoose.Schema(
     uzToEnCorrect: { type: Number, default: 0 },
     uzToEnTotal: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now },
+    currentStreak: { type: Number, default: 0, min: 0 },
+    bestStreak: { type: Number, default: 0, min: 0 },
+    bestTimeAttack: {
+      30: { type: Number, default: 0, min: 0 },
+      60: { type: Number, default: 0, min: 0 },
+      90: { type: Number, default: 0, min: 0 },
+    },
+    bestWordRush: { type: Number, default: 0, min: 0 },
+    practiceXpToday: { type: Number, default: 0, min: 0 },
+    practiceXpDate: { type: String, default: '' },
   },
   { timestamps: true }
 );

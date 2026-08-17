@@ -519,13 +519,15 @@ class _RowActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final semantic = context.semantic;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.xs),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
         PeopleActionIconButton(
           tooltip: l10n.view,
           icon: Icons.visibility_outlined,
-          color: AppColors.primary,
+          color: Theme.of(context).colorScheme.primary,
           onPressed: () => showPersonDetailSheet(
             context: context,
             ref: ref,
@@ -538,7 +540,7 @@ class _RowActions extends ConsumerWidget {
           PeopleActionIconButton(
             tooltip: l10n.edit,
             icon: Icons.edit_outlined,
-            color: semantic.textMuted,
+            color: Theme.of(context).colorScheme.onSurface,
             onPressed: () async {
               final ok = await showPersonEditDialog(
                 context: context,
@@ -607,7 +609,8 @@ class _RowActions extends ConsumerWidget {
               }
             },
           ),
-      ],
+        ],
+      ),
     );
   }
 }

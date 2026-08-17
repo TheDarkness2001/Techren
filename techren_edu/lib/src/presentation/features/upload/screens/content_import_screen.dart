@@ -39,19 +39,6 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
     super.dispose();
   }
 
-  List<ImportPair> _parsePairsFromText(String text) {
-    final pairs = <ImportPair>[];
-    for (final line in text.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      final match = RegExp(r'^(.+?)\s*[-–—:]\s*(.+)$').firstMatch(trimmed);
-      if (match != null) {
-        pairs.add(ImportPair(english: match.group(1)!.trim(), uzbek: match.group(2)!.trim()));
-      }
-    }
-    return pairs;
-  }
-
   void _setParsedPairs(ParseImportResult parsed, {String? fallbackMessage}) {
     setState(() {
       _pairs = parsed.pairs;
@@ -68,7 +55,7 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
   Future<void> _pickAndParseDocx() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['docx', 'txt'],
+      allowedExtensions: const ['docx', 'txt', 'csv'],
       withData: true,
     );
     if (result == null) return;
@@ -123,16 +110,16 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
     }
   }
 
-  void _parsePastedPairs() {
-    final pairs = _parsePairsFromText(_pasteController.text);
-    setState(() {
-      _pairs = pairs;
-      _ocrEnabled = true;
-      _ocrImageUrl = null;
-      _statusMessage = pairs.isEmpty
-          ? 'No valid lines found. Use format: english - uzbek'
-          : 'Parsed ${pairs.length} pair(s) from pasted text';
-    });
+  Future<void> _parsePastedPairs() async {
+    setState(() => _busy = true);
+    try {
+      final parsed = await ref.read(uploadApiProvider).parseText(_pasteController.text);
+      _setParsedPairs(parsed, fallbackMessage: 'No valid lines found. Use: english | uzbek  or CSV.');
+    } catch (e) {
+      setState(() => _statusMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _importPairs() async {
@@ -242,14 +229,14 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
                   Text('Bulk import', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: AppSpacing.xs),
                   const Text(
-                    'Upload a DOCX or TXT file with lines like: You are ready. - Sen tayyorsan.\n'
-                    'Optional: Task lines (Task 1: …) and embedded Word images are imported for sentences.',
+                    'Upload a DOCX, TXT, or CSV file. One vocabulary item per row.\n'
+                    'Examples: hello | salom    or    "go, went, gone","bormoq, ketmoq"',
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   FilledButton.icon(
                     onPressed: _busy ? null : _pickAndParseDocx,
                     icon: const Icon(Icons.upload_file),
-                    label: const Text('Pick DOCX / TXT'),
+                    label: const Text('Pick DOCX / TXT / CSV'),
                   ),
                 ],
               ),
@@ -312,7 +299,7 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Text('Manual paste', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: AppSpacing.xs),
-                  const Text('One pair per line: english - uzbek'),
+                  const Text('One pair per line: english | uzbek   or CSV: English,Uzbek'),
                   const SizedBox(height: AppSpacing.xs),
                   TextField(
                     controller: _pasteController,
@@ -337,20 +324,27 @@ class _ContentImportScreenState extends ConsumerState<ContentImportScreen> {
             onPressed: _busy || _pairs.isEmpty || _lessonId == null ? null : _importPairs,
             child: _busy
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text('Import ${_pairs.length} pair(s)'),
+                : Text('Import ${_pairs.length} vocabulary item(s)'),
           ),
           if (_pairs.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            Text('Preview', style: Theme.of(context).textTheme.titleMedium),
+            Text('Import Preview', style: Theme.of(context).textTheme.titleMedium),
+            Text('${_pairs.length} vocabulary items detected'),
             const SizedBox(height: AppSpacing.xs),
-            ..._pairs.take(8).map(
-                  (pair) => ListTile(
+            ..._pairs.take(20).toList().asMap().entries.map(
+                  (entry) => ListTile(
                     dense: true,
-                    title: Text(pair.english),
-                    trailing: Text(pair.uzbek),
+                    title: Text('${entry.key + 1}. ${entry.value.english}'),
+                    subtitle: Text(
+                      (entry.value.uzbekMeanings.isNotEmpty
+                              ? entry.value.uzbekMeanings
+                              : entry.value.uzbek.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty))
+                          .map((m) => '→ $m')
+                          .join('\n'),
+                    ),
                   ),
                 ),
-            if (_pairs.length > 8) Text('...and ${_pairs.length - 8} more'),
+            if (_pairs.length > 20) Text('...and ${_pairs.length - 20} more'),
           ],
           const SizedBox(height: AppSpacing.md),
           Card(

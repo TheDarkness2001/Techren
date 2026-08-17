@@ -32,48 +32,64 @@ class AppDataTable extends StatelessWidget {
 
     final border = BorderSide(color: context.semantic.border.withValues(alpha: 0.8));
 
-    return Semantics(
-      label: 'Data table with ${rows.length} rows',
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: MediaQuery.sizeOf(context).width - AppSpacing.lg * 2),
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(context.semantic.surfaceContainer),
-              headingRowHeight: 52,
-              dataRowMinHeight: 64,
-              dataRowMaxHeight: 72,
-              headingTextStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.4,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - AppSpacing.lg * 2;
+
+        return Semantics(
+          label: 'Data table with ${rows.length} rows',
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minWidth),
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(context.semantic.surfaceContainer),
+                  headingRowHeight: 52,
+                  dataRowMinHeight: 64,
+                  dataRowMaxHeight: 72,
+                  headingTextStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        letterSpacing: 0.4,
+                      ),
+                  dataTextStyle: Theme.of(context).textTheme.bodyMedium,
+                  columnSpacing: AppSpacing.lg,
+                  horizontalMargin: AppSpacing.lg,
+                  dividerThickness: 1,
+                  border: TableBorder(
+                    horizontalInside: border,
+                    bottom: border,
                   ),
-              dataTextStyle: Theme.of(context).textTheme.bodyMedium,
-              columnSpacing: AppSpacing.lg,
-              horizontalMargin: AppSpacing.md,
-              dividerThickness: 1,
-              border: TableBorder(
-                horizontalInside: border,
-                bottom: border,
+                  columns: [
+                    for (final column in columns) DataColumn(label: Text(column.toUpperCase())),
+                  ],
+                  rows: [
+                    for (var i = 0; i < rows.length; i++)
+                      DataRow(
+                        onSelectChanged: onSelectChanged == null ? null : (_) => onSelectChanged!(i),
+                        cells: [
+                          for (var c = 0; c < rows[i].cells.length; c++)
+                            DataCell(
+                              c == rows[i].cells.length - 1
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(right: AppSpacing.sm),
+                                      child: rows[i].cells[c],
+                                    )
+                                  : rows[i].cells[c],
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
               ),
-              columns: [
-                for (final column in columns) DataColumn(label: Text(column.toUpperCase())),
-              ],
-              rows: [
-                for (var i = 0; i < rows.length; i++)
-                  DataRow(
-                    onSelectChanged: onSelectChanged == null ? null : (_) => onSelectChanged!(i),
-                    cells: [
-                      for (final cell in rows[i].cells) DataCell(cell),
-                    ],
-                  ),
-              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

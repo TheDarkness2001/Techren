@@ -43,7 +43,7 @@ class WordsLeaderboardScreen extends ConsumerWidget {
                 LeaderboardHubCard(
                   rank: entry.rank,
                   title: compactLeaderboardName(entry.name, entry.studentCode),
-                  subtitle: '${entry.studentCode} · ${entry.correctAnswers} correct',
+                  subtitle: '${entry.studentCode} · ${entry.correctAnswers} correct · ${entry.xp} XP',
                   trailing: '${entry.accuracy}%',
                   highlighted: isCurrentLeaderboardEntry(
                     entryName: entry.name,
@@ -60,7 +60,7 @@ class WordsLeaderboardScreen extends ConsumerWidget {
                 : () => buildOutsideTopCard(
                       rank: me.rank,
                       title: compactLeaderboardName(me.name, me.studentCode),
-                      subtitle: '${me.studentCode} · ${me.correctAnswers} correct',
+                      subtitle: '${me.studentCode} · ${me.correctAnswers} correct · ${me.xp} XP',
                       trailing: '${me.accuracy}%',
                     ),
           );

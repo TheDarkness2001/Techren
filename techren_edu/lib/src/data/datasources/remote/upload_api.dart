@@ -43,6 +43,11 @@ class UploadApi {
     return ParseImportResult.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<ParseImportResult> parseText(String text) async {
+    final response = await _client.dio.post('/upload/parse-text', data: {'text': text});
+    return ParseImportResult.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<ParseImportResult> parseOcr({
     String? filePath,
     Uint8List? bytes,

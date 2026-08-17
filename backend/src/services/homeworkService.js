@@ -1,11 +1,18 @@
 const mongoose = require('mongoose');
 const Word = require('../models/Word');
 const Lesson = require('../models/Lesson');
+const Level = require('../models/Level');
 const HomeworkProgress = require('../models/HomeworkProgress');
 const Student = require('../models/Student');
+const StudentVocabProgress = require('../models/StudentVocabProgress');
 const { checkVocabAnswer } = require('../utils/vocabAnswerChecker');
-const { normalizeText } = require('../utils/textNormalizer');
+const { canonicalizeVocabPair, mergeVocabPair, isSameVocabItem, splitVocabList } = require('../utils/vocabList');
 const recycleBinService = require('./recycleBinService');
+const {
+  getStudentGroupIds,
+  isExamUnlockedForStudent,
+  isPracticeUnlockedForStudent,
+} = require('./examGateService');
 
 const formatProgress = (progress) => ({
   totalAttempts: progress?.totalAttempts ?? 0,
@@ -22,12 +29,8 @@ const pickDirection = (lesson) => {
 };
 
 const formatWordPrompt = (word, direction) => {
-  const uzbekMeanings = word.uzbek
-    ? word.uzbek.split(',').map((m) => m.trim()).filter(Boolean).slice(0, 3)
-    : [];
-  const englishForms = word.english
-    ? word.english.split(',').map((f) => f.trim()).filter(Boolean).slice(0, 3)
-    : [];
+  const uzbekMeanings = splitVocabList(word.uzbek);
+  const englishForms = splitVocabList(word.english);
   return {
     id: word._id,
     english: word.english,
@@ -38,7 +41,41 @@ const formatWordPrompt = (word, direction) => {
   };
 };
 
-const getRandomWord = async ({ lessonId, levelId }) => {
+const assertStudentCanPracticeLesson = async (studentId, lessonId) => {
+  const lesson = await Lesson.findById(lessonId);
+  if (!lesson) {
+    throw Object.assign(new Error('Lesson not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const level = await Level.findById(lesson.levelId);
+  if (!level) {
+    throw Object.assign(new Error('Level not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const groupIds = await getStudentGroupIds(studentId);
+  if (!isPracticeUnlockedForStudent(level, groupIds)) {
+    throw Object.assign(new Error('This practice is locked for your group.'), { statusCode: 403, code: 'PRACTICE_LOCKED' });
+  }
+  const progress = await StudentVocabProgress.findOne({ studentId, lessonId });
+  const examUnlocked = isExamUnlockedForStudent(lesson, groupIds);
+  const status =
+    progress?.status === 'passed'
+      ? 'passed'
+      : examUnlocked
+        ? progress?.status || 'available'
+        : 'locked';
+  if (status === 'locked') {
+    throw Object.assign(new Error('This lesson is locked. Pass the exam for the previous class, or ask your teacher to unlock it.'), {
+      statusCode: 403,
+      code: 'LESSON_LOCKED',
+    });
+  }
+  return { lesson, level };
+};
+
+const getRandomWord = async ({ lessonId, levelId, studentId }) => {
+  if (studentId && lessonId) {
+    await assertStudentCanPracticeLesson(studentId, lessonId);
+  }
+
   let filter = {};
   if (lessonId) {
     filter = { lessonId: new mongoose.Types.ObjectId(lessonId) };
@@ -108,6 +145,9 @@ const getLeaderboard = async (req) => {
   const studentIds = records.map((p) => p.studentId);
   const students = await Student.find({ _id: { $in: studentIds } }).select('name studentId profileImage');
   const studentMap = new Map(students.map((s) => [String(s._id), s]));
+  const StudentGamification = require('../models/StudentGamification');
+  const xpDocs = await StudentGamification.find({ studentId: { $in: studentIds } }).select('studentId moduleXp totalXp');
+  const xpMap = new Map(xpDocs.map((d) => [String(d.studentId), d]));
 
   const allRanked = records
     .map((p) => ({
@@ -118,6 +158,8 @@ const getLeaderboard = async (req) => {
       totalAttempts: p.totalAttempts,
       correctAnswers: p.correctAnswers,
       accuracy: p.totalAttempts > 0 ? Math.round((p.correctAnswers / p.totalAttempts) * 100) : 0,
+      xp: xpMap.get(String(p.studentId))?.moduleXp?.words || 0,
+      bestStreak: p.bestStreak || 0,
     }))
     .filter((s) => s.totalAttempts > 0)
     .sort((a, b) => b.accuracy - a.accuracy || b.correctAnswers - a.correctAnswers);
@@ -139,34 +181,55 @@ const getLeaderboard = async (req) => {
 const listWords = async (lessonId) => {
   const filter = lessonId ? { lessonId } : {};
   const words = await Word.find(filter).sort({ createdAt: -1 });
-  return words.map((w) => ({
-    id: w._id,
-    english: w.english,
-    uzbek: w.uzbek,
-    lessonId: w.lessonId,
-  }));
+  return words.map((w) => formatStoredWord(w));
 };
 
-const addWord = async ({ english, uzbek, lessonId }) => {
+const formatStoredWord = (word, extras = {}) => ({
+  id: word._id,
+  english: word.english,
+  uzbek: word.uzbek,
+  englishForms: splitVocabList(word.english),
+  uzbekMeanings: splitVocabList(word.uzbek),
+  lessonId: word.lessonId,
+  ...extras,
+});
+
+const addWord = async ({ english, uzbek, lessonId, mergeDuplicates = false }) => {
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) {
     throw Object.assign(new Error('Lesson not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
+
+  const canonical = canonicalizeVocabPair(english, uzbek);
+  if (!canonical.english || !canonical.uzbek) {
+    throw Object.assign(new Error('English word and Uzbek meaning are required'), { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+
+  const existingWords = await Word.find({ lessonId });
+  const duplicate = existingWords.find((word) => isSameVocabItem(word, canonical));
+  if (duplicate) {
+    if (mergeDuplicates) {
+      const merged = mergeVocabPair(duplicate, canonical);
+      duplicate.english = merged.english;
+      duplicate.uzbek = merged.uzbek;
+      await duplicate.save();
+      return formatStoredWord(duplicate, { merged: true });
+    }
+    throw Object.assign(new Error('This word already exists in this lesson'), { statusCode: 409, code: 'DUPLICATE' });
+  }
+
   if (lesson.maxWords && lesson.wordIds.length >= lesson.maxWords) {
     throw Object.assign(new Error(`Lesson is full. Maximum ${lesson.maxWords} words allowed.`), { statusCode: 400, code: 'LIMIT_REACHED' });
   }
 
-  const trimmedEnglish = normalizeText(english).toLowerCase();
-  const trimmedUzbek = normalizeText(uzbek).toLowerCase();
-  const duplicate = await Word.findOne({ lessonId, english: trimmedEnglish, uzbek: trimmedUzbek });
-  if (duplicate) {
-    throw Object.assign(new Error('This word already exists in this lesson'), { statusCode: 409, code: 'DUPLICATE' });
-  }
-
-  const word = await Word.create({ english: trimmedEnglish, uzbek: trimmedUzbek, lessonId });
+  const word = await Word.create({
+    english: canonical.english,
+    uzbek: canonical.uzbek,
+    lessonId,
+  });
   lesson.wordIds.push(word._id);
   await lesson.save();
-  return { id: word._id, english: word.english, uzbek: word.uzbek, lessonId: word.lessonId };
+  return formatStoredWord(word);
 };
 
 const updateWord = async (id, data) => {
@@ -174,10 +237,16 @@ const updateWord = async (id, data) => {
   if (!word) {
     throw Object.assign(new Error('Word not found'), { statusCode: 404, code: 'NOT_FOUND' });
   }
-  if (data.english !== undefined) word.english = normalizeText(data.english).toLowerCase();
-  if (data.uzbek !== undefined) word.uzbek = normalizeText(data.uzbek).toLowerCase();
+  const nextEnglish = data.english !== undefined ? data.english : word.english;
+  const nextUzbek = data.uzbek !== undefined ? data.uzbek : word.uzbek;
+  const canonical = canonicalizeVocabPair(nextEnglish, nextUzbek);
+  if (!canonical.english || !canonical.uzbek) {
+    throw Object.assign(new Error('English word and Uzbek meaning are required'), { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  word.english = canonical.english;
+  word.uzbek = canonical.uzbek;
   await word.save();
-  return { id: word._id, english: word.english, uzbek: word.uzbek, lessonId: word.lessonId };
+  return formatStoredWord(word);
 };
 
 const removeWord = async (id, req) => {
@@ -206,4 +275,6 @@ module.exports = {
   removeWord,
   formatWordPrompt,
   pickDirection,
+  assertStudentCanPracticeLesson,
+  formatStoredWord,
 };

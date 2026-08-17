@@ -30,13 +30,13 @@ const saveEmbeddedImage = async (image) => {
 const parseDocxFile = async (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
 
-  if (ext === '.txt') {
+  if (ext === '.txt' || ext === '.csv') {
     const rawText = fs.readFileSync(filePath, 'utf8');
     const parsed = parsePairsFromText(rawText);
     return {
       ...parsed,
       images: [],
-      source: 'txt',
+      source: ext === '.csv' ? 'csv' : 'txt',
       rawTextPreview: rawText.slice(0, 500),
     };
   }
@@ -101,8 +101,9 @@ const parseOcrImage = async (file) => {
   };
 };
 
-const bulkImportWords = async (lessonId, pairs) => {
+const bulkImportWords = async (lessonId, pairs, { mergeDuplicates = true } = {}) => {
   const created = [];
+  const merged = [];
   const skipped = [];
   const errors = [];
 
@@ -112,8 +113,10 @@ const bulkImportWords = async (lessonId, pairs) => {
         english: pair.english,
         uzbek: pair.uzbek,
         lessonId,
+        mergeDuplicates,
       });
-      created.push(word);
+      if (word.merged) merged.push(word);
+      else created.push(word);
     } catch (error) {
       if (error.code === 'DUPLICATE' || error.code === 'LIMIT_REACHED') {
         skipped.push({ ...pair, reason: error.message });
@@ -123,7 +126,15 @@ const bulkImportWords = async (lessonId, pairs) => {
     }
   }
 
-  return { created: created.length, skipped: skipped.length, errors, items: created, skippedItems: skipped };
+  return {
+    created: created.length,
+    merged: merged.length,
+    skipped: skipped.length,
+    errors,
+    items: created,
+    mergedItems: merged,
+    skippedItems: skipped,
+  };
 };
 
 const bulkImportSentences = async (lessonId, pairs) => {

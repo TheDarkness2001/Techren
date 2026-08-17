@@ -147,6 +147,8 @@ class LeaderboardEntry {
     required this.accuracy,
     required this.correctAnswers,
     this.profileImage,
+    this.xp = 0,
+    this.bestStreak = 0,
   });
 
   final int rank;
@@ -155,6 +157,8 @@ class LeaderboardEntry {
   final int accuracy;
   final int correctAnswers;
   final String? profileImage;
+  final int xp;
+  final int bestStreak;
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) => LeaderboardEntry(
         rank: json['rank'] as int? ?? 0,
@@ -163,6 +167,133 @@ class LeaderboardEntry {
         accuracy: json['accuracy'] as int? ?? 0,
         correctAnswers: json['correctAnswers'] as int? ?? 0,
         profileImage: json['profileImage'] as String?,
+        xp: (json['xp'] as num?)?.toInt() ?? 0,
+        bestStreak: (json['bestStreak'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class PracticeQuestionCard {
+  const PracticeQuestionCard({
+    required this.id,
+    required this.wordId,
+    required this.side,
+    required this.text,
+  });
+
+  final String id;
+  final String wordId;
+  final String side;
+  final String text;
+
+  factory PracticeQuestionCard.fromJson(Map<String, dynamic> json) => PracticeQuestionCard(
+        id: json['id']?.toString() ?? '',
+        wordId: json['wordId']?.toString() ?? '',
+        side: json['side'] as String? ?? 'en',
+        text: json['text'] as String? ?? '',
+      );
+}
+
+class PracticeQuestion {
+  const PracticeQuestion({
+    required this.questionId,
+    required this.mode,
+    required this.direction,
+    required this.promptText,
+    this.hint,
+    this.timeLimitMs,
+    this.choices = const [],
+    this.statement,
+    this.masked,
+    this.scrambled,
+    this.cards = const [],
+  });
+
+  final String questionId;
+  final String mode;
+  final String direction;
+  final String promptText;
+  final String? hint;
+  final int? timeLimitMs;
+  final List<String> choices;
+  final String? statement;
+  final String? masked;
+  final String? scrambled;
+  final List<PracticeQuestionCard> cards;
+
+  factory PracticeQuestion.fromJson(Map<String, dynamic> json) => PracticeQuestion(
+        questionId: json['questionId']?.toString() ?? '',
+        mode: json['mode'] as String? ?? 'classic',
+        direction: json['direction'] as String? ?? 'en-to-uz',
+        promptText: json['promptText'] as String? ?? '',
+        hint: json['hint'] as String?,
+        timeLimitMs: (json['timeLimitMs'] as num?)?.toInt(),
+        choices: (json['choices'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+        statement: json['statement'] as String?,
+        masked: json['masked'] as String?,
+        scrambled: json['scrambled'] as String?,
+        cards: (json['cards'] as List<dynamic>? ?? [])
+            .map((e) => PracticeQuestionCard.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class PracticeAnswerStats {
+  const PracticeAnswerStats({
+    this.xpAwarded = 0,
+    this.currentStreak = 0,
+    this.bestStreak = 0,
+    this.accuracy = 0,
+    this.correctAnswers = 0,
+    this.totalAttempts = 0,
+    this.dailyXpRemaining = 0,
+    this.bestWordRush = 0,
+  });
+
+  final int xpAwarded;
+  final int currentStreak;
+  final int bestStreak;
+  final int accuracy;
+  final int correctAnswers;
+  final int totalAttempts;
+  final int dailyXpRemaining;
+  final int bestWordRush;
+
+  factory PracticeAnswerStats.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const PracticeAnswerStats();
+    return PracticeAnswerStats(
+      xpAwarded: (json['xpAwarded'] as num?)?.toInt() ?? 0,
+      currentStreak: (json['currentStreak'] as num?)?.toInt() ?? 0,
+      bestStreak: (json['bestStreak'] as num?)?.toInt() ?? 0,
+      accuracy: (json['accuracy'] as num?)?.toInt() ?? 0,
+      correctAnswers: (json['correctAnswers'] as num?)?.toInt() ?? 0,
+      totalAttempts: (json['totalAttempts'] as num?)?.toInt() ?? 0,
+      dailyXpRemaining: (json['dailyXpRemaining'] as num?)?.toInt() ?? 0,
+      bestWordRush: (json['bestWordRush'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class PracticeAnswerResult {
+  const PracticeAnswerResult({
+    required this.isCorrect,
+    required this.correctAnswer,
+    required this.userAnswer,
+    this.timedOut = false,
+    this.stats = const PracticeAnswerStats(),
+  });
+
+  final bool isCorrect;
+  final String correctAnswer;
+  final String userAnswer;
+  final bool timedOut;
+  final PracticeAnswerStats stats;
+
+  factory PracticeAnswerResult.fromJson(Map<String, dynamic> json) => PracticeAnswerResult(
+        isCorrect: json['isCorrect'] as bool? ?? false,
+        correctAnswer: json['correctAnswer'] as String? ?? '',
+        userAnswer: json['userAnswer'] as String? ?? '',
+        timedOut: json['timedOut'] as bool? ?? false,
+        stats: PracticeAnswerStats.fromJson(json['stats'] as Map<String, dynamic>?),
       );
 }
 

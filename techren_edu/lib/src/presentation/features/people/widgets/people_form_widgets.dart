@@ -227,20 +227,27 @@ class PeopleActionIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? Color.lerp(color, Colors.white, 0.55)! : color;
+    final background = isDark
+        ? scheme.onSurface.withValues(alpha: 0.12)
+        : color.withValues(alpha: 0.14);
+
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.only(left: 6),
       child: Tooltip(
         message: tooltip,
         child: Material(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
+          color: background,
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onPressed,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: SizedBox(
-              width: 34,
-              height: 34,
-              child: Icon(icon, size: 18, color: color),
+              width: 40,
+              height: 40,
+              child: Icon(icon, size: 22, color: iconColor),
             ),
           ),
         ),

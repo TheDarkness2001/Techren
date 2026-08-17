@@ -9,7 +9,7 @@ const handle = (res, e) => sendError(res, e.statusCode || 500, e.code || 'SERVER
 exports.parseDocx = asyncHandler(async (req, res) => {
   try {
     if (!req.file) {
-      return sendError(res, 400, 'VALIDATION_ERROR', 'DOCX or TXT file is required');
+      return sendError(res, 400, 'VALIDATION_ERROR', 'DOCX, TXT, or CSV file is required');
     }
     const { assertMagicBytes } = require('../utils/fileMagic');
     assertMagicBytes(req.file.path, 'docx');
@@ -19,6 +19,19 @@ exports.parseDocx = asyncHandler(async (req, res) => {
     handle(res, e);
   } finally {
     if (req.file?.path) fs.unlink(req.file.path, () => {});
+  }
+});
+
+exports.parseText = asyncHandler(async (req, res) => {
+  try {
+    const text = req.body?.text;
+    if (!text || !String(text).trim()) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'text is required');
+    }
+    const data = importService.parsePairsFromText(String(text));
+    sendSuccess(res, { ...data, source: 'paste' });
+  } catch (e) {
+    handle(res, e);
   }
 });
 

@@ -16,6 +16,7 @@ import '../../../providers/learning_cms_provider.dart';
 import '../../../providers/sentences_provider.dart';
 import '../../../providers/upload_provider.dart';
 import '../../../providers/words_provider.dart';
+import '../../words/widgets/words_practice_widgets.dart';
 
 String _mediaAbsoluteUrl(String path) {
   if (path.startsWith('http')) return path;
@@ -150,8 +151,21 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
     final englishCtrl = TextEditingController(text: english ?? '');
     final uzbekCtrl = TextEditingController(text: uzbek ?? '');
     final taskCtrl = TextEditingController(text: task ?? '');
+    final englishChipCtrl = TextEditingController();
+    final uzbekChipCtrl = TextEditingController();
+    var englishForms = (english ?? '')
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    var uzbekMeanings = (uzbek ?? '')
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     var currentImageUrl = imageUrl?.trim() ?? '';
     var busy = false;
+    final isWords = widget.module == ContentManagerModule.words;
 
     final saved = await showAppDialog<bool>(
       context: context,
@@ -160,17 +174,68 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
           title: id == null ? 'Add $_pairLabel' : 'Edit $_pairLabel',
           content: AppFormColumn(
             children: [
-              TextField(
-                controller: englishCtrl,
-                decoration: const InputDecoration(labelText: 'English'),
-                maxLines: 2,
-                autofocus: true,
-              ),
-              TextField(
-                controller: uzbekCtrl,
-                decoration: const InputDecoration(labelText: 'Uzbek'),
-                maxLines: 2,
-              ),
+              if (isWords) ...[
+                VocabChipEditor(
+                  label: 'English forms',
+                  values: englishForms,
+                  controller: englishChipCtrl,
+                  hint: 'go  then +   (went, gone as extra forms)',
+                  onAdd: () {
+                    final parts = englishChipCtrl.text
+                        .split(',')
+                        .map((e) => e.trim())
+                        .where((e) => e.isNotEmpty);
+                    if (parts.isEmpty) return;
+                    setDialogState(() {
+                      for (final value in parts) {
+                        if (!englishForms.map((e) => e.toLowerCase()).contains(value.toLowerCase())) {
+                          englishForms = [...englishForms, value];
+                        }
+                      }
+                      englishChipCtrl.clear();
+                    });
+                  },
+                  onRemove: (value) => setDialogState(() {
+                    englishForms = englishForms.where((e) => e != value).toList();
+                  }),
+                ),
+                VocabChipEditor(
+                  label: 'Uzbek meanings',
+                  values: uzbekMeanings,
+                  controller: uzbekChipCtrl,
+                  hint: 'bormoq  then +',
+                  onAdd: () {
+                    final parts = uzbekChipCtrl.text
+                        .split(',')
+                        .map((e) => e.trim())
+                        .where((e) => e.isNotEmpty);
+                    if (parts.isEmpty) return;
+                    setDialogState(() {
+                      for (final value in parts) {
+                        if (!uzbekMeanings.map((e) => e.toLowerCase()).contains(value.toLowerCase())) {
+                          uzbekMeanings = [...uzbekMeanings, value];
+                        }
+                      }
+                      uzbekChipCtrl.clear();
+                    });
+                  },
+                  onRemove: (value) => setDialogState(() {
+                    uzbekMeanings = uzbekMeanings.where((e) => e != value).toList();
+                  }),
+                ),
+              ] else ...[
+                TextField(
+                  controller: englishCtrl,
+                  decoration: const InputDecoration(labelText: 'English'),
+                  maxLines: 2,
+                  autofocus: true,
+                ),
+                TextField(
+                  controller: uzbekCtrl,
+                  decoration: const InputDecoration(labelText: 'Uzbek'),
+                  maxLines: 2,
+                ),
+              ],
               if (widget.module == ContentManagerModule.sentences) ...[
                 TextField(
                   controller: taskCtrl,
@@ -248,8 +313,8 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
     );
 
     if (saved != true || !mounted) return;
-    final en = englishCtrl.text.trim();
-    final uz = uzbekCtrl.text.trim();
+    final en = isWords ? englishForms.join(', ') : englishCtrl.text.trim();
+    final uz = isWords ? uzbekMeanings.join(', ') : uzbekCtrl.text.trim();
     if (en.isEmpty || uz.isEmpty) return;
 
     try {
@@ -298,7 +363,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
 
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['docx', 'txt'],
+      allowedExtensions: const ['docx', 'txt', 'csv'],
       withData: true,
     );
     if (picked == null || !mounted) return;
@@ -345,55 +410,57 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
     final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppDialog(
-        title: 'Import ${parsed!.pairs.length} $_pairLabelPlural',
+        title: 'Import ${parsed!.pairs.length} vocabulary items',
         content: SizedBox(
-          width: 480,
+          width: 520,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 [
+                  '${parsed.pairCount} vocabulary items detected',
+                  'Valid: ${parsed.validCount}',
+                  'Warnings: ${parsed.warningCount}',
+                  'Duplicates: ${parsed.duplicateCount}',
                   if (parsed.tasks.isNotEmpty) '${parsed.tasks.length} task line(s)',
                   if (parsed.images.isNotEmpty) '${parsed.images.length} image(s)',
-                  'Previewing first ${parsed.pairs.length.clamp(0, 6)} pair(s)',
-                ].where((s) => s.isNotEmpty).join(' · '),
+                ].join(' · '),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (parsed.warnings.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(parsed.warnings.take(6).join('\n'), style: TextStyle(color: AppColors.error)),
+              ],
+              if (parsed.duplicates.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  parsed.duplicates.take(4).map((d) => 'Duplicate detected: $d').join('\n'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 280),
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    for (final pair in parsed.pairs.take(6))
+                    for (var i = 0; i < parsed.pairs.length && i < 20; i++)
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: pair.imageUrl == null || pair.imageUrl!.isEmpty
-                            ? null
-                            : ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  _mediaAbsoluteUrl(pair.imageUrl!),
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
-                                ),
-                              ),
-                        title: Text(pair.english, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        title: Text('${i + 1}. ${parsed.pairs[i].english}'),
                         subtitle: Text(
-                          [
-                            pair.uzbek,
-                            if (pair.task != null && pair.task!.isNotEmpty) pair.task!,
-                          ].join('\n'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          (parsed.pairs[i].uzbekMeanings.isNotEmpty
+                                  ? parsed.pairs[i].uzbekMeanings
+                                  : parsed.pairs[i].uzbek.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty))
+                              .map((m) => '→ $m')
+                              .join('\n'),
                         ),
+                        isThreeLine: parsed.pairs[i].uzbek.contains(','),
                       ),
-                    if (parsed.pairs.length > 6)
-                      Text('…and ${parsed.pairs.length - 6} more', style: Theme.of(context).textTheme.bodySmall),
+                    if (parsed.pairs.length > 20)
+                      Text('…and ${parsed.pairs.length - 20} more', style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
@@ -402,7 +469,11 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
         ),
         actions: [
           AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
-          AppDialogActions.confirm(context, label: 'Import', onPressed: () => Navigator.pop(context, true)),
+          AppDialogActions.confirm(
+            context,
+            label: parsed.pairs.isEmpty ? 'Close' : 'Import',
+            onPressed: parsed.pairs.isEmpty ? () => Navigator.pop(context, false) : () => Navigator.pop(context, true),
+          ),
         ],
       ),
     );
@@ -417,7 +488,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
       await _refreshTree();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported ${result.created}, skipped ${result.skipped}')),
+        SnackBar(content: Text('Imported ${result.created}, merged ${result.merged}, skipped ${result.skipped}')),
       );
     } catch (e) {
       if (mounted) {
@@ -605,6 +676,48 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     }
                   }
                 },
+                onDirection: widget.module == ContentManagerModule.words
+                    ? (lesson) async {
+                        const options = {
+                          'mixed': 'Mixed',
+                          'en-to-uz': 'English → Uzbek',
+                          'uz-to-en': 'Uzbek → English',
+                        };
+                        final selected = await showAppDialog<String>(
+                          context: context,
+                          builder: (context) => AppDialog(
+                            title: 'Practice direction',
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final entry in options.entries)
+                                  ListTile(
+                                    title: Text(entry.value),
+                                    selected: lesson.directionMode == entry.key,
+                                    onTap: () => Navigator.pop(context, entry.key),
+                                  ),
+                              ],
+                            ),
+                            actions: [
+                              AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context)),
+                            ],
+                          ),
+                        );
+                        if (selected == null) return;
+                        try {
+                          await ref.read(homeworkApiProvider).updateLesson(
+                                lesson.id,
+                                name: lesson.name,
+                                directionMode: selected,
+                              );
+                          await _refreshTree();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                          }
+                        }
+                      }
+                    : null,
                 onDelete: widget.allowDelete
                     ? (lesson) => _confirmDelete(
                           'Delete lesson?',
@@ -761,6 +874,7 @@ class _ManageTile extends StatelessWidget {
     required this.onOpen,
     required this.onRename,
     this.onDelete,
+    this.onDirection,
   });
 
   final String title;
@@ -768,6 +882,7 @@ class _ManageTile extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onRename;
   final VoidCallback? onDelete;
+  final VoidCallback? onDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -782,9 +897,11 @@ class _ManageTile extends StatelessWidget {
           onSelected: (value) {
             if (value == 'rename') onRename();
             if (value == 'delete') onDelete?.call();
+            if (value == 'direction') onDirection?.call();
           },
           itemBuilder: (context) => [
             const PopupMenuItem(value: 'rename', child: Text('Rename')),
+            if (onDirection != null) const PopupMenuItem(value: 'direction', child: Text('Practice direction')),
             if (onDelete != null) const PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
         ),
@@ -890,6 +1007,7 @@ class _LessonsStep extends StatelessWidget {
     required this.onAdd,
     required this.onRename,
     this.onDelete,
+    this.onDirection,
   });
 
   final String levelName;
@@ -899,6 +1017,7 @@ class _LessonsStep extends StatelessWidget {
   final VoidCallback onAdd;
   final ValueChanged<CmsLesson> onRename;
   final ValueChanged<CmsLesson>? onDelete;
+  final ValueChanged<CmsLesson>? onDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -919,10 +1038,15 @@ class _LessonsStep extends StatelessWidget {
           for (final lesson in lessons)
             _ManageTile(
               title: lesson.name,
-              subtitle: 'Open to manage content',
+              subtitle: lesson.directionMode == 'mixed'
+                  ? 'Open to manage content · Mixed'
+                  : lesson.directionMode == 'en-to-uz'
+                      ? 'Open to manage content · English → Uzbek'
+                      : 'Open to manage content · Uzbek → English',
               onOpen: () => onOpen(lesson),
               onRename: () => onRename(lesson),
               onDelete: onDelete == null ? null : () => onDelete!(lesson),
+              onDirection: onDirection == null ? null : () => onDirection!(lesson),
             ),
       ],
     );

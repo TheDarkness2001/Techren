@@ -61,18 +61,30 @@ class CmsWord {
     required this.english,
     required this.uzbek,
     required this.lessonId,
+    this.englishForms = const [],
+    this.uzbekMeanings = const [],
   });
 
   final String id;
   final String english;
   final String uzbek;
   final String lessonId;
+  final List<String> englishForms;
+  final List<String> uzbekMeanings;
 
   factory CmsWord.fromJson(Map<String, dynamic> json) => CmsWord(
         id: json['id']?.toString() ?? '',
         english: json['english'] as String? ?? '',
         uzbek: json['uzbek'] as String? ?? '',
         lessonId: json['lessonId']?.toString() ?? '',
+        englishForms: (json['englishForms'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList(),
+        uzbekMeanings: (json['uzbekMeanings'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList(),
       );
 }
 
@@ -85,6 +97,7 @@ class CmsLesson {
     this.wordCount = 0,
     this.type = 'words',
     this.examUnlockedFor = const [],
+    this.directionMode = 'mixed',
   });
 
   final String id;
@@ -94,6 +107,7 @@ class CmsLesson {
   final int wordCount;
   final String type;
   final List<String> examUnlockedFor;
+  final String directionMode;
 
   bool isExamUnlockedFor(String groupId) {
     final gid = groupId.trim();
@@ -111,6 +125,7 @@ class CmsLesson {
         examUnlockedFor: (json['examUnlockedFor'] as List<dynamic>? ?? [])
             .map((e) => e.toString())
             .toList(),
+        directionMode: json['directionMode'] as String? ?? 'mixed',
       );
 }
 

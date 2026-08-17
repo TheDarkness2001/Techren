@@ -11,6 +11,7 @@ const router = express.Router();
 router.use(protect, editHomework);
 
 router.post('/parse-docx', docxUpload.single('file'), controller.parseDocx);
+router.post('/parse-text', body('text').isString().notEmpty(), validate, controller.parseText);
 router.post('/parse-ocr', ocrUpload.single('image'), controller.parseOcr);
 router.post(
   '/bulk-import/words',
