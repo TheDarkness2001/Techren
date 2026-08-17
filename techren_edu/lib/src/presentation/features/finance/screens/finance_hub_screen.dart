@@ -18,8 +18,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/staff_navigation_provider.dart';
-import 'widgets/branch_collections_panel.dart';
-import 'widgets/branch_expenses_panel.dart';
+import '../widgets/branch_collections_panel.dart';
+import '../widgets/branch_expenses_panel.dart';
 
 class FinanceHubScreen extends ConsumerStatefulWidget {
   const FinanceHubScreen({
