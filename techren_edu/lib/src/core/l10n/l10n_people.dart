@@ -63,4 +63,16 @@ extension L10nPeople on AppLocalizations {
   String get profilePhotoUpdated => t(en: 'Profile photo updated', ru: 'Фото профиля обновлено', uz: 'Profil rasmi yangilandi');
   String uploadFailed(String error) => t(en: 'Upload failed: $error', ru: 'Ошибка загрузки: $error', uz: 'Yuklash xatosi: $error');
   String get goBackArrow => t(en: '← Back', ru: '← Назад', uz: '← Orqaga');
+  String get deletePerson => t(en: 'Delete', ru: 'Удалить', uz: 'O‘chirish');
+  String deleteStudentConfirm(String name) => t(
+        en: 'Permanently delete $name? This cannot be undone.',
+        ru: 'Удалить $name навсегда? Это нельзя отменить.',
+        uz: '$name ni butunlay o‘chirasizmi? Qaytarib bo‘lmaydi.',
+      );
+  String deleteStaffConfirm(String name) => t(
+        en: 'Permanently delete staff member $name? This cannot be undone.',
+        ru: 'Удалить сотрудника $name навсегда? Это нельзя отменить.',
+        uz: '$name xodimini butunlay o‘chirasizmi? Qaytarib bo‘lmaydi.',
+      );
+  String personDeleted(String name) => t(en: '$name deleted', ru: '$name удалён', uz: '$name o‘chirildi');
 }

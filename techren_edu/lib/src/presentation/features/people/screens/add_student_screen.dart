@@ -154,6 +154,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final form = _formKey.currentState;
     if (form == null) return;
     setState(() => _autovalidateMode = AutovalidateMode.onUserInteraction);
@@ -217,17 +218,28 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         branchId: branchId,
       );
 
+      var photoFailed = false;
       if (_photoBytes != null && _photoName != null) {
-        await api.uploadStudentPhoto(
-          created.id,
-          bytes: _photoBytes,
-          fileName: _photoName!,
-        );
+        try {
+          await api.uploadStudentPhoto(
+            created.id,
+            bytes: _photoBytes,
+            fileName: _photoName!,
+          );
+        } catch (_) {
+          photoFailed = true;
+        }
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Student ${created.displayId ?? created.name} created')),
+        SnackBar(
+          content: Text(
+            photoFailed
+                ? 'Student ${created.displayId ?? created.name} created. Photo could not be uploaded — edit the student to add it.'
+                : 'Student ${created.displayId ?? created.name} created',
+          ),
+        ),
       );
       context.go('${widget.prefix}/people/students');
     } on DioException catch (e) {

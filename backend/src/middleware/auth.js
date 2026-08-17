@@ -115,10 +115,18 @@ const checkPermission = (permission) => async (req, res, next) => {
   return sendError(res, 403, 'FORBIDDEN', `Missing permission: ${permission}`);
 };
 
+const requireFounder = (req, res, next) => {
+  if (req.userType !== 'teacher' || req.user?.role !== 'founder') {
+    return sendError(res, 403, 'FORBIDDEN', 'Founder only');
+  }
+  return next();
+};
+
 module.exports = {
   protect,
   checkPermission,
   hasPermission,
   isPrivilegedStaff,
   isPlatformAdmin,
+  requireFounder,
 };

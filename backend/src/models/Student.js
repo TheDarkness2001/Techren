@@ -80,6 +80,7 @@ studentSchema.methods.toPublicJSON = function toPublicJSON() {
       subject: f.subject || '',
       amount: Number(f.amount || 0),
     })),
+    subjects: (this.subjectFees || []).map((f) => f.subject).filter(Boolean),
     dateOfBirth: this.dateOfBirth || null,
     gender: this.gender || '',
     bloodGroup: this.bloodGroup || '',

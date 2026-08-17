@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
@@ -124,6 +126,40 @@ Future<void> showPersonDetailSheet({
                 if (sheetContext.mounted) Navigator.pop(sheetContext);
                 onChanged();
               },
+            ),
+          ],
+          if ((user?.isFounder ?? false) && person.role != 'founder') ...[
+            const SizedBox(height: AppSpacing.lg),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final l10n = sheetContext.l10n;
+                final ok = await showAppConfirmDialog(
+                  context: sheetContext,
+                  title: l10n.deletePerson,
+                  message: person.isStudent
+                      ? l10n.deleteStudentConfirm(person.name)
+                      : l10n.deleteStaffConfirm(person.name),
+                  confirmLabel: l10n.deletePerson,
+                  destructive: true,
+                );
+                if (!ok) return;
+                try {
+                  final api = ref.read(identityApiProvider);
+                  if (person.isStudent) {
+                    await api.deleteStudent(person.id);
+                  } else {
+                    await api.deleteTeacher(person.id);
+                  }
+                  if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  onChanged();
+                } catch (e) {
+                  if (sheetContext.mounted) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(SnackBar(content: Text(e.toString())));
+                  }
+                }
+              },
+              icon: const Icon(Icons.delete_forever_outlined),
+              label: Text(sheetContext.l10n.deletePerson),
             ),
           ],
         ],

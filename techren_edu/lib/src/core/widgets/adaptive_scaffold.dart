@@ -348,31 +348,32 @@ class _PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasActions = actions != null && actions!.isNotEmpty;
     return Semantics(
       header: true,
       child: Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-              overflow: TextOverflow.ellipsis,
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          if (actions != null)
-            Flexible(
-              child: SingleChildScrollView(
+            if (hasActions) ...[
+              const SizedBox(width: AppSpacing.md),
+              SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: actions!,
                 ),
               ),
-            ),
-        ],
-      ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -63,6 +63,11 @@ class PushNotificationService {
 
     if (kIsWeb) return;
 
+    await ensureChatNotificationsReady();
+    onChatNotificationTap = (data) {
+      _handleDataNavigation(data);
+    };
+
     try {
       await Firebase.initializeApp();
       _firebaseReady = true;
@@ -76,10 +81,6 @@ class PushNotificationService {
     }
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await ensureChatNotificationsReady();
-    onChatNotificationTap = (data) {
-      _handleDataNavigation(data);
-    };
 
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission(alert: true, badge: true, sound: true);

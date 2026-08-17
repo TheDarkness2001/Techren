@@ -97,11 +97,11 @@ extension L10nCommon on AppLocalizations {
   String get sendTestNotification =>
       t(en: 'Send test notification', ru: 'Тестовое уведомление', uz: 'Sinov bildirishnomasi');
   String get testPushSent =>
-      t(en: 'Test notification sent. Check the notification tray.', ru: 'Тест отправлен. Проверьте шторку уведомлений.', uz: 'Sinov yuborildi. Bildirishnomalar panelini tekshiring.');
+      t(en: 'Test notification sent. Check the bell or the notification tray.', ru: 'Тест отправлен. Проверьте колокольчик или шторку уведомлений.', uz: 'Sinov yuborildi. Qo‘ng‘iroqcha yoki bildirishnomalar panelini tekshiring.');
   String get testPushNoToken =>
-      t(en: 'No device token yet. Open the app on a phone with Firebase configured.', ru: 'Нет токена устройства. Откройте приложение на телефоне с Firebase.', uz: 'Qurilma tokeni yo‘q. Firebase sozlangan telefonda oching.');
+      t(en: 'Test saved to your inbox. Open the app on a phone to try OS push.', ru: 'Тест сохранён во входящих. Для пуша откройте приложение на телефоне.', uz: 'Sinov inboxga saqlandi. OS push uchun telefonda oching.');
   String get testPushFirebaseOff =>
-      t(en: 'Server Firebase is not configured. Set FIREBASE_* on Railway.', ru: 'Firebase на сервере не настроен. Задайте FIREBASE_* в Railway.', uz: 'Serverda Firebase sozlanmagan. Railway’da FIREBASE_* ni qo‘ying.');
+      t(en: 'Test saved to your inbox.', ru: 'Тест сохранён во входящих.', uz: 'Sinov inboxga saqlandi.');
   String get testPushFailed =>
       t(en: 'Could not send test notification.', ru: 'Не удалось отправить тест.', uz: 'Sinov yuborilmadi.');
 }

@@ -844,19 +844,26 @@ const sendTestPushForActor = async (req) => {
   }
   lastTestPushAt.set(key, Date.now());
 
-  const result = await fcmService.sendToUser({
+  const title = 'TechRen test';
+  const body = 'Push is working. You can close this notification.';
+  const inbox = await createInAppNotification({
     userId: req.user._id,
     userType,
-    title: 'TechRen test',
-    body: 'Push is working. You can close this notification.',
-    data: { eventType: 'test_push', screen: 'notifications' },
+    title,
+    body,
+    eventType: 'test_push',
+    data: { screen: 'notifications', kind: 'test' },
+    branchId: req.user.branchId,
+    push: true,
+    forcePush: true,
   });
 
   return {
-    sent: result.sent || 0,
-    failed: result.failed || 0,
-    status: result.status || 'skipped',
-    reason: result.reason || null,
+    sent: inbox?.pushStatus === 'sent' ? 1 : 0,
+    failed: inbox?.pushStatus === 'failed' ? 1 : 0,
+    status: inbox?.pushStatus || 'skipped',
+    reason: null,
+    inboxCreated: Boolean(inbox),
     firebaseConfigured: Boolean(fcmService.isFirebaseReady()),
   };
 };

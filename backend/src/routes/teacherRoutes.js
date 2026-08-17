@@ -1,6 +1,6 @@
 const express = require('express');
 const teacherController = require('../controllers/teacherController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect, checkPermission, requireFounder } = require('../middleware/auth');
 const enforceBranchIsolation = require('../middleware/branchIsolation');
 const validate = require('../middleware/validate');
 const { imageUpload } = require('../middleware/fileUpload');
@@ -21,6 +21,13 @@ router.post('/', checkPermission('canManageStudents'), teacherCreateRules, valid
 router.get('/:id', checkPermission('canViewStudents'), objectId('id'), validate, teacherController.getOne);
 router.put('/:id', checkPermission('canManageStudents'), teacherUpdateRules, validate, teacherController.update);
 router.delete('/:id', checkPermission('canManageStudents'), objectId('id'), validate, teacherController.deactivate);
+router.delete(
+  '/:id/permanent',
+  requireFounder,
+  objectId('id'),
+  validate,
+  teacherController.remove
+);
 router.put(
   '/:id/permissions',
   checkPermission('canManageSettings'),

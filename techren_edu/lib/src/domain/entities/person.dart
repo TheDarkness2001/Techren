@@ -146,9 +146,7 @@ class Person extends Equatable {
         ieltsAccess: json['ieltsAccess'] as bool?,
         userType: json['userType'] as String? ?? 'student',
         profileImage: json['profileImage'] as String?,
-        subjects: (json['subject'] as List<dynamic>? ?? json['subjects'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList(),
+        subjects: _parsePersonSubjects(json),
       );
 
   Person copyWith({String? profileImage, String? status, bool? ieltsAccess, double? coursePrice}) => Person(
@@ -180,4 +178,19 @@ class Person extends Equatable {
 
   @override
   List<Object?> get props => [id, name, email, status, profileImage, coursePrice, subjects];
+}
+
+List<String> _parsePersonSubjects(Map<String, dynamic> json) {
+  final direct = (json['subject'] as List<dynamic>? ?? json['subjects'] as List<dynamic>? ?? [])
+      .map((e) => e.toString().trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  if (direct.isNotEmpty) return direct;
+  return (json['subjectFees'] as List<dynamic>? ?? [])
+      .map((e) {
+        if (e is Map) return (e['subject'] ?? '').toString().trim();
+        return '';
+      })
+      .where((s) => s.isNotEmpty)
+      .toList();
 }

@@ -50,6 +50,15 @@ exports.deactivate = asyncHandler(async (req, res) => {
   }
 });
 
+exports.remove = asyncHandler(async (req, res) => {
+  try {
+    const data = await teacherService.deleteTeacher(req, req.params.id);
+    sendSuccess(res, data);
+  } catch (error) {
+    handleServiceError(res, error);
+  }
+});
+
 exports.updatePermissions = asyncHandler(async (req, res) => {
   try {
     const teacher = await teacherService.updateTeacherPermissions(req, req.params.id, req.body.permissions);

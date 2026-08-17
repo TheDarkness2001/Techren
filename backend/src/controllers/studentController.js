@@ -53,6 +53,15 @@ exports.setStatus = asyncHandler(async (req, res) => {
   }
 });
 
+exports.remove = asyncHandler(async (req, res) => {
+  try {
+    const data = await studentService.deleteStudent(req, req.params.id);
+    sendSuccess(res, data);
+  } catch (error) {
+    handleServiceError(res, error);
+  }
+});
+
 exports.dashboard = asyncHandler(async (req, res) => {
   try {
     await studentService.getStudent(req, req.params.id);

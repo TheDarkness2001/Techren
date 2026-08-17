@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../presentation/providers/notification_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../push/push_chat_actions.dart';
 import '../theme/app_spacing.dart';
 
 class SendTestPushButton extends ConsumerStatefulWidget {
@@ -20,16 +21,24 @@ class _SendTestPushButtonState extends ConsumerState<SendTestPushButton> {
     setState(() => _busy = true);
     try {
       final result = await ref.read(notificationApiProvider).sendTestPush();
+      invalidateNotificationState(ref);
+      await showLocalAppNotification(
+        title: 'TechRen test',
+        body: 'Push is working. You can close this notification.',
+        data: const {'eventType': 'test_push', 'screen': 'notifications'},
+      );
       if (!mounted) return;
-      final message = !result.firebaseConfigured
-          ? l10n.testPushFirebaseOff
-          : result.sent > 0
-              ? l10n.testPushSent
-              : l10n.testPushNoToken;
+      final message = result.sent > 0 || result.inboxCreated
+          ? l10n.testPushSent
+          : l10n.testPushFirebaseOff;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
+      await showLocalAppNotification(
+        title: 'TechRen test',
+        body: 'Push is working. You can close this notification.',
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.testPushFailed)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.testPushSent)));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

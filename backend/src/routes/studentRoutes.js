@@ -1,6 +1,6 @@
 const express = require('express');
 const studentController = require('../controllers/studentController');
-const { protect, checkPermission } = require('../middleware/auth');
+const { protect, checkPermission, requireFounder } = require('../middleware/auth');
 const enforceBranchIsolation = require('../middleware/branchIsolation');
 const validate = require('../middleware/validate');
 const { imageUpload } = require('../middleware/fileUpload');
@@ -50,6 +50,14 @@ router.patch(
   body('status').isIn(['active', 'inactive']),
   validate,
   studentController.setStatus
+);
+router.delete(
+  '/:id',
+  enforceBranchIsolation,
+  requireFounder,
+  objectId('id'),
+  validate,
+  studentController.remove
 );
 router.post(
   '/:id/photo',

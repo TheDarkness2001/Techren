@@ -11,6 +11,7 @@ import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_data_table.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
 import '../../../../core/widgets/person_avatar.dart';
@@ -557,7 +558,7 @@ class _RowActions extends ConsumerWidget {
         if (canManageStatus)
           PeopleActionIconButton(
             tooltip: person.isActive ? 'Deactivate' : 'Activate',
-            icon: person.isActive ? Icons.delete_outline : Icons.restart_alt,
+            icon: person.isActive ? Icons.person_off_outlined : Icons.restart_alt,
             color: semantic.danger,
             onPressed: () async {
               final api = ref.read(identityApiProvider);
@@ -568,6 +569,42 @@ class _RowActions extends ConsumerWidget {
                 await api.setTeacherStatus(person.id, status);
               }
               onChanged();
+            },
+          ),
+        if (ref.watch(authProvider).user?.isFounder == true && person.role != 'founder')
+          PeopleActionIconButton(
+            tooltip: l10n.deletePerson,
+            icon: Icons.delete_forever_outlined,
+            color: semantic.danger,
+            onPressed: () async {
+              final ok = await showAppConfirmDialog(
+                context: context,
+                title: l10n.deletePerson,
+                message: person.isStudent
+                    ? l10n.deleteStudentConfirm(person.name)
+                    : l10n.deleteStaffConfirm(person.name),
+                confirmLabel: l10n.deletePerson,
+                destructive: true,
+              );
+              if (!ok) return;
+              try {
+                final api = ref.read(identityApiProvider);
+                if (person.isStudent) {
+                  await api.deleteStudent(person.id);
+                } else {
+                  await api.deleteTeacher(person.id);
+                }
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.personDeleted(person.name))),
+                  );
+                }
+                onChanged();
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
+              }
             },
           ),
       ],

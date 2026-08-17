@@ -1,4 +1,7 @@
 const Teacher = require('../models/Teacher');
+const ExamGroup = require('../models/ExamGroup');
+const DeviceToken = require('../models/DeviceToken');
+const RefreshToken = require('../models/RefreshToken');
 const uploadService = require('./uploadService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
@@ -119,6 +122,33 @@ const deactivateTeacher = async (req, id) => {
   return updateTeacher(req, id, { status: 'inactive' });
 };
 
+const deleteTeacher = async (req, id) => {
+  if (req.user?.role !== 'founder') {
+    throw Object.assign(new Error('Founder only'), { statusCode: 403, code: 'FORBIDDEN' });
+  }
+  const teacher = await Teacher.findById(id);
+  if (!teacher) {
+    throw Object.assign(new Error('Teacher not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  if (teacher.role === 'founder') {
+    throw Object.assign(new Error('Founder cannot be deleted'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (String(teacher._id) === String(req.user._id)) {
+    throw Object.assign(new Error('You cannot delete your own account'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (!canAccessBranch(req, teacher.branchId)) {
+    throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
+  }
+
+  await Promise.all([
+    ExamGroup.updateMany({ teachers: teacher._id }, { $pull: { teachers: teacher._id } }),
+    DeviceToken.deleteMany({ userId: teacher._id, userType: 'teacher' }),
+    RefreshToken.deleteMany({ userId: teacher._id, userType: 'teacher' }),
+  ]);
+  await teacher.deleteOne();
+  return { deleted: true, id: String(teacher._id) };
+};
+
 const updateTeacherPermissions = async (req, id, permissions) => {
   const teacher = await Teacher.findById(id);
   if (!teacher || teacher.role === 'founder') {
@@ -156,6 +186,7 @@ module.exports = {
   createTeacher,
   updateTeacher,
   deactivateTeacher,
+  deleteTeacher,
   updateTeacherPermissions,
   updateTeacherPhoto,
 };

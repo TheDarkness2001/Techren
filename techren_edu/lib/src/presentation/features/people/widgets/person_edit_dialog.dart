@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../domain/entities/person.dart';
 import '../../../providers/identity_provider.dart';
+import '../../../providers/learning_provider.dart';
 import 'profile_photo_picker.dart';
 
 Future<bool?> showPersonEditDialog({
@@ -62,6 +63,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   bool _obscurePassword = true;
   bool _obscureParentPassword = true;
   bool _saving = false;
+  final Set<String> _subjects = {};
 
   /// Server / client errors shown under specific fields (red).
   String? _nameError;
@@ -112,6 +114,12 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     _gender = person.gender ?? '';
     _bloodGroup = person.bloodGroup ?? '';
     _dob = person.dateOfBirth;
+    _subjects.addAll(
+      person.subjectFees.map((f) => f.subject.trim()).where((s) => s.isNotEmpty),
+    );
+    if (_subjects.isEmpty) {
+      _subjects.addAll(person.subjects.map((s) => s.trim()).where((s) => s.isNotEmpty));
+    }
   }
 
   @override
@@ -259,6 +267,17 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
     if (picked != null) setState(() => _dob = picked);
   }
 
+  List<SubjectFee> _subjectFeesPayload() {
+    final amounts = {
+      for (final fee in widget.person.subjectFees)
+        if (fee.subject.trim().isNotEmpty) fee.subject.trim(): fee.amount,
+    };
+    return [
+      for (final name in _subjects)
+        SubjectFee(subject: name, amount: amounts[name] ?? 0),
+    ];
+  }
+
   void _applyServerError(Object e) {
     _clearFieldErrors();
     final message = _friendlyError(e).toLowerCase();
@@ -335,6 +354,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
           parentPhone: parentPhone,
           parentAccount: parentAccount,
           coursePrice: coursePrice,
+          subjectFees: _subjectFeesPayload(),
           dateOfBirth: _dob,
           gender: _gender,
           bloodGroup: _bloodGroup,
@@ -407,6 +427,16 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
   Widget build(BuildContext context) {
     final isStudent = widget.person.isStudent;
     final theme = Theme.of(context);
+    final subjectsAsync = isStudent
+        ? ref.watch(learningSubjectsProvider((page: 1, search: '')))
+        : null;
+    final catalogNames =
+        subjectsAsync?.valueOrNull?.items.map((s) => s.name).toList() ?? const <String>[];
+    final subjectNames = [
+      ...catalogNames,
+      for (final name in _subjects)
+        if (!catalogNames.contains(name)) name,
+    ];
 
     return AppDialog(
       title: isStudent ? 'Edit student' : 'Edit staff',
@@ -530,6 +560,57 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                   ),
                   maxLines: 2,
                 ),
+                if (subjectsAsync != null)
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Subjects',
+                      helperText: 'Tap to add or change what this student studies',
+                    ),
+                    child: subjectsAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: LinearProgressIndicator(),
+                      ),
+                      error: (e, _) => Text(e.toString()),
+                      data: (_) {
+                        if (subjectNames.isEmpty) {
+                          return TextFormField(
+                            initialValue: _subjects.join(', '),
+                            decoration: const InputDecoration(
+                              hintText: 'e.g. English, IT',
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            onChanged: (v) {
+                              _subjects
+                                ..clear()
+                                ..addAll(
+                                  v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+                                );
+                            },
+                          );
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final name in subjectNames)
+                              FilterChip(
+                                label: Text(name),
+                                selected: _subjects.contains(name),
+                                onSelected: (selected) => setState(() {
+                                  if (selected) {
+                                    _subjects.add(name);
+                                  } else {
+                                    _subjects.remove(name);
+                                  }
+                                }),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 TextFormField(
                   controller: _coursePriceController,
                   focusNode: _coursePriceFocus,

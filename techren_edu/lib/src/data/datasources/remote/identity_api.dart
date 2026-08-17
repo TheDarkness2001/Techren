@@ -234,6 +234,14 @@ class IdentityApi {
     return Person.fromJson({...response.data['data'] as Map<String, dynamic>, 'userType': 'teacher'});
   }
 
+  Future<void> deleteStudent(String id) async {
+    await _client.dio.delete('/students/$id');
+  }
+
+  Future<void> deleteTeacher(String id) async {
+    await _client.dio.delete('/teachers/$id/permanent');
+  }
+
   Future<Person> uploadStudentPhoto(
     String id, {
     String? filePath,

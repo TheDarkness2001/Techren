@@ -62,6 +62,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final name = _name.text.trim();
     final email = _email.text.trim();
     final password = _password.text;
@@ -105,12 +106,23 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
         status: _status,
         branchId: branchId,
       );
+      var photoFailed = false;
       if (_photoBytes != null && _photoName != null) {
-        await api.uploadTeacherPhoto(created.id, bytes: _photoBytes, fileName: _photoName!);
+        try {
+          await api.uploadTeacherPhoto(created.id, bytes: _photoBytes, fileName: _photoName!);
+        } catch (_) {
+          photoFailed = true;
+        }
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Teacher ${created.displayId ?? created.name} created')),
+        SnackBar(
+          content: Text(
+            photoFailed
+                ? 'Staff ${created.displayId ?? created.name} created. Photo could not be uploaded — edit to add it.'
+                : 'Teacher ${created.displayId ?? created.name} created',
+          ),
+        ),
       );
       context.go('${widget.prefix}/people/teachers');
     } catch (e) {

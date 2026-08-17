@@ -1,5 +1,9 @@
 const Student = require('../models/Student');
 const Parent = require('../models/Parent');
+const ExamGroup = require('../models/ExamGroup');
+const ClassSchedule = require('../models/ClassSchedule');
+const DeviceToken = require('../models/DeviceToken');
+const RefreshToken = require('../models/RefreshToken');
 const uploadService = require('./uploadService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
@@ -311,6 +315,29 @@ const updateStudent = async (req, id, data) => {
 
 const setStudentStatus = async (req, id, status) => updateStudent(req, id, { status });
 
+const deleteStudent = async (req, id) => {
+  if (req.user?.role !== 'founder') {
+    throw Object.assign(new Error('Founder only'), { statusCode: 403, code: 'FORBIDDEN' });
+  }
+  const student = await Student.findById(id);
+  if (!student) {
+    throw Object.assign(new Error('Student not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  if (!canAccessBranch(req, student.branchId)) {
+    throw Object.assign(new Error('Forbidden'), { statusCode: 403, code: 'FORBIDDEN' });
+  }
+
+  await Promise.all([
+    ExamGroup.updateMany({ students: student._id }, { $pull: { students: student._id } }),
+    ClassSchedule.updateMany({ enrolledStudents: student._id }, { $pull: { enrolledStudents: student._id } }),
+    Parent.updateMany({ children: student._id }, { $pull: { children: student._id } }),
+    DeviceToken.deleteMany({ userId: student._id, userType: 'student' }),
+    RefreshToken.deleteMany({ userId: student._id, userType: 'student' }),
+  ]);
+  await student.deleteOne();
+  return { deleted: true, id: String(student._id) };
+};
+
 const updateStudentPhoto = async (req, id, file) => {
   const student = await Student.findById(id);
   if (!student) {
@@ -334,5 +361,6 @@ module.exports = {
   createStudent,
   updateStudent,
   setStudentStatus,
+  deleteStudent,
   updateStudentPhoto,
 };

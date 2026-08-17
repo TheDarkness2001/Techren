@@ -258,6 +258,7 @@ class TestPushResult {
     required this.failed,
     required this.status,
     required this.firebaseConfigured,
+    this.inboxCreated = false,
     this.reason,
   });
 
@@ -265,6 +266,7 @@ class TestPushResult {
   final int failed;
   final String status;
   final bool firebaseConfigured;
+  final bool inboxCreated;
   final String? reason;
 
   factory TestPushResult.fromJson(Map<String, dynamic> json) => TestPushResult(
@@ -272,6 +274,7 @@ class TestPushResult {
         failed: json['failed'] as int? ?? 0,
         status: json['status'] as String? ?? 'skipped',
         firebaseConfigured: json['firebaseConfigured'] as bool? ?? false,
+        inboxCreated: json['inboxCreated'] as bool? ?? false,
         reason: json['reason'] as String?,
       );
 }

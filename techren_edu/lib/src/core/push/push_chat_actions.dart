@@ -27,7 +27,8 @@ void Function(Map<String, String> data)? onChatNotificationTap;
 Future<void> ensureChatNotificationsReady() async {
   if (_pluginReady || kIsWeb) return;
 
-  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  try {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   final iosInit = DarwinInitializationSettings(
     notificationCategories: [
       DarwinNotificationCategory(
@@ -52,7 +53,12 @@ Future<void> ensureChatNotificationsReady() async {
   );
 
   await localNotificationsPlugin.initialize(
-    InitializationSettings(android: androidInit, iOS: iosInit),
+    InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+      macOS: iosInit,
+      linux: const LinuxInitializationSettings(defaultActionName: 'Open'),
+    ),
     onDidReceiveNotificationResponse: (response) {
       handleChatNotificationResponse(response);
     },
@@ -77,8 +83,45 @@ Future<void> ensureChatNotificationsReady() async {
       importance: Importance.high,
     ),
   );
+  } catch (e) {
+    if (kDebugMode) debugPrint('Local notifications init skipped: $e');
+  }
 
   _pluginReady = true;
+}
+
+Future<void> showLocalAppNotification({
+  required String title,
+  required String body,
+  Map<String, String> data = const {},
+}) async {
+  if (kIsWeb) return;
+  try {
+    await ensureChatNotificationsReady();
+    final safeTitle = title.trim().isEmpty ? 'TechRen' : title.trim();
+    final safeBody = body.trim().isEmpty ? 'New notification' : body.trim();
+    await localNotificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
+      safeTitle,
+      safeBody,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          kDefaultChannelId,
+          'TechRen Notifications',
+          channelDescription: 'Payments, messages, feedback, attendance, and news',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(),
+        macOS: const DarwinNotificationDetails(),
+        linux: LinuxNotificationDetails(),
+      ),
+      payload: data.isEmpty ? null : jsonEncode(data),
+    );
+  } catch (e) {
+    if (kDebugMode) debugPrint('Local notification failed: $e');
+  }
 }
 
 bool isChatPushData(Map<String, String> data) {
