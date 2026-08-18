@@ -143,6 +143,51 @@ const getOne = async (id, req) => {
   return format(doc);
 };
 
+const update = async (req, id, data) => {
+  assertCanManage(req);
+  const doc = await BranchExpense.findOne({ _id: id, ...getBranchFilter(req) });
+  if (!doc) {
+    throw Object.assign(new Error('Expense not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  if (!canAccessBranch(req, doc.branchId)) {
+    throw forbidden();
+  }
+
+  const category = String(data.category || doc.category).trim();
+  if (!CATEGORIES.includes(category)) {
+    throw Object.assign(new Error('Invalid expense category'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const amount = Number(data.amount ?? doc.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw Object.assign(new Error('Enter an amount greater than 0'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  let teacherName = String(data.teacherName ?? doc.teacherName ?? '').trim();
+  let teacherId = data.teacherId !== undefined ? data.teacherId : doc.teacherId;
+  if (teacherId) {
+    const teacher = await Teacher.findById(teacherId).select('name');
+    if (teacher) teacherName = teacher.name;
+  } else {
+    teacherId = null;
+    teacherName = '';
+  }
+
+  const notes = String(data.notes ?? doc.notes ?? '').trim();
+  if (category === 'other' && !notes) {
+    throw Object.assign(new Error('Add a note for other expenses'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  doc.category = category;
+  doc.amount = amount;
+  doc.notes = notes;
+  doc.teacherId = teacherId || undefined;
+  doc.teacherName = teacherName;
+  await doc.save();
+
+  return getOne(doc._id, req);
+};
+
 const remove = async (req, id) => {
   assertCanManage(req);
   const doc = await BranchExpense.findOne({ _id: id, ...getBranchFilter(req) });
@@ -175,6 +220,7 @@ module.exports = {
   list,
   create,
   getOne,
+  update,
   remove,
   totalsByBranch,
 };

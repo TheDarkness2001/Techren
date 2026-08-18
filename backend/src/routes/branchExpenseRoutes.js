@@ -25,6 +25,17 @@ router.post(
   validate,
   controller.create
 );
+router.put(
+  '/:id',
+  objectId('id'),
+  body('category').optional().isIn(['teacher-payment', 'rent', 'electricity', 'repair', 'other']),
+  body('amount').optional().isFloat({ min: 0.01 }),
+  body('teacherId').optional({ nullable: true, checkFalsy: true }).isMongoId(),
+  body('notes').optional().trim(),
+  body('teacherName').optional().trim(),
+  validate,
+  controller.update
+);
 router.delete('/:id', objectId('id'), validate, controller.remove);
 
 module.exports = router;

@@ -23,8 +23,204 @@ class FinanceDonutChart extends StatelessWidget {
     required this.centerValue,
     required this.centerLabel,
     this.size = 148,
+    this.layout = FinanceDonutLayout.horizontal,
   });
 
+  final List<FinanceSlice> slices;
+  final String centerValue;
+  final String centerLabel;
+  final double size;
+  final FinanceDonutLayout layout;
+
+  @override
+  Widget build(BuildContext context) {
+    final hole = Theme.of(context).colorScheme.surface;
+    final donut = SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _DonutPainter(
+          slices: slices,
+          holeColor: hole,
+          emptyColor: context.semantic.border,
+        ),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size * 0.12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  centerValue,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, fontSize: layout == FinanceDonutLayout.vertical ? 12 : null),
+                ),
+                Text(
+                  centerLabel,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted, fontSize: layout == FinanceDonutLayout.vertical ? 10 : null),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final legend = Column(
+      crossAxisAlignment: layout == FinanceDonutLayout.vertical ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        for (final slice in slices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _SliceLegend(slice: slice, total: slices.fold<double>(0, (sum, item) => sum + item.value), compact: layout == FinanceDonutLayout.vertical),
+          ),
+      ],
+    );
+
+    if (layout == FinanceDonutLayout.vertical) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          donut,
+          const SizedBox(height: AppSpacing.sm),
+          legend,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        donut,
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: legend),
+      ],
+    );
+  }
+}
+
+enum FinanceDonutLayout { horizontal, vertical }
+
+class FinanceManagedLegendItem {
+  const FinanceManagedLegendItem({
+    required this.slice,
+    this.subtitle,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  final FinanceSlice slice;
+  final String? subtitle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+}
+
+class FinanceManagedDonutChart extends StatelessWidget {
+  const FinanceManagedDonutChart({
+    super.key,
+    required this.items,
+    required this.centerValue,
+    required this.centerLabel,
+    this.size = 148,
+    this.editTooltip,
+    this.deleteTooltip,
+  });
+
+  final List<FinanceManagedLegendItem> items;
+  final String centerValue;
+  final String centerLabel;
+  final double size;
+  final String? editTooltip;
+  final String? deleteTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final slices = [for (final item in items) item.slice];
+    final total = slices.fold<double>(0, (sum, slice) => sum + slice.value);
+    final hole = Theme.of(context).colorScheme.surface;
+
+    final donut = SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _DonutPainter(
+          slices: slices,
+          holeColor: hole,
+          emptyColor: context.semantic.border,
+        ),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size * 0.12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  centerValue,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  centerLabel,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final legend = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _ManagedSliceLegend(
+              slice: item.slice,
+              total: total,
+              subtitle: item.subtitle,
+              onEdit: item.onEdit,
+              onDelete: item.onDelete,
+              editTooltip: editTooltip,
+              deleteTooltip: deleteTooltip,
+            ),
+          ),
+      ],
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        donut,
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: legend),
+      ],
+    );
+  }
+}
+
+class FinanceDonutPanel extends StatelessWidget {
+  const FinanceDonutPanel({
+    super.key,
+    required this.title,
+    required this.slices,
+    required this.centerValue,
+    required this.centerLabel,
+    this.size = 112,
+  });
+
+  final String title;
   final List<FinanceSlice> slices;
   final String centerValue;
   final String centerLabel;
@@ -32,55 +228,84 @@ class FinanceDonutChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hole = Theme.of(context).colorScheme.surface;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CustomPaint(
-            painter: _DonutPainter(
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+        borderRadius: AppRadius.card,
+        border: Border.all(color: context.semantic.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Center(
+            child: FinanceDonutChart(
               slices: slices,
-              holeColor: hole,
-              emptyColor: context.semantic.border,
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      centerValue,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      centerLabel,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
-                    ),
-                  ],
-                ),
-              ),
+              centerValue: centerValue,
+              centerLabel: centerLabel,
+              size: size,
+              layout: FinanceDonutLayout.vertical,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SliceLegend extends StatelessWidget {
+  const _SliceLegend({required this.slice, required this.total, this.compact = false});
+
+  final FinanceSlice slice;
+  final double total;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total <= 0 ? 0 : ((slice.value / total) * 100).round();
+    if (compact) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '${slice.label} · $pct%',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: AppSpacing.md),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final slice in slices)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _SliceLegend(slice: slice, total: slices.fold<double>(0, (sum, item) => sum + item.value)),
-                ),
+              Text(slice.label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                '${formatUzs(slice.value)} · $pct%',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+              ),
             ],
           ),
         ),
@@ -89,11 +314,24 @@ class FinanceDonutChart extends StatelessWidget {
   }
 }
 
-class _SliceLegend extends StatelessWidget {
-  const _SliceLegend({required this.slice, required this.total});
+class _ManagedSliceLegend extends StatelessWidget {
+  const _ManagedSliceLegend({
+    required this.slice,
+    required this.total,
+    this.subtitle,
+    this.onEdit,
+    this.onDelete,
+    this.editTooltip,
+    this.deleteTooltip,
+  });
 
   final FinanceSlice slice;
   final double total;
+  final String? subtitle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final String? editTooltip;
+  final String? deleteTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -115,9 +353,30 @@ class _SliceLegend extends StatelessWidget {
                 '${formatUzs(slice.value)} · $pct%',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
               ),
+              if (subtitle != null && subtitle!.isNotEmpty)
+                Text(
+                  subtitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+                ),
             ],
           ),
         ),
+        if (onEdit != null)
+          IconButton(
+            tooltip: editTooltip,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            visualDensity: VisualDensity.compact,
+            onPressed: onEdit,
+          ),
+        if (onDelete != null)
+          IconButton(
+            tooltip: deleteTooltip,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            visualDensity: VisualDensity.compact,
+            onPressed: onDelete,
+          ),
       ],
     );
   }

@@ -18,6 +18,13 @@ exports.create = asyncHandler(async (req, res) => {
   } catch (e) { handle(res, e); }
 });
 
+exports.update = asyncHandler(async (req, res) => {
+  try {
+    const item = await branchExpenseService.update(req, req.params.id, req.body);
+    sendSuccess(res, item);
+  } catch (e) { handle(res, e); }
+});
+
 exports.remove = asyncHandler(async (req, res) => {
   try {
     const item = await branchExpenseService.remove(req, req.params.id);

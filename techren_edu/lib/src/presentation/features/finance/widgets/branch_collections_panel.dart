@@ -70,28 +70,35 @@ class BranchCollectionsPanel extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.md),
-                Text(l10n.collectionSplit, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: AppSpacing.sm),
-                FinanceDonutChart(
-                  slices: [
-                    FinanceSlice(label: l10n.collected, value: totals.collected, color: AppColors.success),
-                    FinanceSlice(label: l10n.stillDue, value: totals.remaining, color: AppColors.error),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: FinanceDonutPanel(
+                        title: l10n.collectionSplit,
+                        slices: [
+                          FinanceSlice(label: l10n.collected, value: totals.collected, color: AppColors.success),
+                          FinanceSlice(label: l10n.stillDue, value: totals.remaining, color: AppColors.error),
+                        ],
+                        centerValue: formatUzs(totals.collected),
+                        centerLabel: l10n.collected,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: FinanceDonutPanel(
+                        title: l10n.leftoverVsCosts,
+                        slices: [
+                          FinanceSlice(label: l10n.leftover, value: math.max(0, totals.leftover), color: AppColors.success),
+                          FinanceSlice(label: l10n.costsThisMonth, value: totals.expenses, color: AppColors.warning),
+                          if (totals.leftover < 0)
+                            FinanceSlice(label: l10n.stillDue, value: totals.leftover.abs(), color: AppColors.error),
+                        ],
+                        centerValue: formatUzs(totals.leftover),
+                        centerLabel: l10n.leftover,
+                      ),
+                    ),
                   ],
-                  centerValue: formatUzs(totals.collected),
-                  centerLabel: l10n.collected,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(l10n.leftoverVsCosts, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: AppSpacing.sm),
-                FinanceDonutChart(
-                  slices: [
-                    FinanceSlice(label: l10n.leftover, value: math.max(0, totals.leftover), color: AppColors.success),
-                    FinanceSlice(label: l10n.costsThisMonth, value: totals.expenses, color: AppColors.warning),
-                    if (totals.leftover < 0)
-                      FinanceSlice(label: l10n.stillDue, value: totals.leftover.abs(), color: AppColors.error),
-                  ],
-                  centerValue: formatUzs(totals.leftover),
-                  centerLabel: l10n.leftover,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _KpiGrid(totals: totals, l10n: l10n),
@@ -99,14 +106,6 @@ class BranchCollectionsPanel extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.lg),
                   Text(l10n.byBranch, style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
-                  FinanceGroupedBars(
-                    rows: [
-                      for (final row in data.items)
-                        (label: row.branchName, left: row.collected, right: row.remaining),
-                    ],
-                    leftLabel: l10n.collected,
-                    rightLabel: l10n.stillDue,
-                  ),
                   for (final row in data.items) _BranchCollectionTile(row: row),
                 ],
               ],
@@ -241,42 +240,39 @@ class _KpiTile extends StatelessWidget {
   }
 }
 
-class _SplitBar extends StatelessWidget {
-  const _SplitBar({
-    required this.left,
-    required this.right,
-    required this.leftColor,
-    required this.rightColor,
-  });
+String _displayBranchName(String name) {
+  final normalized = name.trim().toLowerCase();
+  if (normalized == 'main branch' || normalized == 'main') return 'REN';
+  return name;
+}
 
-  final double left;
-  final double right;
-  final Color leftColor;
-  final Color rightColor;
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.value, required this.maxValue});
+
+  final double value;
+  final double maxValue;
 
   @override
   Widget build(BuildContext context) {
-    final total = left + right;
+    final fraction = maxValue <= 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: SizedBox(
-        height: 12,
-        child: total <= 0
-            ? ColoredBox(color: context.semantic.border)
-            : Row(
-                children: [
-                  if (left > 0)
-                    Expanded(
-                      flex: left.round().clamp(1, 1 << 30),
-                      child: ColoredBox(color: leftColor),
-                    ),
-                  if (right > 0)
-                    Expanded(
-                      flex: right.round().clamp(1, 1 << 30),
-                      child: ColoredBox(color: rightColor.withValues(alpha: 0.75)),
-                    ),
-                ],
+        height: 10,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: context.semantic.border.withValues(alpha: 0.45)),
+            FractionallySizedBox(
+              widthFactor: fraction,
+              alignment: Alignment.centerLeft,
+              child: ColoredBox(
+                color: fraction >= 1 ? AppColors.success : AppColors.primary,
+                child: const SizedBox.expand(),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -289,8 +285,6 @@ class _BranchCollectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = context.semantic.textMuted;
-    final leftoverColor = row.leftover >= 0 ? AppColors.success : AppColors.error;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.sm),
@@ -305,7 +299,7 @@ class _BranchCollectionTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(row.branchName, style: Theme.of(context).textTheme.titleSmall),
+                child: Text(_displayBranchName(row.branchName), style: Theme.of(context).textTheme.titleSmall),
               ),
               Text(
                 '${formatUzs(row.collected)} / ${formatUzs(row.expected)}',
@@ -314,25 +308,7 @@ class _BranchCollectionTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          _SplitBar(
-            left: row.collected,
-            right: row.remaining,
-            leftColor: row.remaining <= 0 ? AppColors.success : AppColors.primary,
-            rightColor: context.semantic.border,
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: 4,
-            children: [
-              Text('${context.l10n.stillDue}: ${formatUzs(row.remaining)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
-              Text('${context.l10n.costsThisMonth}: ${formatUzs(row.expenses)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
-              Text(
-                '${context.l10n.leftover}: ${formatUzs(row.leftover)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: leftoverColor, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
+          _ProgressBar(value: row.collected, maxValue: row.expected),
         ],
       ),
     );

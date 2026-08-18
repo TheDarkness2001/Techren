@@ -147,6 +147,11 @@ class FinanceApi {
     return BranchExpense.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<BranchExpense> updateBranchExpense(String id, Map<String, dynamic> payload) async {
+    final response = await _client.dio.put('/branch-expenses/$id', data: payload);
+    return BranchExpense.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<void> deleteBranchExpense(String id) async {
     await _client.dio.delete('/branch-expenses/$id');
   }

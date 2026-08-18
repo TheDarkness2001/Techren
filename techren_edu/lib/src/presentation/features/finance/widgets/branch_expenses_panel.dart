@@ -48,16 +48,29 @@ Color _categoryColor(String category) {
   }
 }
 
-List<FinanceSlice> _costSlices(AppLocalizations l10n, List<BranchExpense> items) {
-  final totals = <String, double>{};
-  for (final item in items) {
-    totals[item.category] = (totals[item.category] ?? 0) + item.amount;
-  }
+List<FinanceSlice> _costSlicesFromItems(AppLocalizations l10n, List<BranchExpense> items) {
   return [
-    for (final category in _categories)
-      if ((totals[category] ?? 0) > 0)
-        FinanceSlice(label: _categoryLabel(l10n, category), value: totals[category]!, color: _categoryColor(category)),
+    for (final item in items)
+      FinanceSlice(
+        label: _categoryLabel(l10n, item.category),
+        value: item.amount,
+        color: _categoryColor(item.category),
+      ),
   ];
+}
+
+String _expenseSubtitle(BranchExpense item) {
+  return [
+    if (item.branchName.isNotEmpty) _displayBranchName(item.branchName),
+    if (item.teacherName.isNotEmpty) item.teacherName,
+    if (item.notes.isNotEmpty) item.notes,
+  ].join(' · ');
+}
+
+String _displayBranchName(String name) {
+  final normalized = name.trim().toLowerCase();
+  if (normalized == 'main branch' || normalized == 'main') return 'REN';
+  return name;
 }
 
 class BranchExpensesPanel extends ConsumerWidget {
@@ -114,50 +127,35 @@ class BranchExpensesPanel extends ConsumerWidget {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    if (_costSlices(l10n, data.items).isNotEmpty) ...[
+                    if (_costSlicesFromItems(l10n, data.items).isNotEmpty) ...[
                       Text(l10n.costsBreakdown, style: Theme.of(context).textTheme.labelLarge),
                       const SizedBox(height: AppSpacing.sm),
-                      FinanceDonutChart(
-                        slices: _costSlices(l10n, data.items),
+                      FinanceManagedDonutChart(
                         centerValue: formatUzs(data.totalAmount),
                         centerLabel: l10n.costsThisMonth,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                    ],
-                    for (final item in data.items)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(_categoryLabel(l10n, item.category)),
-                        subtitle: Text(
-                          [
-                            if (item.branchName.isNotEmpty) item.branchName,
-                            if (item.teacherName.isNotEmpty) item.teacherName,
-                            if (item.notes.isNotEmpty) item.notes,
-                          ].join(' · '),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(formatUzs(item.amount)),
-                            IconButton(
-                              tooltip: l10n.delete,
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              onPressed: () async {
-                                try {
-                                  await ref.read(financeApiProvider).deleteBranchExpense(item.id);
-                                  ref.invalidate(branchExpensesProvider);
-                                  ref.invalidate(branchCollectionsProvider);
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                                  }
-                                }
-                              },
+                        editTooltip: l10n.edit,
+                        deleteTooltip: l10n.delete,
+                        items: [
+                          for (final item in data.items)
+                            FinanceManagedLegendItem(
+                              slice: FinanceSlice(
+                                label: _categoryLabel(l10n, item.category),
+                                value: item.amount,
+                                color: _categoryColor(item.category),
+                              ),
+                              subtitle: _expenseSubtitle(item),
+                              onEdit: () => showEditBranchExpenseDialog(
+                                context,
+                                ref,
+                                expense: item,
+                                month: month,
+                                year: year,
+                              ),
+                              onDelete: () => _deleteExpense(context, ref, item.id),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
+                    ],
                   ],
                 );
               },
@@ -171,6 +169,18 @@ class BranchExpensesPanel extends ConsumerWidget {
   Future<void> _addExpense(BuildContext context, WidgetRef ref) async {
     await showAddBranchExpenseDialog(context, ref, month: month, year: year);
   }
+
+  Future<void> _deleteExpense(BuildContext context, WidgetRef ref, String id) async {
+    try {
+      await ref.read(financeApiProvider).deleteBranchExpense(id);
+      ref.invalidate(branchExpensesProvider);
+      ref.invalidate(branchCollectionsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
 }
 
 Future<bool> showAddBranchExpenseDialog(
@@ -178,14 +188,35 @@ Future<bool> showAddBranchExpenseDialog(
   WidgetRef ref, {
   required int month,
   required int year,
+}) {
+  return showBranchExpenseDialog(context, ref, month: month, year: year);
+}
+
+Future<bool> showEditBranchExpenseDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required BranchExpense expense,
+  required int month,
+  required int year,
+}) {
+  return showBranchExpenseDialog(context, ref, month: month, year: year, expense: expense);
+}
+
+Future<bool> showBranchExpenseDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required int month,
+  required int year,
+  BranchExpense? expense,
 }) async {
+  final editing = expense != null;
   final l10n = context.l10n;
   final user = ref.read(authProvider).user;
-  final amountCtrl = TextEditingController();
-  final notesCtrl = TextEditingController();
-  var category = 'rent';
-  String? branchId = user?.isFounder == true ? null : user?.branchId;
-  String? teacherId;
+  final amountCtrl = TextEditingController(text: editing ? expense.amount.toString() : '');
+  final notesCtrl = TextEditingController(text: editing ? expense.notes : '');
+  var category = editing ? expense.category : 'rent';
+  String? branchId = editing ? expense.branchId : (user?.isFounder == true ? null : user?.branchId);
+  String? teacherId = editing ? expense.teacherId : null;
 
   final branches = user?.isFounder == true
       ? (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items
@@ -203,11 +234,11 @@ Future<bool> showAddBranchExpenseDialog(
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) {
         return AppDialog(
-          title: l10n.addCost,
+          title: editing ? l10n.edit : l10n.addCost,
           icon: Icons.receipt_long_outlined,
           content: AppFormColumn(
             children: [
-              if (user?.isFounder == true)
+              if (user?.isFounder == true && !editing)
                 DropdownButtonFormField<String>(
                   value: branchId,
                   decoration: InputDecoration(labelText: l10n.navBranches),
@@ -258,18 +289,25 @@ Future<bool> showAddBranchExpenseDialog(
               onPressed: () async {
                 final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
                 if (amount <= 0) return;
-                if (user?.isFounder == true && (branchId == null || branchId!.isEmpty)) return;
+                if (!editing && user?.isFounder == true && (branchId == null || branchId!.isEmpty)) return;
                 if (category == 'other' && notesCtrl.text.trim().isEmpty) return;
                 try {
-                  await ref.read(financeApiProvider).createBranchExpense({
+                  final payload = {
                     'category': category,
                     'amount': amount,
-                    'month': month,
-                    'year': year,
                     'notes': notesCtrl.text.trim(),
-                    if (branchId != null) 'branchId': branchId,
                     if (category == 'teacher-payment' && teacherId != null) 'teacherId': teacherId,
-                  });
+                  };
+                  if (editing) {
+                    await ref.read(financeApiProvider).updateBranchExpense(expense.id, payload);
+                  } else {
+                    await ref.read(financeApiProvider).createBranchExpense({
+                      ...payload,
+                      'month': month,
+                      'year': year,
+                      if (branchId != null) 'branchId': branchId,
+                    });
+                  }
                   if (dialogContext.mounted) Navigator.pop(dialogContext, true);
                 } catch (e) {
                   if (dialogContext.mounted) {
