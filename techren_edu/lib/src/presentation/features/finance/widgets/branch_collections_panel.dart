@@ -10,9 +10,7 @@ import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_money.dart';
 import '../../../../domain/entities/finance.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/finance_provider.dart';
-import 'branch_expenses_panel.dart';
 import 'finance_charts.dart';
 
 class BranchCollectionsPanel extends ConsumerWidget {
@@ -29,7 +27,6 @@ class BranchCollectionsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(branchCollectionsProvider((month: month, year: year)));
     final l10n = context.l10n;
-    final canAddCost = ref.watch(authProvider).user?.isPrivilegedStaff == true;
 
     return async.when(
       loading: () => const Padding(
@@ -54,21 +51,8 @@ class BranchCollectionsPanel extends ConsumerWidget {
                     Expanded(
                       child: Text(l10n.branchCollections, style: Theme.of(context).textTheme.titleMedium),
                     ),
-                    if (canAddCost)
-                      FilledButton.tonalIcon(
-                        onPressed: () => showAddBranchExpenseDialog(context, ref, month: month, year: year),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(l10n.addCost),
-                      ),
                   ],
                 ),
-                if (canAddCost) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    l10n.addCostHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.semantic.textMuted),
-                  ),
-                ],
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,7 +79,7 @@ class BranchCollectionsPanel extends ConsumerWidget {
                             FinanceSlice(label: l10n.stillDue, value: totals.leftover.abs(), color: AppColors.error),
                         ],
                         centerValue: formatUzs(totals.leftover),
-                        centerLabel: l10n.leftover,
+                        centerLabel: l10n.leftoverShort,
                       ),
                     ),
                   ],

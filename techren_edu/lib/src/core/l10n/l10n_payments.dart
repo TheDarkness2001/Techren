@@ -28,6 +28,7 @@ extension L10nPayments on AppLocalizations {
   String get repair => t(en: 'Repair', ru: 'Ремонт', uz: 'Ta\'mir');
   String get otherCost => t(en: 'Other', ru: 'Другое', uz: 'Boshqa');
   String get leftover => t(en: 'Left after costs', ru: 'Остаток после расходов', uz: 'Xarajatlardan keyin');
+  String get leftoverShort => t(en: 'Left', ru: 'Остаток', uz: 'Qoldiq');
   String get costsThisMonth => t(en: 'Costs this month', ru: 'Расходы за месяц', uz: 'Bu oy xarajatlari');
   String get addCostHint => t(
         en: 'Add rent, electricity, teacher pay, repairs, and other spending here.',
