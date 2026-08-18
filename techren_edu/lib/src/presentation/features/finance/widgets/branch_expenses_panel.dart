@@ -129,112 +129,127 @@ class BranchExpensesPanel extends ConsumerWidget {
   }
 
   Future<void> _addExpense(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final user = ref.read(authProvider).user;
-    final amountCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
-    var category = 'rent';
-    String? branchId = user?.isFounder == true ? null : user?.branchId;
-    String? teacherId;
+    await showAddBranchExpenseDialog(context, ref, month: month, year: year);
+  }
+}
 
-    final branches = user?.isFounder == true
-        ? (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items
-        : <Branch>[];
-    final teachers = (await ref.read(teachersProvider(const PageMeta(limit: 100)).future)).items;
+Future<bool> showAddBranchExpenseDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required int month,
+  required int year,
+}) async {
+  final l10n = context.l10n;
+  final user = ref.read(authProvider).user;
+  final amountCtrl = TextEditingController();
+  final notesCtrl = TextEditingController();
+  var category = 'rent';
+  String? branchId = user?.isFounder == true ? null : user?.branchId;
+  String? teacherId;
 
-    if (!context.mounted) return;
+  final branches = user?.isFounder == true
+      ? (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items
+      : <Branch>[];
+  final teachers = (await ref.read(teachersProvider(const PageMeta(limit: 100)).future)).items;
 
-    final saved = await showAppDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AppDialog(
-            title: l10n.addCost,
-            icon: Icons.receipt_long_outlined,
-            content: AppFormColumn(
-              children: [
-                if (user?.isFounder == true)
-                  DropdownButtonFormField<String>(
-                    value: branchId,
-                    decoration: InputDecoration(labelText: l10n.navBranches),
-                    items: [
-                      for (final branch in branches)
-                        DropdownMenuItem(value: branch.id, child: Text(branch.name)),
-                    ],
-                    onChanged: (v) => setDialogState(() => branchId = v),
-                  ),
-                DropdownButtonFormField<String>(
-                  value: category,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: [
-                    for (final key in _categories)
-                      DropdownMenuItem(value: key, child: Text(_categoryLabel(l10n, key))),
-                  ],
-                  onChanged: (v) => setDialogState(() => category = v ?? 'rent'),
-                ),
-                if (category == 'teacher-payment')
-                  DropdownButtonFormField<String>(
-                    value: teacherId,
-                    decoration: InputDecoration(labelText: l10n.teacher),
-                    items: [
-                      for (final person in teachers)
-                        DropdownMenuItem(value: person.id, child: Text(person.name)),
-                    ],
-                    onChanged: (v) => setDialogState(() => teacherId = v),
-                  ),
-                TextField(
-                  controller: amountCtrl,
-                  decoration: InputDecoration(labelText: l10n.amountReceived),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                ),
-                TextField(
-                  controller: notesCtrl,
-                  decoration: InputDecoration(
-                    labelText: category == 'other' ? '${l10n.otherCost} *' : l10n.notes,
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-            actions: [
-              AppDialogActions.cancel(dialogContext),
-              AppDialogActions.confirm(
-                dialogContext,
-                label: l10n.save,
-                onPressed: () async {
-                  final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
-                  if (amount <= 0) return;
-                  if (user?.isFounder == true && (branchId == null || branchId!.isEmpty)) return;
-                  if (category == 'other' && notesCtrl.text.trim().isEmpty) return;
-                  try {
-                    await ref.read(financeApiProvider).createBranchExpense({
-                      'category': category,
-                      'amount': amount,
-                      'month': month,
-                      'year': year,
-                      'notes': notesCtrl.text.trim(),
-                      if (branchId != null) 'branchId': branchId,
-                      if (category == 'teacher-payment' && teacherId != null) 'teacherId': teacherId,
-                    });
-                    if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-                  } catch (e) {
-                    if (dialogContext.mounted) {
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('$e')));
-                    }
-                  }
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
+  if (!context.mounted) {
     amountCtrl.dispose();
     notesCtrl.dispose();
-    if (saved == true) {
-      ref.invalidate(branchExpensesProvider);
-      ref.invalidate(branchCollectionsProvider);
-    }
+    return false;
   }
+
+  final saved = await showAppDialog<bool>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        return AppDialog(
+          title: l10n.addCost,
+          icon: Icons.receipt_long_outlined,
+          content: AppFormColumn(
+            children: [
+              if (user?.isFounder == true)
+                DropdownButtonFormField<String>(
+                  value: branchId,
+                  decoration: InputDecoration(labelText: l10n.navBranches),
+                  items: [
+                    for (final branch in branches)
+                      DropdownMenuItem(value: branch.id, child: Text(branch.name)),
+                  ],
+                  onChanged: (v) => setDialogState(() => branchId = v),
+                ),
+              DropdownButtonFormField<String>(
+                value: category,
+                decoration: InputDecoration(labelText: l10n.costType),
+                items: [
+                  for (final key in _categories)
+                    DropdownMenuItem(value: key, child: Text(_categoryLabel(l10n, key))),
+                ],
+                onChanged: (v) => setDialogState(() => category = v ?? 'rent'),
+              ),
+              if (category == 'teacher-payment')
+                DropdownButtonFormField<String>(
+                  value: teacherId,
+                  decoration: InputDecoration(labelText: l10n.teacher),
+                  items: [
+                    for (final person in teachers)
+                      DropdownMenuItem(value: person.id, child: Text(person.name)),
+                  ],
+                  onChanged: (v) => setDialogState(() => teacherId = v),
+                ),
+              TextField(
+                controller: amountCtrl,
+                decoration: InputDecoration(labelText: l10n.amount),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              TextField(
+                controller: notesCtrl,
+                decoration: InputDecoration(
+                  labelText: category == 'other' ? '${l10n.otherCost} *' : l10n.notes,
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            AppDialogActions.cancel(dialogContext),
+            AppDialogActions.confirm(
+              dialogContext,
+              label: l10n.save,
+              onPressed: () async {
+                final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                if (amount <= 0) return;
+                if (user?.isFounder == true && (branchId == null || branchId!.isEmpty)) return;
+                if (category == 'other' && notesCtrl.text.trim().isEmpty) return;
+                try {
+                  await ref.read(financeApiProvider).createBranchExpense({
+                    'category': category,
+                    'amount': amount,
+                    'month': month,
+                    'year': year,
+                    'notes': notesCtrl.text.trim(),
+                    if (branchId != null) 'branchId': branchId,
+                    if (category == 'teacher-payment' && teacherId != null) 'teacherId': teacherId,
+                  });
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('$e')));
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  amountCtrl.dispose();
+  notesCtrl.dispose();
+  if (saved == true) {
+    ref.invalidate(branchExpensesProvider);
+    ref.invalidate(branchCollectionsProvider);
+    return true;
+  }
+  return false;
 }

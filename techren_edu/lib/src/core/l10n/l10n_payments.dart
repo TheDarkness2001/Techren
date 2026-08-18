@@ -21,6 +21,7 @@ extension L10nPayments on AppLocalizations {
   String get allBranches => t(en: 'All branches', ru: 'Все филиалы', uz: 'Barcha filiallar');
   String get branchCosts => t(en: 'Branch costs', ru: 'Расходы филиала', uz: 'Filial xarajatlari');
   String get addCost => t(en: 'Add cost', ru: 'Добавить расход', uz: 'Xarajat qo\'shish');
+  String get costType => t(en: 'Cost type', ru: 'Тип расхода', uz: 'Xarajat turi');
   String get teacherPayment => t(en: 'Teacher payment', ru: 'Оплата учителю', uz: 'O\'qituvchi to\'lovi');
   String get rent => t(en: 'Rent', ru: 'Аренда', uz: 'Ijara');
   String get electricity => t(en: 'Electricity', ru: 'Электричество', uz: 'Elektr');
@@ -28,6 +29,12 @@ extension L10nPayments on AppLocalizations {
   String get otherCost => t(en: 'Other', ru: 'Другое', uz: 'Boshqa');
   String get leftover => t(en: 'Left after costs', ru: 'Остаток после расходов', uz: 'Xarajatlardan keyin');
   String get costsThisMonth => t(en: 'Costs this month', ru: 'Расходы за месяц', uz: 'Bu oy xarajatlari');
+  String get addCostHint => t(
+        en: 'Add rent, electricity, teacher pay, repairs, and other spending here.',
+        ru: 'Добавляйте аренду, электричество, зарплату учителям, ремонт и другие расходы здесь.',
+        uz: 'Ijara, elektr, o\'qituvchi to\'lovi, ta\'mir va boshqa xarajatlarni shu yerga qo\'shing.',
+      );
+  String get collectionSplit => t(en: 'Collected vs still due', ru: 'Собрано и остаток', uz: 'Yig\'ilgan va qolgan');
   String couldNotRecordPayment(String error) => t(en: 'Could not record payment: $error', ru: 'Не удалось записать платёж: $error', uz: 'To\'lov yozilmadi: $error');
   String paymentRecordedFor(String name) => t(en: 'Payment recorded for $name', ru: 'Платёж записан для $name', uz: '$name uchun to\'lov yozildi');
   String get recordPaid => t(en: 'Record paid', ru: 'Записать оплату', uz: 'To\'langan deb yozish');

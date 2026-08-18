@@ -20,6 +20,7 @@ import '../../../providers/news_provider.dart';
 import '../../../providers/finance_provider.dart';
 import '../../news/widgets/dashboard_news_feed.dart';
 import '../../finance/widgets/branch_collections_panel.dart';
+import '../../finance/widgets/branch_expenses_panel.dart';
 import 'dashboard_header.dart';
 import 'dashboard_portfolio_panel.dart';
 import 'dashboard_widgets.dart';
@@ -54,6 +55,9 @@ class RoleDashboardBody extends ConsumerWidget {
           if (data.role == 'founder') {
             ref.invalidate(branchCollectionsProvider);
           }
+          if (data.role == 'founder' || data.role == 'admin' || data.role == 'manager') {
+            ref.invalidate(branchExpensesProvider);
+          }
           if (data.role == 'student') {
             ref.invalidate(feedbackListProvider((studentId: null, page: 1, search: '')));
           }
@@ -69,6 +73,10 @@ class RoleDashboardBody extends ConsumerWidget {
             if (data.role == 'founder') ...[
               const SizedBox(height: AppSpacing.xl),
               BranchCollectionsPanel(month: AcademyTime.month, year: AcademyTime.year),
+            ],
+            if (data.role == 'founder' || data.role == 'admin' || data.role == 'manager') ...[
+              if (data.role != 'founder') const SizedBox(height: AppSpacing.xl),
+              BranchExpensesPanel(month: AcademyTime.month, year: AcademyTime.year),
             ],
             if (showRoleDashboardShortcuts(data.role)) ...[
               const SizedBox(height: AppSpacing.xl),
