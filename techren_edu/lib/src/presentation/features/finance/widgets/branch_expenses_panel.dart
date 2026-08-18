@@ -97,10 +97,8 @@ class BranchExpensesPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Expanded(
-                  child: Text(l10n.branchCosts, style: Theme.of(context).textTheme.titleMedium),
-                ),
                 FilledButton.tonalIcon(
                   onPressed: () => _addExpense(context, ref),
                   icon: const Icon(Icons.add, size: 18),
@@ -110,7 +108,7 @@ class BranchExpensesPanel extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             async.when(
-              loading: () => const LinearProgressIndicator(minHeight: 2),
+              loading: () => const SizedBox.shrink(),
               error: (e, _) => Text('$e', style: TextStyle(color: context.semantic.danger)),
               data: (data) {
                 if (data.items.isEmpty) {

@@ -58,13 +58,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     return user != null && user.canManageHomeworkFor(rolePerms);
   }
 
-  void _selectLanguage(LearningLanguage language) {
-    setState(() {
-      _languageId = language.id;
-      _levelId = null;
-    });
-  }
-
   void _resetPermissions() {
     setState(() {
       _permissionsLanguageId = null;
@@ -246,8 +239,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   @override
   Widget build(BuildContext context) {
     final languagesAsync = ref.watch(cmsLanguagesProvider);
-    final levelsAsync = _languageId == null ? null : ref.watch(cmsLevelsProvider(_languageId!));
-    final lessonsAsync = _levelId == null ? null : ref.watch(cmsLessonsProvider(_levelId!));
     final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
     final canManage = _canEditHomework;
@@ -304,8 +295,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               data: (languages) => _buildTabBody(
                 context,
                 languages: languages,
-                levelsAsync: levelsAsync,
-                lessonsAsync: lessonsAsync,
                 groupsAsync: groupsAsync,
                 canManage: canManage,
               ),
@@ -319,8 +308,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   Widget _buildTabBody(
     BuildContext context, {
     required List<LearningLanguage> languages,
-    required AsyncValue<List<CmsLevel>>? levelsAsync,
-    required AsyncValue<List<CmsLesson>>? lessonsAsync,
     required AsyncValue<PaginatedResult<UnifiedGroupView>> groupsAsync,
     required bool canManage,
   }) {
@@ -347,8 +334,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       case WordsHubTab.exam:
         return _buildLanguageFlow(
           languages: languages,
-          levelsAsync: levelsAsync,
-          lessonsAsync: lessonsAsync,
           showExamStatus: true,
           practicePreview: false,
           onAddLanguage: canManage ? _addLanguage : null,
@@ -356,8 +341,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       case WordsHubTab.practice:
         return _buildLanguageFlow(
           languages: languages,
-          levelsAsync: levelsAsync,
-          lessonsAsync: lessonsAsync,
           showExamStatus: false,
           practicePreview: true,
           onAddLanguage: canManage ? _addLanguage : null,
@@ -457,23 +440,26 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
 
   Widget _buildLanguageFlow({
     required List<LearningLanguage> languages,
-    required AsyncValue<List<CmsLevel>>? levelsAsync,
-    required AsyncValue<List<CmsLesson>>? lessonsAsync,
     VoidCallback? onAddLanguage,
     required bool showExamStatus,
     required bool practicePreview,
     void Function(String lessonId, String lessonName)? onLessonTap,
   }) {
+    final effectiveLanguageId = _languageId ?? (languages.isNotEmpty ? languages.first.id : null);
+    if (_languageId == null && effectiveLanguageId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _languageId = effectiveLanguageId);
+      });
+    }
+    final levelsAsync = effectiveLanguageId == null ? null : ref.watch(cmsLevelsProvider(effectiveLanguageId));
+    final lessonsAsync = _levelId == null ? null : ref.watch(cmsLessonsProvider(_levelId!));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        WordsLanguageSection(
-          languages: languages,
-          selectedLanguageId: _languageId,
-          onLanguageSelected: _selectLanguage,
-          onAddLanguage: onAddLanguage,
-        ),
-        if (_languageId != null && levelsAsync != null)
+        if (languages.isEmpty) WordsLanguageEmptyCard(onAddLanguage: onAddLanguage),
+        if (effectiveLanguageId != null && levelsAsync != null)
           levelsAsync.when(
             loading: () => const Padding(
               padding: EdgeInsets.only(top: AppSpacing.md),

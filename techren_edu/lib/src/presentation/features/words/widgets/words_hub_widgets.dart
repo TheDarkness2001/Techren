@@ -102,35 +102,9 @@ class WordsHubHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stacked = constraints.maxWidth < 560;
-        final subtitle = Text(
-          'Practice words and track your progress',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.semantic.textMuted),
-          textAlign: stacked ? TextAlign.start : TextAlign.end,
-        );
-
-        if (stacked) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Words', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: AppSpacing.xs),
-              subtitle,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Words', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-            const Spacer(),
-            Flexible(child: subtitle),
-          ],
-        );
-      },
+    return Text(
+      'Practice words and track your progress',
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.semantic.textMuted),
     );
   }
 }

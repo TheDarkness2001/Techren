@@ -47,7 +47,7 @@ class StaffSentencesHubScreen extends ConsumerStatefulWidget {
 
 class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScreen> {
   SentencesHubTab _tab = SentencesHubTab.practice;
-  SentencesPracticeStep _practiceStep = SentencesPracticeStep.languages;
+  SentencesPracticeStep _practiceStep = SentencesPracticeStep.levels;
   String? _languageId;
   String? _levelId;
   String? _lessonId;
@@ -89,7 +89,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
 
   void _resetPractice() {
     setState(() {
-      _practiceStep = SentencesPracticeStep.languages;
+      _practiceStep = SentencesPracticeStep.levels;
       _languageId = null;
       _levelId = null;
       _lessonId = null;
@@ -214,8 +214,6 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
   @override
   Widget build(BuildContext context) {
     final languagesAsync = ref.watch(cmsSentencesLanguagesProvider);
-    final levelsAsync = _languageId == null ? null : ref.watch(cmsSentencesLevelsProvider(_languageId!));
-    final lessonsAsync = _levelId == null ? null : ref.watch(cmsSentencesLessonsProvider(_levelId!));
     final leaderboardAsync = ref.watch(sentencesLeaderboardProvider);
     final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
@@ -260,7 +258,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
               SentencesHubTab.practice => languagesAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
                   error: (e, _) => Text(e.toString()),
-                  data: (languages) => _buildPracticeTab(languages, levelsAsync, lessonsAsync),
+                  data: (languages) => _buildPracticeTab(languages),
                 ),
               SentencesHubTab.leaderboard => leaderboardAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.table),
@@ -292,9 +290,17 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
 
   Widget _buildPracticeTab(
     List<LearningLanguage> languages,
-    AsyncValue<List<CmsLevel>>? levelsAsync,
-    AsyncValue<List<CmsLesson>>? lessonsAsync,
   ) {
+    final effectiveLanguageId = _languageId ?? (languages.isNotEmpty ? languages.first.id : null);
+    if (_languageId == null && effectiveLanguageId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _languageId = effectiveLanguageId);
+      });
+    }
+    final levelsAsync = effectiveLanguageId == null ? null : ref.watch(cmsSentencesLevelsProvider(effectiveLanguageId));
+    final lessonsAsync = _levelId == null ? null : ref.watch(cmsSentencesLessonsProvider(_levelId!));
+
     if (_practiceStep == SentencesPracticeStep.practice && _lessonId != null) {
       return SentencesPracticeView(
         lessonId: _lessonId!,
@@ -308,7 +314,10 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_practiceStep == SentencesPracticeStep.levels) ...[
-          SentencesBackButton(label: 'Back to Languages', onPressed: _resetPractice),
+          SentencesBackButton(
+            label: 'Back to Learning',
+            onPressed: () => context.go('$_prefix/learning'),
+          ),
           const SizedBox(height: AppSpacing.md),
         ],
         if (_practiceStep == SentencesPracticeStep.classes) ...[
@@ -321,20 +330,6 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
             }),
           ),
           const SizedBox(height: AppSpacing.md),
-        ],
-        if (_practiceStep == SentencesPracticeStep.languages) ...[
-          SentencesBackButton(
-            label: 'Back to Learning',
-            onPressed: () => context.go('$_prefix/learning'),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SentencesLanguageGrid(
-            languages: languages,
-            onLanguageTap: (language) => setState(() {
-              _languageId = language.id;
-              _practiceStep = SentencesPracticeStep.levels;
-            }),
-          ),
         ],
         if (_practiceStep == SentencesPracticeStep.levels && levelsAsync != null)
           levelsAsync.when(

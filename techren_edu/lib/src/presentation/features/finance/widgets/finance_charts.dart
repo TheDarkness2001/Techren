@@ -38,42 +38,48 @@ class FinanceDonutChart extends StatelessWidget {
     final donut = SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _DonutPainter(
-          slices: slices,
-          holeColor: hole,
-          emptyColor: context.semantic.border,
-        ),
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: size * 0.12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  centerValue,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, fontSize: layout == FinanceDonutLayout.vertical ? 12 : null),
-                ),
-                Text(
-                  centerLabel,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted, fontSize: layout == FinanceDonutLayout.vertical ? 10 : null),
-                ),
-              ],
-            ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 750),
+        curve: Curves.easeOutCubic,
+        builder: (context, progress, _) => CustomPaint(
+          painter: _DonutPainter(
+            slices: slices,
+            holeColor: hole,
+            emptyColor: context.semantic.border,
+            progress: progress,
           ),
         ),
+      ),
+    );
+
+    final summary = Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            centerValue,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, fontSize: layout == FinanceDonutLayout.vertical ? 12 : null),
+          ),
+          Text(
+            centerLabel,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted, fontSize: layout == FinanceDonutLayout.vertical ? 10 : null),
+          ),
+        ],
       ),
     );
 
     final legend = Column(
       crossAxisAlignment: layout == FinanceDonutLayout.vertical ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
+        summary,
         for (final slice in slices)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
@@ -147,34 +153,16 @@ class FinanceManagedDonutChart extends StatelessWidget {
     final donut = SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _DonutPainter(
-          slices: slices,
-          holeColor: hole,
-          emptyColor: context.semantic.border,
-        ),
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: size * 0.12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  centerValue,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  centerLabel,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
-                ),
-              ],
-            ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 750),
+        curve: Curves.easeOutCubic,
+        builder: (context, progress, _) => CustomPaint(
+          painter: _DonutPainter(
+            slices: slices,
+            holeColor: hole,
+            emptyColor: context.semantic.border,
+            progress: progress,
           ),
         ),
       ),
@@ -183,6 +171,26 @@ class FinanceManagedDonutChart extends StatelessWidget {
     final legend = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                centerValue,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                centerLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.semantic.textMuted),
+              ),
+            ],
+          ),
+        ),
         for (final item in items)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
@@ -500,11 +508,13 @@ class _DonutPainter extends CustomPainter {
     required this.slices,
     required this.holeColor,
     required this.emptyColor,
+    required this.progress,
   });
 
   final List<FinanceSlice> slices;
   final Color holeColor;
   final Color emptyColor;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -513,24 +523,30 @@ class _DonutPainter extends CustomPainter {
     final rect = Rect.fromCircle(center: center, radius: radius);
     final total = slices.fold<double>(0, (sum, slice) => sum + math.max(0, slice.value));
 
-    if (total <= 0) {
+    if (total <= 0 || progress <= 0) {
       canvas.drawCircle(center, radius, Paint()..color = emptyColor);
       canvas.drawCircle(center, radius * 0.58, Paint()..color = holeColor);
       return;
     }
 
+    final availableSweep = math.pi * 2 * progress.clamp(0.0, 1.0);
     var start = -math.pi / 2;
+    var drawn = 0.0;
     for (final slice in slices) {
       final value = math.max(0, slice.value);
       if (value <= 0) continue;
       final sweep = (value / total) * math.pi * 2;
-      canvas.drawArc(rect, start, sweep, true, Paint()..color = slice.color);
+      final remainingSweep = availableSweep - drawn;
+      if (remainingSweep <= 0) break;
+      final sliceSweep = math.min(sweep, remainingSweep);
+      canvas.drawArc(rect, start, sliceSweep, true, Paint()..color = slice.color);
       start += sweep;
+      drawn += sliceSweep;
     }
     canvas.drawCircle(center, radius * 0.58, Paint()..color = holeColor);
   }
 
   @override
   bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
-      oldDelegate.slices != slices || oldDelegate.holeColor != holeColor || oldDelegate.emptyColor != emptyColor;
+      oldDelegate.slices != slices || oldDelegate.holeColor != holeColor || oldDelegate.emptyColor != emptyColor || oldDelegate.progress != progress;
 }
