@@ -35,6 +35,9 @@ extension L10nPayments on AppLocalizations {
         uz: 'Ijara, elektr, o\'qituvchi to\'lovi, ta\'mir va boshqa xarajatlarni shu yerga qo\'shing.',
       );
   String get collectionSplit => t(en: 'Collected vs still due', ru: 'Собрано и остаток', uz: 'Yig\'ilgan va qolgan');
+  String get leftoverVsCosts => t(en: 'Left vs costs', ru: 'Остаток и расходы', uz: 'Qoldiq va xarajatlar');
+  String get byBranch => t(en: 'By branch', ru: 'По филиалам', uz: 'Filiallar bo\'yicha');
+  String get costsBreakdown => t(en: 'Costs breakdown', ru: 'Разбивка расходов', uz: 'Xarajatlar taqsimoti');
   String couldNotRecordPayment(String error) => t(en: 'Could not record payment: $error', ru: 'Не удалось записать платёж: $error', uz: 'To\'lov yozilmadi: $error');
   String paymentRecordedFor(String name) => t(en: 'Payment recorded for $name', ru: 'Платёж записан для $name', uz: '$name uchun to\'lov yozildi');
   String get recordPaid => t(en: 'Record paid', ru: 'Записать оплату', uz: 'To\'langan deb yozish');

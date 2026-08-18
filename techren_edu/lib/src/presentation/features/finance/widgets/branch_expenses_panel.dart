@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_money.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../domain/entities/branch.dart';
+import '../../../../domain/entities/finance.dart';
 import '../../../../domain/entities/paginated_result.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/identity_provider.dart';
+import 'finance_charts.dart';
 
 const _categories = ['teacher-payment', 'rent', 'electricity', 'repair', 'other'];
 
@@ -28,6 +31,33 @@ String _categoryLabel(AppLocalizations l10n, String category) {
     default:
       return l10n.otherCost;
   }
+}
+
+Color _categoryColor(String category) {
+  switch (category) {
+    case 'teacher-payment':
+      return AppColors.chartPurple;
+    case 'rent':
+      return AppColors.chartIndigo;
+    case 'electricity':
+      return AppColors.chartAmber;
+    case 'repair':
+      return AppColors.chartCyan;
+    default:
+      return AppColors.chartBlue;
+  }
+}
+
+List<FinanceSlice> _costSlices(AppLocalizations l10n, List<BranchExpense> items) {
+  final totals = <String, double>{};
+  for (final item in items) {
+    totals[item.category] = (totals[item.category] ?? 0) + item.amount;
+  }
+  return [
+    for (final category in _categories)
+      if ((totals[category] ?? 0) > 0)
+        FinanceSlice(label: _categoryLabel(l10n, category), value: totals[category]!, color: _categoryColor(category)),
+  ];
 }
 
 class BranchExpensesPanel extends ConsumerWidget {
@@ -83,7 +113,17 @@ class BranchExpensesPanel extends ConsumerWidget {
                       '${l10n.costsThisMonth}: ${formatUzs(data.totalAmount)}',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.md),
+                    if (_costSlices(l10n, data.items).isNotEmpty) ...[
+                      Text(l10n.costsBreakdown, style: Theme.of(context).textTheme.labelLarge),
+                      const SizedBox(height: AppSpacing.sm),
+                      FinanceDonutChart(
+                        slices: _costSlices(l10n, data.items),
+                        centerValue: formatUzs(data.totalAmount),
+                        centerLabel: l10n.costsThisMonth,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
                     for (final item in data.items)
                       ListTile(
                         dense: true,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +13,7 @@ import '../../../../domain/entities/finance.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/finance_provider.dart';
 import 'branch_expenses_panel.dart';
+import 'finance_charts.dart';
 
 class BranchCollectionsPanel extends ConsumerWidget {
   const BranchCollectionsPanel({
@@ -39,7 +42,6 @@ class BranchCollectionsPanel extends ConsumerWidget {
       ),
       data: (data) {
         final totals = data.totals;
-        final collectedPct = totals.expected <= 0 ? 0 : (totals.progress * 100).round();
         return Card(
           margin: const EdgeInsets.only(bottom: AppSpacing.md),
           child: Padding(
@@ -68,29 +70,43 @@ class BranchCollectionsPanel extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  l10n.collectionSplit,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: context.semantic.textMuted),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                _SplitBar(
-                  left: totals.collected,
-                  right: totals.remaining,
-                  leftColor: AppColors.success,
-                  rightColor: AppColors.error,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    _LegendDot(color: AppColors.success, label: '${l10n.collected} · $collectedPct%'),
-                    const SizedBox(width: AppSpacing.md),
-                    _LegendDot(color: AppColors.error, label: l10n.stillDue),
+                Text(l10n.collectionSplit, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppSpacing.sm),
+                FinanceDonutChart(
+                  slices: [
+                    FinanceSlice(label: l10n.collected, value: totals.collected, color: AppColors.success),
+                    FinanceSlice(label: l10n.stillDue, value: totals.remaining, color: AppColors.error),
                   ],
+                  centerValue: formatUzs(totals.collected),
+                  centerLabel: l10n.collected,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(l10n.leftoverVsCosts, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppSpacing.sm),
+                FinanceDonutChart(
+                  slices: [
+                    FinanceSlice(label: l10n.leftover, value: math.max(0, totals.leftover), color: AppColors.success),
+                    FinanceSlice(label: l10n.costsThisMonth, value: totals.expenses, color: AppColors.warning),
+                    if (totals.leftover < 0)
+                      FinanceSlice(label: l10n.stillDue, value: totals.leftover.abs(), color: AppColors.error),
+                  ],
+                  centerValue: formatUzs(totals.leftover),
+                  centerLabel: l10n.leftover,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _KpiGrid(totals: totals, l10n: l10n),
                 if (data.items.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(l10n.byBranch, style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  FinanceGroupedBars(
+                    rows: [
+                      for (final row in data.items)
+                        (label: row.branchName, left: row.collected, right: row.remaining),
+                    ],
+                    leftLabel: l10n.collected,
+                    rightLabel: l10n.stillDue,
+                  ),
                   for (final row in data.items) _BranchCollectionTile(row: row),
                 ],
               ],
@@ -261,37 +277,6 @@ class _SplitBar extends StatelessWidget {
                     ),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Flexible(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }
