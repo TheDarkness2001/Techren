@@ -250,105 +250,156 @@ class SentencesGroupCard extends StatelessWidget {
     required this.item,
     required this.onManageLessons,
     this.actionLabel = 'Unlock / Lock Lessons',
+    this.expanded = false,
   });
 
   final UnifiedGroupView item;
   final VoidCallback onManageLessons;
   final String actionLabel;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
     final group = item.group;
     final schedule = item.schedule;
     final subject = group.subjectName ?? 'General';
-    final time = schedule != null ? '${schedule.startTime}-${schedule.endTime}' : '—';
+    final time = schedule != null ? '${schedule.startTime} – ${schedule.endTime}' : '—';
     final teacher = schedule?.teacherName ?? '—';
+    final muted = context.semantic.textMuted;
+    final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onManageLessons,
         borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-        boxShadow: AppShadows.card,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.groups_2_outlined, color: Color(0xFF7C3AED)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: context.semantic.surfaceContainer,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Text('ID: ${group.groupName}', style: TextStyle(color: context.semantic.textMuted, fontSize: 11)),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(group.groupName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-          Text(subject, style: TextStyle(color: context.semantic.textMuted)),
-          const SizedBox(height: AppSpacing.sm),
-          _Meta(icon: Icons.access_time, text: time),
-          _Meta(icon: Icons.person_outline, text: teacher),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              for (var i = 0; i < 3 && i < group.studentCount; i++)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: context.semantic.surfaceContainer,
-                    child: Icon(Icons.person, size: 14, color: context.semantic.textMuted),
-                  ),
-                ),
-              if (group.studentCount > 3)
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.primaryContainer,
-                  child: Text('+${group.studentCount - 3}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FilledButton.icon(
-            onPressed: onManageLessons,
-            icon: const Icon(Icons.lock_open_outlined, size: 18),
-            label: Text(actionLabel),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: AppRadius.card,
+            border: Border.all(
+              color: expanded ? scheme.primary.withValues(alpha: 0.45) : context.semantic.border,
             ),
           ),
-        ],
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 720;
+              final identity = Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.groups_2_outlined, size: 18, color: Color(0xFF818CF8)),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.groupName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                        Text(subject, style: TextStyle(color: muted, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final meta = Row(
+                children: [
+                  Flexible(child: _InlineMeta(icon: Icons.access_time, text: time)),
+                  const SizedBox(width: AppSpacing.md),
+                  Flexible(child: _InlineMeta(icon: Icons.person_outline, text: teacher)),
+                  const SizedBox(width: AppSpacing.md),
+                  Flexible(child: _InlineMeta(icon: Icons.badge_outlined, text: 'ID: ${group.groupName}')),
+                ],
+              );
+
+              final action = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onManageLessons,
+                    icon: Icon(
+                      expanded ? Icons.lock_outline : Icons.lock_open_outlined,
+                      size: 14,
+                    ),
+                    label: Text(actionLabel, style: const TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFA5B4FC),
+                      side: BorderSide(color: const Color(0xFF818CF8).withValues(alpha: 0.55)),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: muted,
+                  ),
+                ],
+              );
+
+              if (wide) {
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: identity),
+                    Expanded(flex: 5, child: meta),
+                    action,
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  identity,
+                  const SizedBox(height: AppSpacing.sm),
+                  meta,
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(alignment: Alignment.centerRight, child: action),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 }
 
-class _Meta extends StatelessWidget {
-  const _Meta({required this.icon, required this.text});
+class _InlineMeta extends StatelessWidget {
+  const _InlineMeta({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: context.semantic.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(child: Text(text, style: TextStyle(color: context.semantic.textMuted, fontSize: 13))),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: const Color(0xFF818CF8)),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -427,7 +478,6 @@ class _LockActionButton extends StatelessWidget {
     required this.onPressed,
     this.label,
     this.compact = false,
-    this.expanded = false,
   });
 
   /// When true, this is an Unlock button; when false, a Lock button.
@@ -435,37 +485,36 @@ class _LockActionButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? label;
   final bool compact;
-  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
     final text = label ?? (unlockAction ? 'Unlock' : 'Lock');
     final icon = unlockAction ? Icons.lock_open_rounded : Icons.lock_rounded;
-    final button = unlockAction
-        ? FilledButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: compact ? 16 : 18),
-            label: Text(text),
-            style: FilledButton.styleFrom(
-              visualDensity: compact ? VisualDensity.compact : null,
-              padding: compact
-                  ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs)
-                  : null,
-            ),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: compact ? 16 : 18),
-            label: Text(text),
-            style: OutlinedButton.styleFrom(
-              visualDensity: compact ? VisualDensity.compact : null,
-              padding: compact
-                  ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs)
-                  : null,
-            ),
-          );
-    if (!expanded) return button;
-    return SizedBox(width: double.infinity, child: button);
+    final style = TextButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 4 : 6,
+      ),
+      textStyle: TextStyle(fontSize: compact ? 11 : 12, fontWeight: FontWeight.w600),
+    );
+    if (unlockAction) {
+      return FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: compact ? 13 : 14),
+        label: Text(text),
+        style: style.copyWith(
+          backgroundColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.primary),
+          foregroundColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.onPrimary),
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: compact ? 13 : 14),
+      label: Text(text),
+      style: style,
+    );
   }
 }
 
@@ -497,6 +546,7 @@ class _LevelAccessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final muted = context.semantic.textMuted;
 
     return Container(
       decoration: BoxDecoration(
@@ -504,7 +554,7 @@ class _LevelAccessCard extends StatelessWidget {
         borderRadius: AppRadius.card,
         border: Border.all(color: context.semantic.border),
       ),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -512,19 +562,21 @@ class _LevelAccessCard extends StatelessWidget {
             children: [
               Icon(
                 _practiceOn ? Icons.check_circle_rounded : Icons.lock_rounded,
-                color: _practiceOn ? scheme.primary : context.semantic.textMuted,
+                size: 18,
+                color: _practiceOn ? scheme.primary : muted,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(level.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text(
-                      _practiceOn
-                          ? 'Open for this group'
-                          : 'Closed for this group',
-                      style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
+                      level.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    Text(
+                      _practiceOn ? 'Open for this group' : 'Closed for this group',
+                      style: TextStyle(color: muted, fontSize: 10),
                     ),
                   ],
                 ),
@@ -532,48 +584,43 @@ class _LevelAccessCard extends StatelessWidget {
               if (!showExamToggles)
                 _LockActionButton(
                   unlockAction: !_practiceOn,
+                  compact: true,
                   onPressed: busy ? null : () => onTogglePractice(!_practiceOn),
                 ),
-            ],
-          ),
-          if (showExamToggles && onBulkUnlockLevel != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Unlock all opens this level and every class. Lock all closes them all.',
-              style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: _LockActionButton(
-                    unlockAction: true,
-                    label: 'Unlock all',
-                    onPressed: busy ? null : () => onBulkUnlockLevel!(true),
-                    expanded: true,
-                  ),
+              if (showExamToggles && onBulkUnlockLevel != null) ...[
+                _LockActionButton(
+                  unlockAction: true,
+                  label: 'Unlock all',
+                  compact: true,
+                  onPressed: busy ? null : () => onBulkUnlockLevel!(true),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _LockActionButton(
-                    unlockAction: false,
-                    label: 'Lock all',
-                    onPressed: busy ? null : () => onBulkUnlockLevel!(false),
-                    expanded: true,
-                  ),
+                const SizedBox(width: 6),
+                _LockActionButton(
+                  unlockAction: false,
+                  label: 'Lock all',
+                  compact: true,
+                  onPressed: busy ? null : () => onBulkUnlockLevel!(false),
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
           if (showExamToggles) ...[
             const SizedBox(height: AppSpacing.sm),
-            for (final lesson in lessons)
-              _AccessRow(
-                title: lesson.name,
-                subtitle: lesson.isExamUnlockedFor(groupId) ? 'Class open' : 'Class closed',
-                unlocked: lesson.isExamUnlockedFor(groupId),
-                busy: busyLessonIds.contains(lesson.id) || busy,
-                onPressed: () => onToggleExam(lesson, !lesson.isExamUnlockedFor(groupId)),
+            if (lessons.isEmpty)
+              Text('No classes yet.', style: TextStyle(color: muted, fontSize: 11))
+            else
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  for (final lesson in lessons)
+                    _UnitLockCard(
+                      title: lesson.name,
+                      unlocked: lesson.isExamUnlockedFor(groupId),
+                      busy: busyLessonIds.contains(lesson.id) || busy,
+                      onPressed: () => onToggleExam(lesson, !lesson.isExamUnlockedFor(groupId)),
+                    ),
+                ],
               ),
           ],
         ],
@@ -582,53 +629,72 @@ class _LevelAccessCard extends StatelessWidget {
   }
 }
 
-class _AccessRow extends StatelessWidget {
-  const _AccessRow({
+class _UnitLockCard extends StatelessWidget {
+  const _UnitLockCard({
     required this.title,
-    required this.subtitle,
     required this.unlocked,
     required this.busy,
     required this.onPressed,
   });
 
   final String title;
-  final String subtitle;
   final bool unlocked;
   final bool busy;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: Row(
-        children: [
-          Icon(
-            unlocked ? Icons.check_circle_rounded : Icons.lock_rounded,
-            size: 18,
-            color: unlocked
-                ? Theme.of(context).colorScheme.primary
-                : context.semantic.textMuted,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: context.semantic.textMuted, fontSize: 11),
-                ),
-              ],
+    final scheme = Theme.of(context).colorScheme;
+    final muted = context.semantic.textMuted;
+
+    return SizedBox(
+      width: 118,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: context.semantic.border.withValues(alpha: 0.8)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(
+              unlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+              size: 18,
+              color: unlocked ? scheme.primary : muted,
             ),
-          ),
-          _LockActionButton(
-            unlockAction: !unlocked,
-            compact: true,
-            onPressed: busy ? null : onPressed,
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              unlocked ? 'Class open' : 'Class closed',
+              style: TextStyle(color: muted, fontSize: 10),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onPressed,
+              icon: Icon(
+                unlocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                size: 12,
+              ),
+              label: Text(unlocked ? 'Lock' : 'Unlock'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFA5B4FC),
+                side: BorderSide(color: const Color(0xFF818CF8).withValues(alpha: 0.55)),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                minimumSize: const Size.fromHeight(28),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

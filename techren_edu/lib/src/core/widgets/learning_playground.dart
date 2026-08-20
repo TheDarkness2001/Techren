@@ -161,13 +161,19 @@ class PlaygroundLevelStrip extends StatelessWidget {
       return Text('No levels yet.', style: TextStyle(color: context.semantic.textMuted));
     }
 
+    final screenH = MediaQuery.sizeOf(context).height;
+    final compact = screenH < 820 || MediaQuery.sizeOf(context).width < 1100;
+    final stripHeight = compact ? 112.0 : 148.0;
+    final cardWidth = compact ? 104.0 : 132.0;
+    final planetSize = compact ? 40.0 : 56.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: AppSpacing.md),
+        SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
         SizedBox(
-          height: 148,
+          height: stripHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: levels.length,
@@ -179,6 +185,9 @@ class PlaygroundLevelStrip extends StatelessWidget {
                 accent: playgroundAccentAt(index),
                 selected: level.id == selectedId,
                 onTap: () => onSelected(level),
+                width: cardWidth,
+                planetSize: planetSize,
+                compact: compact,
               );
             },
           ),
@@ -194,17 +203,24 @@ class _LevelPlanetCard extends StatelessWidget {
     required this.accent,
     required this.selected,
     required this.onTap,
+    this.width = 132,
+    this.planetSize = 56,
+    this.compact = false,
   });
 
   final String name;
   final Color accent;
   final bool selected;
   final VoidCallback onTap;
+  final double width;
+  final double planetSize;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
+    final padV = compact ? AppSpacing.sm : AppSpacing.md;
 
     return Semantics(
       button: true,
@@ -217,8 +233,8 @@ class _LevelPlanetCard extends StatelessWidget {
           borderRadius: AppRadius.cardLarge,
           child: AnimatedContainer(
             duration: AppDurations.fast,
-            width: 132,
-            padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.sm, AppSpacing.sm),
+            width: width,
+            padding: EdgeInsets.fromLTRB(AppSpacing.sm, padV, AppSpacing.sm, AppSpacing.sm),
             decoration: BoxDecoration(
               color: scheme.surface,
               borderRadius: AppRadius.cardLarge,
@@ -230,8 +246,8 @@ class _LevelPlanetCard extends StatelessWidget {
                   ? [
                       BoxShadow(
                         color: const Color(0xFF6366F1).withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
+                        blurRadius: compact ? 12 : 18,
+                        offset: Offset(0, compact ? 4 : 8),
                       ),
                     ]
                   : [
@@ -246,14 +262,17 @@ class _LevelPlanetCard extends StatelessWidget {
               children: [
                 Column(
                   children: [
-                    PlaygroundPlanet(color: accent),
+                    PlaygroundPlanet(color: accent, size: planetSize),
                     const Spacer(),
                     Text(
                       name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: compact ? 12 : null,
+                          ),
                     ),
                   ],
                 ),
@@ -415,6 +434,8 @@ class PlaygroundLessonDashboard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final sideBySide = constraints.maxWidth >= 720;
+        final screenH = MediaQuery.sizeOf(context).height;
+        final compact = screenH < 820 || constraints.maxWidth < 1100;
         final list = _UnitList(
           units: units,
           selectedId: selected.id,
@@ -432,19 +453,22 @@ class PlaygroundLessonDashboard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(height: 280, child: list),
+              SizedBox(height: compact ? 200.0 : 260.0, child: list),
               const SizedBox(height: AppSpacing.md),
               detail,
             ],
           );
         }
 
+        final paneHeight = (screenH * 0.42).clamp(compact ? 260.0 : 300.0, compact ? 320.0 : 380.0);
+        final listWidth = compact ? 220.0 : 260.0;
+
         return SizedBox(
-          height: 420,
+          height: paneHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(width: 280, child: list),
+              SizedBox(width: listWidth, child: list),
               const SizedBox(width: AppSpacing.md),
               Expanded(child: detail),
             ],
@@ -563,9 +587,11 @@ class _UnitDetail extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
     final progress = unit.progressPercent.clamp(0, 100) / 100;
+    final compact = MediaQuery.sizeOf(context).height < 820 || MediaQuery.sizeOf(context).width < 1100;
+    final pad = compact ? AppSpacing.md : AppSpacing.lg;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.cardLarge,
@@ -576,16 +602,27 @@ class _UnitDetail extends StatelessWidget {
           return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(unit.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            unit.title,
+            style: (compact
+                    ? Theme.of(context).textTheme.titleLarge
+                    : Theme.of(context).textTheme.headlineSmall)
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: AppSpacing.xxs),
           Text(unit.countLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: semantic.textMuted)),
-          const SizedBox(height: AppSpacing.sm),
-          Text(unit.description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: semantic.textSecondary)),
-          const SizedBox(height: AppSpacing.lg),
+          SizedBox(height: compact ? AppSpacing.xs : AppSpacing.sm),
+          Text(
+            unit.description,
+            maxLines: compact ? 3 : null,
+            overflow: compact ? TextOverflow.ellipsis : TextOverflow.clip,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: semantic.textSecondary),
+          ),
+          SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.pill),
             child: SizedBox(
-              height: 10,
+              height: compact ? 8 : 10,
               child: Stack(
                 children: [
                   Container(color: semantic.surfaceContainer),
@@ -612,7 +649,7 @@ class _UnitDetail extends StatelessWidget {
                   ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
           Row(
             children: [
               Expanded(

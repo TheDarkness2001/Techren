@@ -32,6 +32,9 @@ class LearnModuleCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semantic;
     final progress = ((progressPercent ?? 0).clamp(0, 100)) / 100;
+    final compact = MediaQuery.sizeOf(context).height < 820 || MediaQuery.sizeOf(context).width < 1100;
+    final planetSize = compact ? 36.0 : 48.0;
+    final pad = compact ? AppSpacing.sm : AppSpacing.md;
 
     return PracticeRecommendationHighlight(
       module: module,
@@ -42,7 +45,7 @@ class LearnModuleCard extends StatelessWidget {
           borderRadius: AppRadius.cardLarge,
           child: Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: EdgeInsets.all(pad),
             decoration: BoxDecoration(
               color: scheme.surface,
               borderRadius: AppRadius.cardLarge,
@@ -50,28 +53,34 @@ class LearnModuleCard extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: accentColor.withValues(alpha: 0.12),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  blurRadius: compact ? 10 : 18,
+                  offset: Offset(0, compact ? 4 : 8),
                 ),
               ],
             ),
             child: Row(
               children: [
-                PlaygroundPlanet(color: accentColor, size: 48),
-                const SizedBox(width: AppSpacing.md),
+                PlaygroundPlanet(color: accentColor, size: planetSize),
+                SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      Text(
+                        title,
+                        style: (compact
+                                ? Theme.of(context).textTheme.titleSmall
+                                : Theme.of(context).textTheme.titleMedium)
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
                       const SizedBox(height: AppSpacing.micro),
                       Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: semantic.textMuted)),
-                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(height: compact ? AppSpacing.xs : AppSpacing.sm),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                         child: LinearProgressIndicator(
                           value: progress,
-                          minHeight: 6,
+                          minHeight: compact ? 4 : 6,
                           backgroundColor: semantic.surfaceContainer,
                           color: accentColor,
                         ),
@@ -80,7 +89,7 @@ class LearnModuleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Icon(Icons.arrow_forward_rounded, color: semantic.textMuted),
+                Icon(Icons.arrow_forward_rounded, size: compact ? 20 : 24, color: semantic.textMuted),
               ],
             ),
           ),

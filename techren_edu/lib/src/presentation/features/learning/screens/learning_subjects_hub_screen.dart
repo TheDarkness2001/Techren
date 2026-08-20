@@ -221,7 +221,7 @@ class _LearningSubjectsHubScreenState extends ConsumerState<LearningSubjectsHubS
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
-                    final columns = width >= 1100 ? 3 : width >= 720 ? 2 : 1;
+                    final columns = width >= 960 ? 3 : width >= 640 ? 2 : 1;
                     final spacing = AppSpacing.md;
                     final cardWidth = columns == 1
                         ? width

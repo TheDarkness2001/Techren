@@ -98,7 +98,7 @@ class AppLocalizations {
   String get roleParent => _t(en: 'Parent', ru: 'Родитель', uz: 'Ota-ona');
   String get roleStudent => _t(en: 'Student', ru: 'Ученик', uz: 'O\'quvchi');
   String get roleSales => _t(en: 'Sales', ru: 'Продажи', uz: 'Sotuv');
-  String get roleReceptionist => _t(en: 'Receptionist', ru: 'Администратор', uz: 'Qabulxona');
+  String get roleReceptionist => _t(en: 'Receptionist', ru: 'Ресепционист', uz: 'Qabulxona');
   String roleNamed(String role) => _t(en: 'Role: $role', ru: 'Роль: $role', uz: 'Rol: $role');
 
   // —— Login brand panel ——
@@ -158,7 +158,7 @@ class AppLocalizations {
   String get navProgress => _t(en: 'Progress', ru: 'Прогресс', uz: 'Taraqqiyot');
   String get navProfile => _t(en: 'Profile', ru: 'Профиль', uz: 'Profil');
   String get mySchedule => _t(en: 'My Schedule', ru: 'Моё расписание', uz: 'Mening jadvalim');
-  String get navHomework => _t(en: 'Homework', ru: 'Домашние', uz: 'Uy vazifa');
+  String get navHomework => _t(en: 'Homework', ru: 'Домашка', uz: 'Uy vazifa');
   String get childSchedule => _t(en: 'Schedule', ru: 'Расписание', uz: 'Jadval');
   String get noLessonsThisWeek => _t(en: 'No lessons scheduled this week.', ru: 'На этой неделе уроков нет.', uz: 'Bu hafta darslar yo‘q.');
   String get homeworkAccuracy => _t(en: 'Accuracy', ru: 'Точность', uz: 'Aniqlik');
@@ -195,7 +195,7 @@ class AppLocalizations {
   String get classLabel => _t(en: 'Class', ru: 'Класс', uz: 'Sinf');
   String get statusActive => _t(en: 'active', ru: 'активен', uz: 'faol');
   String get statusInactive => _t(en: 'inactive', ru: 'неактивен', uz: 'nofaol');
-  String get homeworkScore => _t(en: 'Homework', ru: 'Домашнее', uz: 'Uy vazifa');
+  String get homeworkScore => _t(en: 'Homework', ru: 'Домашка', uz: 'Uy vazifa');
   String get wordsScore => _t(en: 'Words', ru: 'Слова', uz: 'So\'zlar');
   String get sentenceScore => _t(en: 'Sentence', ru: 'Предложение', uz: 'Gap');
   String get behaviorScore => _t(en: 'Behavior', ru: 'Поведение', uz: 'Xulq');

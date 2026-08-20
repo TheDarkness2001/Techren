@@ -5,7 +5,7 @@ extension L10nChat on AppLocalizations {
   String get support => t(en: 'Support', ru: 'Поддержка', uz: 'Yordam');
   String get subjectRoom => t(en: 'Subject room', ru: 'Комната предмета', uz: 'Fan xonasi');
   String get moderation => t(en: 'Moderation', ru: 'Модерация', uz: 'Moderatsiya');
-  String get broadcast => t(en: 'Broadcast', ru: 'Рассылка', uz: 'E\'lon');
+  String get broadcast => t(en: 'Broadcast', ru: 'Рассылка', uz: 'Tarqatma');
   String get newChat => t(en: 'New chat', ru: 'Новый чат', uz: 'Yangi chat');
   String get searchChats => t(en: 'Search chats…', ru: 'Поиск чатов…', uz: 'Chatlarni qidirish…');
   String get searchMessages => t(en: 'Search messages', ru: 'Поиск сообщений', uz: 'Xabarlarni qidirish');
@@ -28,7 +28,7 @@ extension L10nChat on AppLocalizations {
   String get reply => t(en: 'Reply', ru: 'Ответить', uz: 'Javob');
   String get react => t(en: 'React 👍', ru: 'Реакция 👍', uz: 'Reaksiya 👍');
   String get pinInChat => t(en: 'Pin in chat', ru: 'Закрепить', uz: 'Qadash');
-  String get forward => t(en: 'Forward', ru: 'Переслать', uz: 'Uzatkich');
+  String get forward => t(en: 'Forward', ru: 'Переслать', uz: 'Uzatish');
   String get editMessage => t(en: 'Edit message', ru: 'Изменить сообщение', uz: 'Xabarni tahrirlash');
   String get forwarded => t(en: 'Forwarded', ru: 'Переслано', uz: 'Uzatildi');
   String get searchResults => t(en: 'Search results', ru: 'Результаты поиска', uz: 'Qidiruv natijalari');
@@ -44,13 +44,13 @@ extension L10nChat on AppLocalizations {
   String get createPoll => t(en: 'Create poll', ru: 'Создать опрос', uz: 'So\'rov yaratish');
   String get audioCallInvite => t(en: 'Audio call invite', ru: 'Приглашение на аудиозвонок', uz: 'Audio qo\'ng\'iroq taklifi');
   String get videoCallInvite => t(en: 'Video call invite', ru: 'Приглашение на видеозвонок', uz: 'Video qo\'ng\'iroq taklifi');
-  String get repliesDisabled => t(en: 'Replies are disabled on this broadcast.', ru: 'Ответы в этой рассылке отключены.', uz: 'Bu e\'londa javoblar o\'chirilgan.');
+  String get repliesDisabled => t(en: 'Replies are disabled on this broadcast.', ru: 'Ответы в этой рассылке отключены.', uz: 'Bu tarqatmada javoblar o\'chirilgan.');
   String get messageHint => t(en: 'Message… (Enter to send)', ru: 'Сообщение… (Enter — отправить)', uz: 'Xabar… (Enter — yuborish)');
   String get recording => t(en: 'Recording…', ru: 'Запись…', uz: 'Yozilmoqda…');
   String get voiceNote => t(en: 'Voice note', ru: 'Голосовое', uz: 'Ovozli xabar');
   String get micPermissionRequired => t(en: 'Microphone permission required', ru: 'Нужен доступ к микрофону', uz: 'Mikrofon ruxsati kerak');
   String get audioCallSent => t(en: 'Audio call invite sent', ru: 'Приглашение на аудиозвонок отправлено', uz: 'Audio qo\'ng\'iroq taklifi yuborildi');
   String get videoCallSent => t(en: 'Video call invite sent', ru: 'Приглашение на видеозвонок отправлено', uz: 'Video qo\'ng\'iroq taklifi yuborildi');
-  String stopAndSend(int seconds) => t(en: 'Stop & send ($seconds s)', ru: 'Стоп и отправить ($seconds с)', uz: 'To\'xtat va yubor ($seconds s)');
+  String stopAndSend(int seconds) => t(en: 'Stop & send ($seconds s)', ru: 'Стоп и отправить ($seconds с)', uz: 'To\'xtatib yuborish ($seconds s)');
   String replyingTo(String body) => t(en: 'Replying to: $body', ru: 'Ответ на: $body', uz: 'Javob: $body');
 }

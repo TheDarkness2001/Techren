@@ -419,6 +419,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                     for (final item in relatedGroups) ...[
                       SentencesGroupCard(
                         item: item,
+                        expanded: _permissionsExpandedGroupId == item.group.id,
                         onManageLessons: () => setState(() {
                           _permissionsExpandedGroupId =
                               _permissionsExpandedGroupId == item.group.id ? null : item.group.id;
@@ -428,23 +429,26 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                             : 'Unlock / Lock Lessons',
                       ),
                       if (_permissionsExpandedGroupId == item.group.id) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        _PermissionsLevelsLoader(
-                          group: item,
-                          levels: levels,
-                          busyIds: _permissionsBusyIds,
-                          bulkBusy: _permissionsBulkBusy,
-                          onBack: () => setState(() => _permissionsExpandedGroupId = null),
-                          onTogglePractice: (level, unlock) =>
-                              _togglePractice(level, unlock, item.group.id),
-                          onToggleExam: (lesson, unlock) =>
-                              _toggleExam(lesson, unlock, item.group.id),
-                          onBulkUnlockLevel: (level, unlock, lessons) =>
-                              _bulkUnlockLevel(level, unlock, item.group.id, lessons),
-                          showBackButton: false,
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.sm, right: AppSpacing.sm),
+                          child: _PermissionsLevelsLoader(
+                            group: item,
+                            levels: levels,
+                            busyIds: _permissionsBusyIds,
+                            bulkBusy: _permissionsBulkBusy,
+                            onBack: () => setState(() => _permissionsExpandedGroupId = null),
+                            onTogglePractice: (level, unlock) =>
+                                _togglePractice(level, unlock, item.group.id),
+                            onToggleExam: (lesson, unlock) =>
+                                _toggleExam(lesson, unlock, item.group.id),
+                            onBulkUnlockLevel: (level, unlock, lessons) =>
+                                _bulkUnlockLevel(level, unlock, item.group.id, lessons),
+                            showBackButton: false,
+                          ),
                         ),
                       ],
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                     ],
                   ],
                 ),

@@ -393,6 +393,7 @@ class _LearningCmsScreenState extends ConsumerState<LearningCmsScreen> {
                       for (final item in relatedGroups) ...[
                         SentencesGroupCard(
                           item: item,
+                          expanded: _permissionsExpandedGroupId == item.group.id,
                           onManageLessons: () => setState(() {
                             _permissionsExpandedGroupId =
                                 _permissionsExpandedGroupId == item.group.id ? null : item.group.id;

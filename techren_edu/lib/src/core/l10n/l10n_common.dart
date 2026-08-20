@@ -20,7 +20,7 @@ extension L10nCommon on AppLocalizations {
   String get search => t(en: 'Search', ru: 'Поиск', uz: 'Qidirish');
   String get filter => t(en: 'Filter', ru: 'Фильтр', uz: 'Filtr');
   String get close => t(en: 'Close', ru: 'Закрыть', uz: 'Yopish');
-  String get notes => t(en: 'Notes', ru: 'Заметки', uz: 'Izoh');
+  String get notes => t(en: 'Notes', ru: 'Заметки', uz: 'Izohlar');
   String get confirm => t(en: 'Confirm', ru: 'Подтвердить', uz: 'Tasdiqlash');
   String get back => t(en: 'Back', ru: 'Назад', uz: 'Orqaga');
   String get view => t(en: 'View', ru: 'Просмотр', uz: 'Ko\'rish');
@@ -103,13 +103,13 @@ extension L10nCommon on AppLocalizations {
   }
 
   String get sendTestNotification =>
-      t(en: 'Send test notification', ru: 'Тестовое уведомление', uz: 'Sinov bildirishnomasi');
+      t(en: 'Send test notification', ru: 'Отправить тестовое уведомление', uz: 'Sinov bildirishnomasini yuborish');
   String get testPushSent =>
-      t(en: 'Test notification sent. Check the bell or the notification tray.', ru: 'Тест отправлен. Проверьте колокольчик или шторку уведомлений.', uz: 'Sinov yuborildi. Qo‘ng‘iroqcha yoki bildirishnomalar panelini tekshiring.');
+      t(en: 'Test notification sent. Check the bell or the notification tray.', ru: 'Тестовое уведомление отправлено. Проверьте колокольчик или шторку уведомлений.', uz: 'Sinov bildirishnomasi yuborildi. Qo‘ng‘iroqcha yoki bildirishnomalar panelini tekshiring.');
   String get testPushNoToken =>
-      t(en: 'Test saved to your inbox. Open the app on a phone to try OS push.', ru: 'Тест сохранён во входящих. Для пуша откройте приложение на телефоне.', uz: 'Sinov inboxga saqlandi. OS push uchun telefonda oching.');
+      t(en: 'Test saved to your inbox. Open the app on a phone to try OS push.', ru: 'Тест сохранён во входящих. Для системного пуша откройте приложение на телефоне.', uz: 'Sinov kiruvchi qutiga saqlandi. Tizim pushini sinash uchun telefonda oching.');
   String get testPushFirebaseOff =>
-      t(en: 'Test saved to your inbox.', ru: 'Тест сохранён во входящих.', uz: 'Sinov inboxga saqlandi.');
+      t(en: 'Test saved to your inbox.', ru: 'Тест сохранён во входящих.', uz: 'Sinov kiruvchi qutiga saqlandi.');
   String get testPushFailed =>
-      t(en: 'Could not send test notification.', ru: 'Не удалось отправить тест.', uz: 'Sinov yuborilmadi.');
+      t(en: 'Could not send test notification.', ru: 'Не удалось отправить тестовое уведомление.', uz: 'Sinov bildirishnomasini yuborib bo‘lmadi.');
 }

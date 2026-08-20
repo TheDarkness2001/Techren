@@ -25,7 +25,7 @@ extension L10nPeople on AppLocalizations {
   String teacherCreated(String name) => t(en: 'Teacher $name created', ru: 'Учитель $name создан', uz: 'O\'qituvchi $name yaratildi');
   String studentCreated(String name) => t(en: 'Student $name created', ru: 'Ученик $name создан', uz: 'O\'quvchi $name yaratildi');
   String get fullNameRequired => t(en: 'Full name *', ru: 'Полное имя *', uz: 'To\'liq ism *');
-  String get nameActions => t(en: 'Name Actions', ru: 'Имя', uz: 'Ism');
+  String get nameActions => t(en: 'Name / Actions', ru: 'Имя / Действия', uz: 'Ism / Amallar');
   String get profile => t(en: 'Profile', ru: 'Профиль', uz: 'Profil');
   String get dateOfBirth => t(en: 'Date of Birth', ru: 'Дата рождения', uz: 'Tug\'ilgan sana');
   String get gender => t(en: 'Gender', ru: 'Пол', uz: 'Jins');
@@ -33,7 +33,7 @@ extension L10nPeople on AppLocalizations {
   String get address => t(en: 'Address', ru: 'Адрес', uz: 'Manzil');
   String get medicalConditions => t(en: 'Medical Conditions', ru: 'Мед. сведения', uz: 'Tibbiy holat');
   String get noDataFound => t(en: 'No data found', ru: 'Нет данных', uz: 'Ma\'lumot yo\'q');
-  String get studentCredentials => t(en: 'Student Credentials', ru: 'Учётные данные ученика', uz: 'O\'quvchi login');
+  String get studentCredentials => t(en: 'Student Credentials', ru: 'Учётные данные ученика', uz: 'O\'quvchi hisob ma\'lumotlari');
   String get studentPasswordRequired => t(en: 'Student password *', ru: 'Пароль ученика *', uz: 'O\'quvchi paroli *');
   String get parentPortalLogin => t(en: 'Parent portal login', ru: 'Вход родителя', uz: 'Ota-ona portali');
   String get parentPortalLoginHint => t(

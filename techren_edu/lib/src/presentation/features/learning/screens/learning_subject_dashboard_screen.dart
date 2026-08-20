@@ -372,9 +372,10 @@ class _ModuleGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width >= 1000 ? 4 : width >= 700 ? 3 : width >= 480 ? 2 : 1;
-        final spacing = AppSpacing.md;
+        final columns = width >= 900 ? 4 : width >= 640 ? 3 : width >= 420 ? 2 : 1;
+        final spacing = AppSpacing.sm;
         final tileWidth = columns == 1 ? width : (width - spacing * (columns - 1)) / columns;
+        final tileHeight = MediaQuery.sizeOf(context).height < 820 ? 96.0 : 112.0;
 
         return Wrap(
           spacing: spacing,
@@ -383,7 +384,7 @@ class _ModuleGrid extends StatelessWidget {
             for (final module in modules)
               SizedBox(
                 width: tileWidth,
-                height: 120,
+                height: tileHeight,
                 child: LearningModuleTile(
                   module: module,
                   accent: accent,

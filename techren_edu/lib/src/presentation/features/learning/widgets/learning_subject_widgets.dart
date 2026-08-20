@@ -74,6 +74,9 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
     final semantic = context.semantic;
     final accent = parseSubjectColor(widget.subject.color, fallback: scheme.primary);
     final progress = widget.subject.progressPercent.clamp(0, 100);
+    final compact = MediaQuery.sizeOf(context).height < 820 || MediaQuery.sizeOf(context).width < 1100;
+    final iconSize = compact ? 36.0 : 48.0;
+    final pad = compact ? AppSpacing.sm : AppSpacing.md;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -99,33 +102,40 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    height: 6,
+                    height: compact ? 4 : 6,
                     color: accent,
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: EdgeInsets.all(pad),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Container(
-                              width: 48,
-                              height: 48,
+                              width: iconSize,
+                              height: iconSize,
                               decoration: BoxDecoration(
                                 color: accent.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(compact ? 10 : 14),
                               ),
-                              child: Icon(iconForLearningKey(widget.subject.icon), color: accent),
+                              child: Icon(
+                                iconForLearningKey(widget.subject.icon),
+                                color: accent,
+                                size: compact ? 20 : 24,
+                              ),
                             ),
-                            const SizedBox(width: AppSpacing.md),
+                            SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     widget.subject.name,
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    style: (compact
+                                            ? Theme.of(context).textTheme.titleSmall
+                                            : Theme.of(context).textTheme.titleMedium)
+                                        ?.copyWith(
                                           fontWeight: FontWeight.w700,
                                           color: scheme.onSurface,
                                         ),
@@ -134,7 +144,7 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                                     const SizedBox(height: 2),
                                     Text(
                                       widget.subject.description,
-                                      maxLines: 2,
+                                      maxLines: compact ? 1 : 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             color: semantic.textMuted,
@@ -160,7 +170,7 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
                         Row(
                           children: [
                             Text(
@@ -168,6 +178,7 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                                     color: scheme.onSurface,
                                     fontWeight: FontWeight.w600,
+                                    fontSize: compact ? 12 : null,
                                   ),
                             ),
                             const Spacer(),
@@ -180,26 +191,27 @@ class _LearningSubjectCardWidgetState extends State<LearningSubjectCardWidget> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        SizedBox(height: compact ? AppSpacing.xs : AppSpacing.sm),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(999),
                           child: LinearProgressIndicator(
                             value: progress / 100,
-                            minHeight: 8,
+                            minHeight: compact ? 5 : 8,
                             backgroundColor: semantic.surfaceContainer,
                             color: accent,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
                         Align(
                           alignment: Alignment.centerRight,
                           child: FilledButton.tonalIcon(
                             onPressed: widget.onContinue,
-                            icon: const Icon(Icons.arrow_forward, size: 18),
-                            label: const Text('Continue Learning'),
+                            icon: Icon(Icons.arrow_forward, size: compact ? 16 : 18),
+                            label: Text(compact ? 'Continue' : 'Continue Learning'),
                             style: FilledButton.styleFrom(
                               foregroundColor: accent,
                               backgroundColor: accent.withValues(alpha: 0.12),
+                              visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
                             ),
                           ),
                         ),
@@ -260,7 +272,9 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
           borderRadius: AppRadius.card,
           child: AnimatedContainer(
             duration: AppDurations.fast,
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).height < 820 ? AppSpacing.sm : AppSpacing.md,
+            ),
             decoration: BoxDecoration(
               color: _hovered ? widget.accent.withValues(alpha: 0.1) : scheme.surface,
               borderRadius: AppRadius.card,
@@ -275,7 +289,11 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
               children: [
                 Row(
                   children: [
-                    Icon(iconForLearningKey(widget.module.icon), color: widget.accent, size: 28),
+                    Icon(
+                      iconForLearningKey(widget.module.icon),
+                      color: widget.accent,
+                      size: MediaQuery.sizeOf(context).height < 820 ? 22 : 28,
+                    ),
                     const Spacer(),
                     if (widget.locked) Icon(Icons.lock_outline, size: 18, color: semantic.textMuted),
                   ],
@@ -286,6 +304,7 @@ class _LearningModuleTileState extends State<LearningModuleTile> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: scheme.onSurface,
+                        fontSize: MediaQuery.sizeOf(context).height < 820 ? 13 : null,
                       ),
                 ),
                 const SizedBox(height: 4),

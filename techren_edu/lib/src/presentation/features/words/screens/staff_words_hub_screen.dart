@@ -312,14 +312,20 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       children: [
         Text(
           'Groups',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           'Teachers unlock only their groups. Manager and founder can unlock any group.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).hintColor,
+                fontSize: 11,
+              ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
         if (relatedGroups.isEmpty)
           const EmptyState(
             title: 'No groups for this subject',
@@ -336,6 +342,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                 for (final item in relatedGroups) ...[
                   SentencesGroupCard(
                     item: item,
+                    expanded: _permissionsExpandedGroupId == item.group.id,
                     onManageLessons: () => setState(() {
                       _permissionsExpandedGroupId =
                           _permissionsExpandedGroupId == item.group.id ? null : item.group.id;
@@ -345,22 +352,25 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                         : 'Unlock / Lock Lessons',
                   ),
                   if (_permissionsExpandedGroupId == item.group.id) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    _WordsPermissionsLevelsLoader(
-                      group: item,
-                      levels: levels,
-                      busyIds: _permissionsBusyIds,
-                      bulkBusy: _permissionsBulkBusy,
-                      onBack: () => setState(() => _permissionsExpandedGroupId = null),
-                      onTogglePractice: (level, unlock) =>
-                          _togglePractice(level, unlock, item.group.id),
-                      onToggleExam: (lesson, unlock) =>
-                          _toggleExam(lesson, unlock, item.group.id),
-                      onBulkUnlockLevel: (level, unlock, lessons) =>
-                          _bulkUnlockLevel(level, unlock, item.group.id, lessons),
+                    const SizedBox(height: AppSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpacing.sm, right: AppSpacing.sm),
+                      child: _WordsPermissionsLevelsLoader(
+                        group: item,
+                        levels: levels,
+                        busyIds: _permissionsBusyIds,
+                        bulkBusy: _permissionsBulkBusy,
+                        onBack: () => setState(() => _permissionsExpandedGroupId = null),
+                        onTogglePractice: (level, unlock) =>
+                            _togglePractice(level, unlock, item.group.id),
+                        onToggleExam: (lesson, unlock) =>
+                            _toggleExam(lesson, unlock, item.group.id),
+                        onBulkUnlockLevel: (level, unlock, lessons) =>
+                            _bulkUnlockLevel(level, unlock, item.group.id, lessons),
+                      ),
                     ),
                   ],
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
               ],
             ),
