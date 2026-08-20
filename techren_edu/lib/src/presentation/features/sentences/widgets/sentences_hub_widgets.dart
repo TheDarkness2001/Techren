@@ -6,16 +6,16 @@ import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/learning_playground.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../../domain/entities/learning_cms.dart';
 import '../../../../domain/entities/scheduling.dart';
 import '../../../../domain/entities/sentences.dart';
 import '../../../../domain/entities/student_progress.dart';
-import '../../../../domain/entities/words.dart';
 
 enum SentencesHubTab { practice, leaderboard, lessons, permissions, studentProgress }
 
-enum SentencesPracticeStep { languages, levels, classes, practice }
+enum SentencesPracticeStep { levels, classes, practice }
 
 class SentencesHubTabBar extends StatelessWidget {
   const SentencesHubTabBar({
@@ -27,98 +27,20 @@ class SentencesHubTabBar extends StatelessWidget {
   final SentencesHubTab selected;
   final ValueChanged<SentencesHubTab> onSelected;
 
-  static const _labels = {
-    SentencesHubTab.practice: 'Practice',
-    SentencesHubTab.leaderboard: 'Leaderboard',
-    SentencesHubTab.lessons: 'Lessons',
-    SentencesHubTab.permissions: 'Permissions',
-    SentencesHubTab.studentProgress: 'Student Progress',
-  };
+  static const _tabs = [
+    PlaygroundTab(id: SentencesHubTab.practice, label: 'Practice', icon: Icons.school_outlined),
+    PlaygroundTab(id: SentencesHubTab.leaderboard, label: 'Leaderboard', icon: Icons.emoji_events_outlined),
+    PlaygroundTab(id: SentencesHubTab.lessons, label: 'Lessons', icon: Icons.menu_book_outlined),
+    PlaygroundTab(id: SentencesHubTab.permissions, label: 'Permissions', icon: Icons.groups_outlined),
+    PlaygroundTab(id: SentencesHubTab.studentProgress, label: 'Student Progress', icon: Icons.insights_outlined),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-      ),
-      padding: const EdgeInsets.all(AppSpacing.xxs),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final tab in SentencesHubTab.values)
-              _TabButton(
-                label: _labels[tab]!,
-                selected: selected == tab,
-                onTap: () => onSelected(tab),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Semantics(
-      button: true,
+    return PlaygroundTabBar<SentencesHubTab>(
+      tabs: _tabs,
       selected: selected,
-      label: label,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.micro),
-        child: Material(
-          color: selected ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            hoverColor: selected ? null : scheme.onSurface.withValues(alpha: 0.06),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 13,
-                  color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class SentencesSubNavBar extends StatelessWidget {
-  const SentencesSubNavBar({super.key, required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-      ),
-      child: Text(label, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+      onSelected: onSelected,
     );
   }
 }
@@ -146,157 +68,31 @@ class SentencesBackButton extends StatelessWidget {
   }
 }
 
-class SentencesLanguageGrid extends StatelessWidget {
-  const SentencesLanguageGrid({
-    super.key,
-    required this.languages,
-    required this.onLanguageTap,
-  });
-
-  final List<LearningLanguage> languages;
-  final ValueChanged<LearningLanguage> onLanguageTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Select a Language', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: AppSpacing.md),
-        if (languages.isEmpty)
-          AspectRatio(
-            aspectRatio: 2.6,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: AppRadius.card,
-                border: Border.all(color: context.semantic.border),
-                boxShadow: AppShadows.card,
-              ),
-              child: Text(
-                'No languages yet.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: context.semantic.textMuted,
-                      fontStyle: FontStyle.italic,
-                    ),
-              ),
-            ),
-          )
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 5
-                  : constraints.maxWidth >= 700
-                      ? 4
-                      : constraints.maxWidth >= 480
-                          ? 3
-                          : 2;
-              final spacing = AppSpacing.sm;
-              final cardWidth = (constraints.maxWidth - spacing * (columns - 1)) / columns;
-
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: [
-                  for (final language in languages)
-                    SizedBox(
-                      width: cardWidth,
-                      height: 88,
-                      child: Material(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: AppRadius.card,
-                          child: InkWell(
-                            onTap: () => onLanguageTap(language),
-                            borderRadius: AppRadius.card,
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                borderRadius: AppRadius.card,
-                                border: Border.all(color: context.semantic.border),
-                                boxShadow: AppShadows.card,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.language, size: 26, color: AppColors.primary.withValues(alpha: 0.75)),
-                                  const SizedBox(height: AppSpacing.xs),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                                    child: Text(
-                                      language.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                    ),
-                ],
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
 class SentencesLevelGrid extends StatelessWidget {
   const SentencesLevelGrid({
     super.key,
     required this.levels,
     required this.onLevelTap,
+    this.selectedLevelId,
   });
 
   final List<CmsLevel> levels;
   final ValueChanged<CmsLevel> onLevelTap;
+  final String? selectedLevelId;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Select a Level', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            for (final level in levels)
-              SizedBox(
-                width: 112,
-                height: 96,
-                child: Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: AppRadius.card,
-                  child: InkWell(
-                    onTap: () => onLevelTap(level),
-                    borderRadius: AppRadius.card,
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        borderRadius: AppRadius.card,
-                        border: Border.all(color: context.semantic.border),
-                        boxShadow: AppShadows.card,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('📚', style: TextStyle(fontSize: 28)),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(level.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
+    return PlaygroundLevelStrip(
+      levels: [for (final level in levels) PlaygroundLevelItem(id: level.id, name: level.name)],
+      selectedId: selectedLevelId,
+      onSelected: (item) {
+        for (final level in levels) {
+          if (level.id == item.id) {
+            onLevelTap(level);
+            return;
+          }
+        }
+      },
     );
   }
 }
@@ -307,180 +103,39 @@ class SentencesClassGrid extends StatelessWidget {
     required this.levelName,
     required this.lessons,
     required this.onLessonTap,
+    this.selectedLessonId,
+    this.onLessonSelected,
   });
 
   final String levelName;
   final List<CmsLesson> lessons;
   final ValueChanged<CmsLesson> onLessonTap;
+  final String? selectedLessonId;
+  final ValueChanged<CmsLesson>? onLessonSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '$levelName — Select a Class',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            for (final lesson in lessons)
-              SizedBox(
-                width: 220,
-                child: Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: AppRadius.card,
-                  child: InkWell(
-                    onTap: () => onLessonTap(lesson),
-                    borderRadius: AppRadius.card,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: AppRadius.card,
-                        border: Border.all(color: context.semantic.border),
-                        boxShadow: AppShadows.card,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 88,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(12),
-                                bottomLeft: Radius.circular(12),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppSpacing.md),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: AppColors.primary,
-                                    child: Text('${lesson.order}', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(lesson.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                        Text('📝 Sentences', style: TextStyle(color: context.semantic.textMuted, fontSize: 12)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+    final units = [for (final lesson in lessons) playgroundUnitFromCmsLesson(lesson, noun: 'sentences')];
+    CmsLesson? current;
+    for (final lesson in lessons) {
+      if (lesson.id == (selectedLessonId ?? lessons.firstOrNull?.id)) current = lesson;
+    }
+    current ??= lessons.isEmpty ? null : lessons.first;
 
-class SentencesAddLanguageCard extends StatelessWidget {
-  const SentencesAddLanguageCard({
-    super.key,
-    required this.controller,
-    required this.onAdd,
-  });
-
-  final TextEditingController controller;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Add Language', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(
-                    hintText: 'Language name (e.g., English)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              FilledButton(onPressed: onAdd, child: const Text('Add')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SentencesLanguageListTile extends StatelessWidget {
-  const SentencesLanguageListTile({
-    super.key,
-    required this.language,
-    required this.onDelete,
-  });
-
-  final LearningLanguage language;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: context.semantic.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          const Icon(Icons.language, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text(language.name, style: const TextStyle(fontWeight: FontWeight.w700))),
-          TextButton(
-            onPressed: onDelete,
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Delete'),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-        ],
-      ),
+    return PlaygroundLessonDashboard(
+      units: units,
+      selectedId: current?.id,
+      onSelect: (unit) {
+        for (final lesson in lessons) {
+          if (lesson.id == unit.id) {
+            onLessonSelected?.call(lesson);
+            return;
+          }
+        }
+      },
+      onPractice: current == null ? null : () => onLessonTap(current!),
+      primaryLabel: 'Continue Practice',
+      emptyMessage: 'No classes yet.',
     );
   }
 }

@@ -67,21 +67,9 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         setState(() => _practiceStep = SentencesPracticeStep.classes);
         return;
       }
-      if (_practiceStep == SentencesPracticeStep.classes) {
-        setState(() {
-          _practiceStep = SentencesPracticeStep.levels;
-          _levelId = null;
-          _lessonId = null;
-        });
-        return;
-      }
-      if (_practiceStep == SentencesPracticeStep.levels) {
-        _resetPractice();
-        return;
-      }
     }
-    if (_tab == SentencesHubTab.permissions && _permissionsLanguageId != null) {
-      _resetPermissions();
+    if (_tab == SentencesHubTab.permissions && _permissionsExpandedGroupId != null) {
+      setState(() => _permissionsExpandedGroupId = null);
       return;
     }
     context.go('$_prefix/learning');
@@ -291,7 +279,8 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
   Widget _buildPracticeTab(
     List<LearningLanguage> languages,
   ) {
-    final effectiveLanguageId = _languageId ?? (languages.isNotEmpty ? languages.first.id : null);
+    final language = pickEnglishLanguage(languages);
+    final effectiveLanguageId = _languageId ?? language?.id;
     if (_languageId == null && effectiveLanguageId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -313,50 +302,65 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_practiceStep == SentencesPracticeStep.levels) ...[
-          SentencesBackButton(
-            label: 'Back to Learning',
-            onPressed: () => context.go('$_prefix/learning'),
+        if (language == null)
+          const EmptyState(
+            title: 'English is not set up',
+            message: 'English content is created on the server. Refresh or contact an admin.',
+            icon: Icons.translate_outlined,
           ),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        if (_practiceStep == SentencesPracticeStep.classes) ...[
-          SentencesBackButton(
-            label: 'Back to Levels',
-            onPressed: () => setState(() {
-              _practiceStep = SentencesPracticeStep.levels;
-              _levelId = null;
-              _lessonId = null;
-            }),
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        if (_practiceStep == SentencesPracticeStep.levels && levelsAsync != null)
+        if (levelsAsync != null)
           levelsAsync.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(e.toString()),
-            data: (levels) => SentencesLevelGrid(
-              levels: levels,
-              onLevelTap: (level) => setState(() {
-                _levelId = level.id;
-                _levelName = level.name;
-                _practiceStep = SentencesPracticeStep.classes;
-              }),
-            ),
+            data: (levels) {
+              if (_levelId == null && levels.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _levelId != null) return;
+                  final first = levels.first;
+                  setState(() {
+                    _levelId = first.id;
+                    _levelName = first.name;
+                    _practiceStep = SentencesPracticeStep.classes;
+                  });
+                });
+              }
+              return SentencesLevelGrid(
+                levels: levels,
+                selectedLevelId: _levelId,
+                onLevelTap: (level) => setState(() {
+                  _levelId = level.id;
+                  _levelName = level.name;
+                  _lessonId = null;
+                  _practiceStep = SentencesPracticeStep.classes;
+                }),
+              );
+            },
           ),
-        if (_practiceStep == SentencesPracticeStep.classes && lessonsAsync != null)
+        if (lessonsAsync != null) ...[
+          const SizedBox(height: AppSpacing.lg),
           lessonsAsync.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(e.toString()),
-            data: (lessons) => SentencesClassGrid(
-              levelName: _levelName ?? 'Level',
-              lessons: lessons,
-              onLessonTap: (lesson) => setState(() {
-                _lessonId = lesson.id;
-                _practiceStep = SentencesPracticeStep.practice;
-              }),
-            ),
+            data: (lessons) {
+              if (_lessonId == null && lessons.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _lessonId != null) return;
+                  setState(() => _lessonId = lessons.first.id);
+                });
+              }
+              return SentencesClassGrid(
+                levelName: _levelName ?? 'Level',
+                lessons: lessons,
+                selectedLessonId: _lessonId,
+                onLessonSelected: (lesson) => setState(() => _lessonId = lesson.id),
+                onLessonTap: (lesson) => setState(() {
+                  _lessonId = lesson.id;
+                  _practiceStep = SentencesPracticeStep.practice;
+                }),
+              );
+            },
           ),
+        ],
       ],
     );
   }
@@ -373,40 +377,32 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         icon: Icons.error_outline,
       ),
       data: (languages) {
-        if (_permissionsLanguageId == null) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SentencesSubNavBar(label: 'Subject'),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Choose a language / subject',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              SentencesLanguageGrid(
-                languages: languages,
-                onLanguageTap: (language) => setState(() {
-                  _permissionsLanguageId = language.id;
-                  _permissionsLanguageName = language.name;
-                  _permissionsExpandedGroupId = null;
-                }),
-              ),
-            ],
+        final language = pickEnglishLanguage(languages);
+        if (language == null) {
+          return const EmptyState(
+            title: 'English is not set up',
+            message: 'English content is created on the server. Refresh or contact an admin.',
+            icon: Icons.translate_outlined,
           );
         }
+        if (_permissionsLanguageId != language.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              _permissionsLanguageId = language.id;
+              _permissionsLanguageName = language.name;
+            });
+          });
+        }
+        final languageId = _permissionsLanguageId ?? language.id;
+        final languageName = _permissionsLanguageName ?? language.name;
 
-        final relatedGroups = _groupsForSubject(items, _permissionsLanguageName);
-        final levelsAsync = ref.watch(cmsSentencesLevelsProvider(_permissionsLanguageId!));
+        final relatedGroups = _groupsForSubject(items, languageName);
+        final levelsAsync = ref.watch(cmsSentencesLevelsProvider(languageId));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SentencesBackButton(
-              label: 'Back to Languages',
-              onPressed: _resetPermissions,
-            ),
-            const SizedBox(height: AppSpacing.md),
             if (relatedGroups.isEmpty)
               const EmptyState(
                 title: 'No groups for this subject',

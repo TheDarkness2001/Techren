@@ -3,17 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/routing/student_navigation.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
-import '../../../../core/widgets/app_hub_card.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/learning_playground.dart';
 import '../../../../domain/entities/words.dart';
 import '../../../providers/words_provider.dart';
 import 'word_practice_screen.dart';
 
-class WordsHubScreen extends ConsumerWidget {
+class WordsHubScreen extends ConsumerStatefulWidget {
   const WordsHubScreen({
     super.key,
     this.navItems,
@@ -26,15 +24,22 @@ class WordsHubScreen extends ConsumerWidget {
   final int selectedIndex;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final navItems = this.navItems ?? studentNavItemsOf(context);
+  ConsumerState<WordsHubScreen> createState() => _WordsHubScreenState();
+}
+
+class _WordsHubScreenState extends ConsumerState<WordsHubScreen> {
+  String? _levelId;
+  String? _lessonId;
+
+  @override
+  Widget build(BuildContext context) {
+    final navItems = widget.navItems ?? studentNavItemsOf(context);
     final treeAsync = ref.watch(studentWordsTreeProvider);
-    final index = navItems.indexWhere((i) => selectedRoute.startsWith(i.route));
-    final semantic = context.semantic;
+    final index = navItems.indexWhere((i) => widget.selectedRoute.startsWith(i.route));
 
     return AdaptiveScaffold(
       title: 'Words',
-      selectedIndex: index >= 0 ? index : selectedIndex,
+      selectedIndex: index >= 0 ? index : widget.selectedIndex,
       items: navItems,
       onDestinationSelected: (i) => onStudentNavSelected(context, navItems, i),
       actions: [
@@ -60,31 +65,40 @@ class WordsHubScreen extends ConsumerWidget {
               icon: Icons.menu_book_outlined,
             );
           }
+          final selectedLevel = _pickLevel(levels);
+          final lessons = selectedLevel.lessons;
+          final selectedLesson = _pickLesson(lessons);
+
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(studentWordsTreeProvider),
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-                for (final level in levels) ...[
-                  HubSectionHeader(title: level.name),
-                  ...level.lessons.map(
-                    (lesson) => AppHubCard(
-                      title: lesson.name,
-                      subtitle: _lessonSubtitle(lesson),
-                      accentColor: lesson.isPassed ? semantic.success : AppColors.primary,
-                      leadingLabel: '${lesson.order}',
-                      locked: lesson.isLocked,
-                      onTap: lesson.isLocked
-                          ? null
-                          : () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => WordPracticeScreen(lessonId: lesson.id, lessonName: lesson.name),
-                                ),
+                PlaygroundLevelStrip(
+                  levels: [for (final level in levels) PlaygroundLevelItem(id: level.id, name: level.name)],
+                  selectedId: selectedLevel.id,
+                  onSelected: (item) => setState(() {
+                    _levelId = item.id;
+                    _lessonId = null;
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                PlaygroundLessonDashboard(
+                  units: [for (final lesson in lessons) _unitFor(lesson)],
+                  selectedId: selectedLesson?.id,
+                  onSelect: (unit) => setState(() => _lessonId = unit.id),
+                  onPractice: selectedLesson == null || selectedLesson.isLocked
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => WordPracticeScreen(
+                                lessonId: selectedLesson.id,
+                                lessonName: selectedLesson.name,
                               ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                ],
+                            ),
+                          ),
+                  primaryLabel: 'Continue Practice',
+                ),
               ],
             ),
           );
@@ -93,9 +107,39 @@ class WordsHubScreen extends ConsumerWidget {
     );
   }
 
-  String _lessonSubtitle(StudentLesson lesson) {
-    final parts = ['${lesson.wordCount} words', lesson.status];
-    if (lesson.bestExamScore > 0) parts.add('Best ${lesson.bestExamScore}%');
-    return parts.join(' · ');
+  LearningLevel _pickLevel(List<LearningLevel> levels) {
+    for (final level in levels) {
+      if (level.id == _levelId) return level;
+    }
+    return levels.first;
+  }
+
+  StudentLesson? _pickLesson(List<StudentLesson> lessons) {
+    if (lessons.isEmpty) return null;
+    for (final lesson in lessons) {
+      if (lesson.id == _lessonId) return lesson;
+    }
+    return lessons.firstWhere((l) => !l.isLocked, orElse: () => lessons.first);
+  }
+
+  PlaygroundUnitItem _unitFor(StudentLesson lesson) {
+    final passed = lesson.isPassed;
+    final locked = lesson.isLocked;
+    return PlaygroundUnitItem(
+      id: lesson.id,
+      title: lesson.name,
+      order: lesson.order,
+      countLabel: '${lesson.wordCount} words',
+      description: locked
+          ? 'This unit is locked until your teacher opens it for your group.'
+          : 'Practice these words until they stick. Exams open when your teacher unlocks them.',
+      progressPercent: passed
+          ? 100
+          : (lesson.bestExamScore > 0 ? lesson.bestExamScore : (locked ? 0 : 12)),
+      mastered: passed ? lesson.wordCount : 0,
+      inReview: !locked && !passed ? lesson.wordCount : 0,
+      total: lesson.wordCount,
+      locked: locked,
+    );
   }
 }

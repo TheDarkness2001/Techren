@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
-import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../domain/entities/learning_cms.dart';
 import '../../../../domain/entities/paginated_result.dart';
@@ -38,6 +37,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   WordsHubTab _tab = WordsHubTab.practice;
   String? _languageId;
   String? _levelId;
+  String? _lessonId;
   String? _permissionsLanguageId;
   String? _permissionsLanguageName;
   String? _permissionsExpandedGroupId;
@@ -45,12 +45,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   bool _permissionsBulkBusy = false;
 
   String get _prefix => widget.selectedRoute.startsWith('/founder') ? '/founder' : '/admin';
-
-  bool get _canEditHomework {
-    final user = ref.read(authProvider).user;
-    final rolePerms = ref.read(staffRolePermissionsProvider);
-    return user != null && user.canEditHomeworkFor(rolePerms);
-  }
 
   bool get _canDeleteHomework {
     final user = ref.read(authProvider).user;
@@ -69,16 +63,15 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
   }
 
   void _goBack() {
-    if (_tab == WordsHubTab.permissions && _permissionsLanguageId != null) {
-      _resetPermissions();
+    if (_tab == WordsHubTab.permissions && _permissionsExpandedGroupId != null) {
+      setState(() => _permissionsExpandedGroupId = null);
       return;
     }
     if (_levelId != null) {
-      setState(() => _levelId = null);
-      return;
-    }
-    if (_languageId != null) {
-      setState(() => _languageId = null);
+      setState(() {
+        _levelId = null;
+        _lessonId = null;
+      });
       return;
     }
     context.go('$_prefix/learning');
@@ -94,54 +87,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
         .where((i) => (i.group.subjectName ?? '').trim().toLowerCase() == key)
         .toList();
     return matched.isNotEmpty ? matched : items;
-  }
-
-  Future<void> _addLanguage() async {
-    final name = await _promptName(title: 'Add language', label: 'Language name');
-    if (name == null) return;
-    try {
-      final created = await ref.read(homeworkApiProvider).createLanguage(
-            name: name,
-            moduleType: 'words',
-          );
-      ref.invalidate(cmsLanguagesProvider);
-      if (!mounted) return;
-      setState(() {
-        _languageId = created.id;
-        _levelId = null;
-        _tab = WordsHubTab.lessons;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Created "${created.name}". Add levels & lessons in the Lessons tab.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''))),
-      );
-    }
-  }
-
-  Future<String?> _promptName({required String title, String label = 'Name'}) async {
-    final ctrl = TextEditingController();
-    final saved = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AppDialog(
-        title: title,
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(labelText: label),
-        ),
-        actions: [
-          AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
-          AppDialogActions.confirm(context, label: 'Save', onPressed: () => Navigator.pop(context, true)),
-        ],
-      ),
-    );
-    if (saved != true) return null;
-    final value = ctrl.text.trim();
-    return value.isEmpty ? null : value;
   }
 
   Future<void> _togglePractice(CmsLevel level, bool unlock, String groupId) async {
@@ -241,7 +186,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     final languagesAsync = ref.watch(cmsLanguagesProvider);
     final groupsAsync = ref.watch(unifiedGroupsProvider((page: 1, search: '')));
     final selectedIndex = widget.navItems.indexWhere((r) => widget.selectedRoute.startsWith(r.route));
-    final canManage = _canEditHomework;
 
     return AdaptiveScaffold(
       title: 'Words',
@@ -250,12 +194,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       items: widget.navItems,
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
-        if (canManage && _tab != WordsHubTab.permissions)
-          IconButton(
-            tooltip: 'Add language',
-            onPressed: _addLanguage,
-            icon: const Icon(Icons.add),
-          ),
         IconButton(
           tooltip: 'Go back',
           onPressed: _goBack,
@@ -284,6 +222,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                 if (tab == WordsHubTab.studentProgress || tab == WordsHubTab.permissions) {
                   _languageId = null;
                   _levelId = null;
+                  _lessonId = null;
                 }
                 if (tab != WordsHubTab.permissions) _resetPermissions();
               }),
@@ -296,7 +235,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
                 context,
                 languages: languages,
                 groupsAsync: groupsAsync,
-                canManage: canManage,
               ),
             ),
           ],
@@ -309,7 +247,6 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     BuildContext context, {
     required List<LearningLanguage> languages,
     required AsyncValue<PaginatedResult<UnifiedGroupView>> groupsAsync,
-    required bool canManage,
   }) {
     switch (_tab) {
       case WordsHubTab.studentProgress:
@@ -336,51 +273,45 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
           languages: languages,
           showExamStatus: true,
           practicePreview: false,
-          onAddLanguage: canManage ? _addLanguage : null,
         );
       case WordsHubTab.practice:
         return _buildLanguageFlow(
           languages: languages,
           showExamStatus: false,
           practicePreview: true,
-          onAddLanguage: canManage ? _addLanguage : null,
         );
     }
   }
 
   Widget _buildPermissionsTab(List<UnifiedGroupView> items, List<LearningLanguage> languages) {
-    if (_permissionsLanguageId == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Choose a language / subject',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          WordsLanguageSection(
-            languages: languages,
-            selectedLanguageId: null,
-            onLanguageSelected: (language) => setState(() {
-              _permissionsLanguageId = language.id;
-              _permissionsLanguageName = language.name;
-              _permissionsExpandedGroupId = null;
-            }),
-          ),
-        ],
+    final language = pickEnglishLanguage(languages);
+    if (language == null) {
+      return const EmptyState(
+        title: 'English is not set up',
+        message: 'English content is created on the server. Refresh or contact an admin.',
+        icon: Icons.translate_outlined,
       );
     }
+    if (_permissionsLanguageId != language.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _permissionsLanguageId = language.id;
+          _permissionsLanguageName = language.name;
+        });
+      });
+    }
+    final languageId = _permissionsLanguageId ?? language.id;
+    final languageName = _permissionsLanguageName ?? language.name;
 
-    final relatedGroups = _groupsForSubject(items, _permissionsLanguageName);
-    final levelsAsync = ref.watch(cmsLevelsProvider(_permissionsLanguageId!));
+    final relatedGroups = _groupsForSubject(items, languageName);
+    final levelsAsync = ref.watch(cmsLevelsProvider(languageId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SentencesBackButton(label: 'Back to Languages', onPressed: _resetPermissions),
-        const SizedBox(height: AppSpacing.md),
         Text(
-          'Groups for ${_permissionsLanguageName ?? 'subject'}',
+          'Groups',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -440,12 +371,12 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
 
   Widget _buildLanguageFlow({
     required List<LearningLanguage> languages,
-    VoidCallback? onAddLanguage,
     required bool showExamStatus,
     required bool practicePreview,
     void Function(String lessonId, String lessonName)? onLessonTap,
   }) {
-    final effectiveLanguageId = _languageId ?? (languages.isNotEmpty ? languages.first.id : null);
+    final language = pickEnglishLanguage(languages);
+    final effectiveLanguageId = _languageId ?? language?.id;
     if (_languageId == null && effectiveLanguageId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -458,7 +389,12 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (languages.isEmpty) WordsLanguageEmptyCard(onAddLanguage: onAddLanguage),
+        if (language == null)
+          const EmptyState(
+            title: 'English is not set up',
+            message: 'English content is created on the server. Refresh or contact an admin.',
+            icon: Icons.translate_outlined,
+          ),
         if (effectiveLanguageId != null && levelsAsync != null)
           levelsAsync.when(
             loading: () => const Padding(
@@ -466,10 +402,22 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               child: LinearProgressIndicator(),
             ),
             error: (e, _) => Text(e.toString()),
-            data: (levels) => WordsLevelList(
-              levels: levels,
-              onLevelTap: (id, _) => setState(() => _levelId = id),
-            ),
+            data: (levels) {
+              if (_levelId == null && levels.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _levelId != null) return;
+                  setState(() => _levelId = levels.first.id);
+                });
+              }
+              return WordsLevelList(
+                levels: levels,
+                selectedLevelId: _levelId,
+                onLevelTap: (id, _) => setState(() {
+                  _levelId = id;
+                  _lessonId = null;
+                }),
+              );
+            },
           ),
         if (_levelId != null && lessonsAsync != null)
           lessonsAsync.when(
@@ -478,21 +426,34 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               child: LinearProgressIndicator(),
             ),
             error: (e, _) => Text(e.toString()),
-            data: (lessons) => WordsLessonList(
-              lessons: lessons,
-              showExamStatus: showExamStatus,
-              onLessonTap: (lessonId, lessonName) {
-                if (practicePreview) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => WordPracticeScreen(lessonId: lessonId, lessonName: lessonName),
-                    ),
-                  );
-                  return;
-                }
-                onLessonTap?.call(lessonId, lessonName);
-              },
-            ),
+            data: (lessons) {
+              if (_lessonId == null && lessons.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _lessonId != null) return;
+                  setState(() => _lessonId = lessons.first.id);
+                });
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.lg),
+                child: WordsLessonList(
+                  lessons: lessons,
+                  selectedLessonId: _lessonId,
+                  showExamStatus: showExamStatus,
+                  onLessonSelected: (id, _) => setState(() => _lessonId = id),
+                  onLessonTap: (lessonId, lessonName) {
+                    if (practicePreview || showExamStatus) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => WordPracticeScreen(lessonId: lessonId, lessonName: lessonName),
+                        ),
+                      );
+                      return;
+                    }
+                    onLessonTap?.call(lessonId, lessonName);
+                  },
+                ),
+              );
+            },
           ),
       ],
     );

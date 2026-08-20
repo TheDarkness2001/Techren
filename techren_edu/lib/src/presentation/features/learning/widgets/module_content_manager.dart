@@ -27,9 +27,16 @@ String _mediaAbsoluteUrl(String path) {
 
 enum ContentManagerModule { words, sentences }
 
-enum _Step { languages, levels, lessons, pairs }
+enum _Step { levels, lessons, pairs }
 
-/// In-hub Language → Level → Lesson → pairs CRUD for Words / Sentences.
+LearningLanguage? pickEnglishLanguage(List<LearningLanguage> languages) {
+  for (final language in languages) {
+    if (language.name.trim().toLowerCase() == 'english') return language;
+  }
+  return languages.isEmpty ? null : languages.first;
+}
+
+/// In-hub Level → Lesson → pairs CRUD for Words / Sentences.
 class ModuleContentManager extends ConsumerStatefulWidget {
   const ModuleContentManager({
     super.key,
@@ -46,7 +53,7 @@ class ModuleContentManager extends ConsumerStatefulWidget {
 }
 
 class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
-  _Step _step = _Step.languages;
+  _Step _step = _Step.levels;
   String? _languageId;
   String? _languageName;
   String? _levelId;
@@ -57,18 +64,6 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
   String get _moduleType => widget.module == ContentManagerModule.sentences ? 'sentences' : 'words';
   String get _pairLabel => widget.module == ContentManagerModule.sentences ? 'sentence' : 'word';
   String get _pairLabelPlural => widget.module == ContentManagerModule.sentences ? 'Sentences' : 'Words';
-
-  void _goLanguages() {
-    setState(() {
-      _step = _Step.languages;
-      _languageId = null;
-      _languageName = null;
-      _levelId = null;
-      _levelName = null;
-      _lessonId = null;
-      _lessonName = null;
-    });
-  }
 
   void _goLevels({required String languageId, required String languageName}) {
     setState(() {
@@ -138,6 +133,11 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
     if (saved != true) return null;
     final value = ctrl.text.trim();
     return value.isEmpty ? null : value;
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showPairDialog({
@@ -278,9 +278,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                                     );
                                 setDialogState(() => currentImageUrl = uploaded.url);
                               } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                                }
+                                _showSnack('$e');
                               } finally {
                                 setDialogState(() => busy = false);
                               }
@@ -346,15 +344,9 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
         }
       }
       await _refreshTree();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_pairLabel[0].toUpperCase()}${_pairLabel.substring(1)} saved')),
-        );
-      }
+      _showSnack('${_pairLabel[0].toUpperCase()}${_pairLabel.substring(1)} saved');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      _showSnack('$e');
     }
   }
 
@@ -375,6 +367,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+    final navigator = Navigator.of(context, rootNavigator: true);
 
     ParseImportResult? parsed;
     Object? error;
@@ -389,20 +382,16 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
     }
 
     if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
+    navigator.pop();
 
     if (error != null || parsed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      _showSnack('$error');
       return;
     }
     if (parsed.pairs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            parsed.message ??
-                'No English – Uzbek pairs found. Use lines like: You are ready. - Sen tayyorsan.',
-          ),
-        ),
+      _showSnack(
+        parsed.message ??
+            'No English – Uzbek pairs found. Use lines like: You are ready. - Sen tayyorsan.',
       );
       return;
     }
@@ -486,14 +475,9 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
           ? await api.bulkImportSentences(lessonId: _lessonId!, pairs: parsed.pairs)
           : await api.bulkImportWords(lessonId: _lessonId!, pairs: parsed.pairs);
       await _refreshTree();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported ${result.created}, merged ${result.merged}, skipped ${result.skipped}')),
-      );
+      _showSnack('Imported ${result.created}, merged ${result.merged}, skipped ${result.skipped}');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      _showSnack('$e');
     }
   }
 
@@ -510,9 +494,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
       await action();
       await _refreshTree();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      _showSnack('$e');
     }
   }
 
@@ -526,71 +508,43 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
       loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
       error: (e, _) => Text('$e'),
       data: (languages) {
+        final language = pickEnglishLanguage(languages);
+        if (language == null) {
+          return const EmptyState(
+            title: 'English is not set up',
+            message: 'English content is created on the server. Refresh or contact an admin.',
+            icon: Icons.translate_outlined,
+          );
+        }
+        if (_languageId == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _languageId != null) return;
+            setState(() {
+              _languageId = language.id;
+              _languageName = language.name;
+            });
+          });
+        }
+        final languageId = _languageId ?? language.id;
+        final languageName = _languageName ?? language.name;
+
         switch (_step) {
-          case _Step.languages:
-            return _LanguagesStep(
-              languages: languages,
-              onOpen: (lang) => _goLevels(languageId: lang.id, languageName: lang.name),
-              onAdd: () async {
-                final name = await _promptName(title: 'Add language', label: 'Language name');
-                if (name == null) return;
-                try {
-                  final created = await ref.read(homeworkApiProvider).createLanguage(
-                        name: name,
-                        moduleType: _moduleType,
-                      );
-                  await _refreshTree();
-                  if (mounted) {
-                    _goLevels(languageId: created.id, languageName: created.name);
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                  }
-                }
-              },
-              onRename: (lang) async {
-                final name = await _promptName(title: 'Rename language', initial: lang.name, label: 'Language name');
-                if (name == null) return;
-                try {
-                  await ref.read(homeworkApiProvider).updateLanguage(lang.id, name: name);
-                  await _refreshTree();
-                  if (_languageId == lang.id) setState(() => _languageName = name);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                  }
-                }
-              },
-              onDelete: widget.allowDelete
-                  ? (lang) => _confirmDelete(
-                        'Delete language?',
-                        'Remove "${lang.name}" and its content?',
-                        () async {
-                          await ref.read(homeworkApiProvider).deleteLanguage(lang.id);
-                          if (_languageId == lang.id) _goLanguages();
-                        },
-                      )
-                  : null,
-            );
           case _Step.levels:
             final levelsAsync = widget.module == ContentManagerModule.sentences
-                ? ref.watch(cmsSentencesLevelsProvider(_languageId!))
-                : ref.watch(cmsLevelsProvider(_languageId!));
+                ? ref.watch(cmsSentencesLevelsProvider(languageId))
+                : ref.watch(cmsLevelsProvider(languageId));
             return levelsAsync.when(
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('$e'),
               data: (levels) => _LevelsStep(
-                languageName: _languageName ?? 'Language',
                 levels: levels,
-                onBack: _goLanguages,
                 onOpen: (level) => _goLessons(levelId: level.id, levelName: level.name),
                 onAdd: () async {
                   final name = await _promptName(title: 'Add level', label: 'Level name');
                   if (name == null) return;
                   try {
                     final created = await ref.read(homeworkApiProvider).createLevel(
-                          languageId: _languageId!,
+                          languageId: languageId,
                           name: name,
                           moduleType: _moduleType,
                         );
@@ -599,9 +553,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                       _goLessons(levelId: created.id, levelName: created.name);
                     }
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                    }
+                    _showSnack('$e');
                   }
                 },
                 onRename: (level) async {
@@ -612,9 +564,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     await _refreshTree();
                     if (_levelId == level.id) setState(() => _levelName = name);
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                    }
+                    _showSnack('$e');
                   }
                 },
                 onDelete: widget.allowDelete
@@ -624,7 +574,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                           () async {
                             await ref.read(homeworkApiProvider).deleteLevel(level.id);
                             if (_levelId == level.id) {
-                              _goLevels(languageId: _languageId!, languageName: _languageName!);
+                              _goLevels(languageId: languageId, languageName: languageName);
                             }
                           },
                         )
@@ -641,7 +591,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
               data: (lessons) => _LessonsStep(
                 levelName: _levelName ?? 'Level',
                 lessons: lessons,
-                onBack: () => _goLevels(languageId: _languageId!, languageName: _languageName!),
+                onBack: () => _goLevels(languageId: languageId, languageName: languageName),
                 onOpen: (lesson) => _goPairs(lessonId: lesson.id, lessonName: lesson.name),
                 onAdd: () async {
                   final name = await _promptName(title: 'Add lesson', label: 'Lesson name');
@@ -658,9 +608,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                       _goPairs(lessonId: created.id, lessonName: created.name);
                     }
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                    }
+                    _showSnack('$e');
                   }
                 },
                 onRename: (lesson) async {
@@ -671,9 +619,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                     await _refreshTree();
                     if (_lessonId == lesson.id) setState(() => _lessonName = name);
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                    }
+                    _showSnack('$e');
                   }
                 },
                 onDirection: widget.module == ContentManagerModule.words
@@ -712,9 +658,7 @@ class _ModuleContentManagerState extends ConsumerState<ModuleContentManager> {
                               );
                           await _refreshTree();
                         } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                          }
+                          _showSnack('$e');
                         }
                       }
                     : null,
@@ -910,61 +854,16 @@ class _ManageTile extends StatelessWidget {
   }
 }
 
-class _LanguagesStep extends StatelessWidget {
-  const _LanguagesStep({
-    required this.languages,
-    required this.onOpen,
-    required this.onAdd,
-    required this.onRename,
-    this.onDelete,
-  });
-
-  final List<LearningLanguage> languages;
-  final ValueChanged<LearningLanguage> onOpen;
-  final VoidCallback onAdd;
-  final ValueChanged<LearningLanguage> onRename;
-  final ValueChanged<LearningLanguage>? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(title: 'Languages', actionLabel: 'Add language', onAction: onAdd),
-        const SizedBox(height: AppSpacing.md),
-        if (languages.isEmpty)
-          const EmptyState(
-            title: 'No languages yet',
-            message: 'Add a language, then create levels and lessons for content.',
-            icon: Icons.translate_outlined,
-          )
-        else
-          for (final language in languages)
-            _ManageTile(
-              title: language.name,
-              onOpen: () => onOpen(language),
-              onRename: () => onRename(language),
-              onDelete: onDelete == null ? null : () => onDelete!(language),
-            ),
-      ],
-    );
-  }
-}
-
 class _LevelsStep extends StatelessWidget {
   const _LevelsStep({
-    required this.languageName,
     required this.levels,
-    required this.onBack,
     required this.onOpen,
     required this.onAdd,
     required this.onRename,
     this.onDelete,
   });
 
-  final String languageName;
   final List<CmsLevel> levels;
-  final VoidCallback onBack;
   final ValueChanged<CmsLevel> onOpen;
   final VoidCallback onAdd;
   final ValueChanged<CmsLevel> onRename;
@@ -975,9 +874,7 @@ class _LevelsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _BackRow(label: 'Back to Languages', onPressed: onBack),
-        const SizedBox(height: AppSpacing.sm),
-        _SectionHeader(title: '$languageName · Levels', actionLabel: 'Add level', onAction: onAdd),
+        _SectionHeader(title: 'Levels', actionLabel: 'Add level', onAction: onAdd),
         const SizedBox(height: AppSpacing.md),
         if (levels.isEmpty)
           const EmptyState(
