@@ -285,8 +285,16 @@ const updateStudent = async (req, id, data) => {
       : [];
   }
   const feesTotal = (student.subjectFees || []).reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
-  if (feesTotal > 0) {
-    student.coursePrice = feesTotal;
+  if (data.subjectFees !== undefined) {
+    // Keep student dues in sync with explicit per-subject edits.
+    // If all subject fees are zero and no coursePrice is provided, clear coursePrice.
+    if (feesTotal > 0) {
+      student.coursePrice = feesTotal;
+    } else if (data.coursePrice !== undefined) {
+      student.coursePrice = Number(data.coursePrice) || 0;
+    } else {
+      student.coursePrice = 0;
+    }
   } else if (data.coursePrice !== undefined) {
     student.coursePrice = Number(data.coursePrice) || 0;
   }

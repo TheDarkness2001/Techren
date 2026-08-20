@@ -42,6 +42,7 @@ const resolveBillableCourses = (student = {}, groupSubjects = []) => {
   };
 
   const map = new Map();
+  const namedFees = fees.filter((fee) => String(fee?.subject || '').trim());
   const positiveFees = fees.filter(
     (fee) => String(fee?.subject || '').trim() && Number(fee.amount) > 0
   );
@@ -82,6 +83,12 @@ const resolveBillableCourses = (student = {}, groupSubjects = []) => {
         amountDue: coursePrice,
       },
     ];
+  }
+
+  // Staff explicitly configured per-subject fees, but all are zero:
+  // treat as "no billable dues" instead of falling back to group price.
+  if (namedFees.length > 0) {
+    return [];
   }
 
   for (const group of groupByName.values()) {

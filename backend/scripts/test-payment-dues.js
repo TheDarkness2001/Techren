@@ -75,6 +75,18 @@ const {
   assert.strictEqual(courses.length, 0, 'zero fee empty');
 }
 
+// Explicit zero subject fee should not fall back to group price.
+{
+  const courses = resolveBillableCourses(
+    {
+      coursePrice: 0,
+      subjectFees: [{ subject: 'English', amount: 0 }],
+    },
+    [{ subjectName: 'English', pricePerClass: 500 }]
+  );
+  assert.strictEqual(courses.length, 0, 'explicit zero fee overrides group default');
+}
+
 // Legacy: one coursePrice must not be applied to every group.
 {
   const courses = resolveBillableCourses(
