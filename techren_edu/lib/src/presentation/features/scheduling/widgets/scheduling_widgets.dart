@@ -5,6 +5,7 @@ import '../../../../core/theme/app_durations.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/entity_list_card.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../../domain/entities/scheduling.dart';
 import 'timetable_week_grid.dart';
@@ -116,7 +117,7 @@ class _ScheduleCardState extends State<ScheduleCard> {
   }
 }
 
-class GroupCard extends StatefulWidget {
+class GroupCard extends StatelessWidget {
   const GroupCard({
     super.key,
     required this.view,
@@ -127,123 +128,59 @@ class GroupCard extends StatefulWidget {
   final VoidCallback? onEdit;
 
   @override
-  State<GroupCard> createState() => _GroupCardState();
-}
-
-class _GroupCardState extends State<GroupCard> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final muted = context.semantic.textMuted;
-    final warning = context.semantic.warning;
-    final view = widget.view;
     final hasSchedule = view.schedule != null;
     final students = view.group.students;
 
     return Semantics(
       label: '${view.group.groupName} group. ${view.group.studentCount} students',
-      button: widget.onEdit != null,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onEdit,
-            borderRadius: AppRadius.card,
-            child: AnimatedContainer(
-              duration: AppDurations.fast,
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      button: onEdit != null,
+      child: EntityListCard(
+        title: view.group.groupName,
+        subtitle: view.group.subjectName,
+        icon: Icons.menu_book_outlined,
+        iconColor: AppColors.info,
+        footer: Row(
+          children: [
+            if (students.isNotEmpty) _StudentAvatarStack(students: students, totalCount: view.group.studentCount),
+            if (students.isNotEmpty) const SizedBox(width: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: AppRadius.card,
-                border: Border.all(
-                  color: _hovered ? AppColors.secondary.withValues(alpha: 0.35) : AppColors.border,
-                ),
-                boxShadow: _hovered
-                    ? [
-                        BoxShadow(
-                          color: AppColors.secondary.withValues(alpha: 0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 3),
-                        )
-                      ]
-                    : null,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
-              child: Padding(
-                padding: AppSpacing.cardPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                view.group.groupName,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              if (view.group.subjectName != null) ...[
-                                const SizedBox(height: AppSpacing.micro),
-                                Text(
-                                  view.group.subjectName!,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (widget.onEdit != null)
-                          TextButton(onPressed: widget.onEdit, child: const Text('Edit')),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: students.isEmpty
-                              ? Text(
-                                  'No students yet',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
-                                )
-                              : _StudentAvatarStack(students: students, totalCount: view.group.studentCount),
-                        ),
-                        Text(
-                          '${view.group.studentCount} ${view.group.studentCount == 1 ? 'student' : 'students'}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (hasSchedule) ...[
-                      _MetaRow(
-                        icon: Icons.access_time,
-                        label: '${view.schedule!.startTime} – ${view.schedule!.endTime}',
-                        muted: muted,
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      _MetaRow(icon: Icons.calendar_today_outlined, label: view.schedule!.daysLabel, muted: muted),
-                      if (view.schedule!.teacherName != null) ...[
-                        const SizedBox(height: AppSpacing.xxs),
-                        _MetaRow(icon: Icons.person_outline, label: view.schedule!.teacherName!, muted: muted),
-                      ],
-                    ] else
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 16, color: warning),
-                          const SizedBox(width: AppSpacing.xxs),
-                          Text('No schedule linked', style: TextStyle(color: warning, fontSize: 13)),
-                        ],
-                      ),
-                  ],
-                ),
+              child: Text(
+                '${view.group.studentCount} ${view.group.studentCount == 1 ? 'student' : 'students'}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
-          ),
+          ],
         ),
+        metas: [
+          EntityMeta(
+            icon: Icons.access_time,
+            label: 'Time',
+            value: hasSchedule ? '${view.schedule!.startTime} – ${view.schedule!.endTime}' : 'No time',
+          ),
+          EntityMeta(
+            icon: Icons.calendar_today_outlined,
+            label: 'Days',
+            value: hasSchedule ? view.schedule!.daysLabel : 'No days',
+          ),
+          EntityMeta(
+            icon: Icons.person_outline,
+            label: 'Teacher',
+            value: view.schedule?.teacherName ?? 'Unassigned',
+          ),
+        ],
+        onTap: onEdit,
+        primaryAction: onEdit == null
+            ? null
+            : OutlinedButton(
+                onPressed: onEdit,
+                child: const Text('Edit'),
+              ),
       ),
     );
   }

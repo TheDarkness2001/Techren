@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -9,12 +10,15 @@ import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/widgets/app_form.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entity_list_card.dart';
 import '../../../../core/widgets/paginated_scroll_body.dart';
 import '../../../../domain/entities/paginated_result.dart';
+import '../../../../domain/entities/person.dart';
 import '../../../../domain/entities/staff_finance.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/identity_provider.dart';
 import '../../../providers/staff_finance_provider.dart';
+import '../widgets/staff_finance_widgets.dart';
 
 String formatSom(int amount) => formatUzs(amount);
 
@@ -81,18 +85,40 @@ class _StaffFinanceHubScreenState extends ConsumerState<StaffFinanceHubScreen> w
       onDestinationSelected: (i) => context.go(widget.navItems[i].route),
       actions: [
         if (widget.canManage && staffId != null)
-          TextButton(
-            onPressed: () => _showAddSheet(context),
-            child: const Text('Add'),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: FilledButton.icon(
+              onPressed: () => _showAddSheet(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add'),
+            ),
           ),
       ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: Text(
+              'Manage staff earnings and payouts',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.semantic.textMuted,
+                  ),
+            ),
+          ),
           if (widget.canManage)
             _StaffPicker(
               selectedId: _selectedStaffId,
               onChanged: (id) => setState(() => _selectedStaffId = id),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+              child: StaffMemberPickerCard(
+                name: ref.watch(authProvider).user?.name ?? 'My account',
+                role: 'Your earnings',
+                onTap: null,
+              ),
             ),
           if (staffId == null)
             const Expanded(
@@ -107,9 +133,12 @@ class _StaffFinanceHubScreenState extends ConsumerState<StaffFinanceHubScreen> w
               staffId: staffId,
               canManage: widget.canManage,
               onAddBonus: () => _showBonusDialog(context, staffId),
+              onViewPayouts: () => _tabs.animateTo(1),
             ),
             TabBar(
               controller: _tabs,
+              labelColor: const Color(0xFFA5B4FC),
+              indicatorColor: const Color(0xFF818CF8),
               tabs: const [
                 Tab(text: 'Earnings'),
                 Tab(text: 'Payouts'),
@@ -286,7 +315,7 @@ class _StaffFinanceHubScreenState extends ConsumerState<StaffFinanceHubScreen> w
           );
       _refresh();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payout created — complete it under Payouts')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payout sent. Staff must confirm they received the money.')));
         _tabs.animateTo(1);
       }
     } catch (e) {
@@ -303,12 +332,46 @@ class _StaffPicker extends ConsumerWidget {
   final String? selectedId;
   final ValueChanged<String?> onChanged;
 
+  Future<void> _pick(BuildContext context, List<Person> items) async {
+    final chosen = await showAppDialog<String>(
+      context: context,
+      builder: (context) => AppDialog(
+        title: 'Select staff',
+        content: SizedBox(
+          width: 420,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final teacher in items)
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                    child: Text(
+                      staffFinanceInitials(teacher.name),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFA5B4FC)),
+                    ),
+                  ),
+                  title: Text(teacher.name),
+                  subtitle: Text((teacher.role ?? 'Teacher').replaceAll('-', ' ')),
+                  onTap: () => Navigator.pop(context, teacher.id),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
+    if (chosen != null) onChanged(chosen);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teachersAsync = ref.watch(teachersProvider(const PageMeta(page: 1, limit: 50)));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
       child: teachersAsync.when(
         loading: () => const LinearProgressIndicator(minHeight: 2),
         error: (e, _) => Text('Could not load staff: $e'),
@@ -320,22 +383,15 @@ class _StaffPicker extends ConsumerWidget {
           if (selectedId == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(items.first.id));
           }
-          final value = items.any((t) => t.id == selectedId) ? selectedId : items.first.id;
+          Person selected = items.first;
+          for (final teacher in items) {
+            if (teacher.id == selectedId) selected = teacher;
+          }
 
-          return DropdownButtonFormField<String>(
-            value: value,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Staff member',
-              border: OutlineInputBorder(),
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            ),
-            items: [
-              for (final teacher in items)
-                DropdownMenuItem(value: teacher.id, child: Text(teacher.name, overflow: TextOverflow.ellipsis)),
-            ],
-            onChanged: onChanged,
+          return StaffMemberPickerCard(
+            name: selected.name,
+            role: (selected.role ?? 'Teacher').replaceAll('-', ' '),
+            onTap: () => _pick(context, items),
           );
         },
       ),
@@ -348,11 +404,13 @@ class _AccountSummaryCard extends ConsumerWidget {
     required this.staffId,
     required this.canManage,
     required this.onAddBonus,
+    this.onViewPayouts,
   });
 
   final String staffId;
   final bool canManage;
   final VoidCallback onAddBonus;
+  final VoidCallback? onViewPayouts;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -382,95 +440,28 @@ class _AccountSummaryCard extends ConsumerWidget {
             account.pendingEarnings == 0 &&
             account.totalPaidOut == 0;
 
-        return Card(
-          margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Account summary', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: AppSpacing.md),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 560;
-                    final stats = [
-                      _SummaryStat(label: 'Total earned', value: formatSom(account.totalEarned)),
-                      _SummaryStat(
-                        label: 'Available',
-                        value: formatSom(account.availableForPayout),
-                        emphasize: true,
-                      ),
-                      _SummaryStat(label: 'Pending', value: formatSom(account.pendingEarnings)),
-                      _SummaryStat(label: 'Paid out', value: formatSom(account.totalPaidOut)),
-                    ];
-                    if (wide) {
-                      return Row(
-                        children: [
-                          for (var i = 0; i < stats.length; i++) ...[
-                            if (i > 0) const SizedBox(width: AppSpacing.md),
-                            Expanded(child: stats[i]),
-                          ],
-                        ],
-                      );
-                    }
-                    return Wrap(
-                      spacing: AppSpacing.lg,
-                      runSpacing: AppSpacing.sm,
-                      children: stats,
-                    );
-                  },
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              StaffFinanceSummaryStrip(account: account, onViewPayouts: onViewPayouts),
+              if (empty && canManage) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'No balance yet. Add a bonus, approve it in Earnings, then create a payout.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
                 ),
-                if (empty && canManage) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'No balance yet. Add a bonus, approve it in Earnings, then create a payout.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton(onPressed: onAddBonus, child: const Text('Add bonus')),
-                  ),
-                ],
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(onPressed: onAddBonus, child: const Text('Add bonus')),
+                ),
               ],
-            ),
+            ],
           ),
         );
       },
-    );
-  }
-}
-
-class _SummaryStat extends StatelessWidget {
-  const _SummaryStat({
-    required this.label,
-    required this.value,
-    this.emphasize = false,
-  });
-
-  final String label;
-  final String value;
-  final bool emphasize;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = context.semantic.textMuted;
-    final valueColor = emphasize ? AppColors.primary : Theme.of(context).colorScheme.onSurface;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: valueColor,
-              ),
-        ),
-      ],
     );
   }
 }
@@ -509,7 +500,8 @@ class _EarningsTabState extends ConsumerState<_EarningsTab> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Search earnings by type, status, or note',
+              hintText: 'Search by type, status, or note...',
+              prefixIcon: const Icon(Icons.search),
               suffixIcon: _search.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
@@ -569,60 +561,38 @@ class _EarningTile extends ConsumerWidget {
   final bool canManage;
   final VoidCallback onChanged;
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'approved':
-        return AppColors.success;
-      case 'paid':
-        return AppColors.primary;
-      case 'cancelled':
-        return AppColors.error;
-      default:
-        return AppColors.warning;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = _statusColor(earning.status);
+    final date = earning.referenceDate ?? earning.createdAt;
     final note = (earning.description ?? earning.reason ?? '').trim();
+    final dateText = date == null ? '—' : DateFormat('MMM d, yyyy').format(date.toLocal());
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
-        title: Text(formatSom(earning.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(
-          [
-            earning.earningType.replaceAll('-', ' '),
-            if (note.isNotEmpty) note,
-          ].join(' · '),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              earning.status,
-              style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-            if (canManage && earning.status == 'pending') ...[
-              const SizedBox(width: AppSpacing.sm),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    await ref.read(staffFinanceApiProvider).approveEarning(earning.id);
-                    onChanged();
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-                    }
+    return EntityListCard(
+      title: note.isEmpty ? staffFinanceTypeLabel(earning.earningType) : note,
+      subtitle: staffFinanceTypeLabel(earning.earningType),
+      icon: Icons.payments_outlined,
+      iconColor: AppColors.primarySoft,
+      footer: StaffFinanceStatusPill(status: earning.status),
+      metas: [
+        EntityMeta(icon: Icons.payments_outlined, label: 'Amount', value: formatSom(earning.amount)),
+        EntityMeta(icon: Icons.calendar_today_outlined, label: 'Date', value: dateText),
+        EntityMeta(icon: Icons.person_outline, label: 'Staff', value: earning.staffName ?? 'Staff'),
+      ],
+      primaryAction: canManage && earning.status == 'pending'
+          ? OutlinedButton(
+              onPressed: () async {
+                try {
+                  await ref.read(staffFinanceApiProvider).approveEarning(earning.id);
+                  onChanged();
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
                   }
-                },
-                child: const Text('Approve'),
-              ),
-            ],
-          ],
-        ),
-      ),
+                }
+              },
+              child: const Text('Approve'),
+            )
+          : null,
     );
   }
 }
@@ -661,7 +631,8 @@ class _PayoutsTabState extends ConsumerState<_PayoutsTab> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Search payouts by reference, method, or status',
+              hintText: 'Search by type, status, or note...',
+              prefixIcon: const Icon(Icons.search),
               suffixIcon: _search.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
@@ -721,58 +692,77 @@ class _PayoutTile extends ConsumerWidget {
   final bool canManage;
   final VoidCallback onChanged;
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'completed':
-        return AppColors.success;
-      case 'cancelled':
-        return AppColors.error;
-      default:
-        return AppColors.warning;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = _statusColor(payout.status);
+    final userId = ref.watch(authProvider).user?.id;
+    final isRecipient = userId != null && userId == payout.staffId;
+    final date = payout.createdAt;
+    final dateText = date == null ? '—' : DateFormat('MMM d, yyyy').format(date.toLocal());
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
-        title: Text(payout.payoutRef, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${payout.method.replaceAll('-', ' ')} · ${formatSom(payout.amount)}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              payout.status,
-              style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-            if (canManage && payout.status == 'pending') ...[
-              const SizedBox(width: AppSpacing.xs),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    await ref.read(staffFinanceApiProvider).completePayout(payout.id);
-                    onChanged();
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-                    }
-                  }
-                },
-                child: const Text('Complete'),
-              ),
-              TextButton(
-                onPressed: () => _cancelPayout(context, ref),
-                style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                child: const Text('Cancel'),
-              ),
-            ],
-          ],
+    return EntityListCard(
+      title: payout.payoutRef.isEmpty ? 'Salary payout' : payout.payoutRef,
+      subtitle: staffFinanceTypeLabel(payout.method),
+      icon: Icons.account_balance_wallet_outlined,
+      iconColor: AppColors.primarySoft,
+      footer: StaffFinanceStatusPill(status: payout.status, isPayout: true),
+      metas: [
+        EntityMeta(icon: Icons.payments_outlined, label: 'Amount', value: formatSom(payout.amount)),
+        EntityMeta(icon: Icons.calendar_today_outlined, label: 'Date issued', value: dateText),
+        EntityMeta(icon: Icons.person_outline, label: 'Staff', value: payout.staffName ?? 'Staff'),
+      ],
+      primaryAction: isRecipient && payout.status == 'pending'
+          ? FilledButton(
+              onPressed: () => _confirmReceived(context, ref),
+              child: const Text('Confirm receipt'),
+            )
+          : null,
+      menu: canManage && payout.status == 'pending'
+          ? PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'cancel') _cancelPayout(context, ref);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'cancel', child: Text('Cancel payout')),
+              ],
+            )
+          : null,
+    );
+  }
+
+  Future<void> _confirmReceived(BuildContext context, WidgetRef ref) async {
+    final ok = await showAppDialog<bool>(
+      context: context,
+      builder: (context) => AppDialog(
+        title: 'Confirm you received this payout?',
+        icon: Icons.check_circle_outline,
+        content: Text(
+          'This records that you received ${formatSom(payout.amount)} '
+          '(${staffFinanceTypeLabel(payout.method)}).',
         ),
+        actions: [
+          AppDialogActions.cancel(context, onPressed: () => Navigator.pop(context, false)),
+          AppDialogActions.confirm(
+            context,
+            label: 'I received it',
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
       ),
     );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(staffFinanceApiProvider).confirmPayout(payout.id);
+      onChanged();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payout confirmed')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   Future<void> _cancelPayout(BuildContext context, WidgetRef ref) async {

@@ -107,6 +107,8 @@ class StaffPayoutEntry {
     required this.status,
     this.referenceNumber,
     this.approvedByName,
+    this.confirmedByName,
+    this.confirmedAt,
     this.completedAt,
     this.cancelledAt,
     this.cancellationReason,
@@ -124,6 +126,8 @@ class StaffPayoutEntry {
   final String status;
   final String? referenceNumber;
   final String? approvedByName;
+  final String? confirmedByName;
+  final DateTime? confirmedAt;
   final DateTime? completedAt;
   final DateTime? cancelledAt;
   final String? cancellationReason;
@@ -142,6 +146,10 @@ class StaffPayoutEntry {
       status: json['status'] as String? ?? 'pending',
       referenceNumber: json['referenceNumber'] as String?,
       approvedByName: json['approvedByName'] as String?,
+      confirmedByName: json['confirmedByName'] as String?,
+      confirmedAt: json['confirmedAt'] != null
+          ? DateTime.tryParse(json['confirmedAt'].toString())
+          : null,
       completedAt: json['completedAt'] != null
           ? DateTime.tryParse(json['completedAt'].toString())
           : null,

@@ -19,6 +19,9 @@ const formatPayout = (doc) => ({
   referenceNumber: doc.referenceNumber,
   approvedBy: doc.approvedBy?._id || doc.approvedBy,
   approvedByName: doc.approvedBy?.name,
+  confirmedBy: doc.confirmedBy?._id || doc.confirmedBy,
+  confirmedByName: doc.confirmedBy?.name,
+  confirmedAt: doc.confirmedAt,
   completedAt: doc.completedAt,
   cancelledAt: doc.cancelledAt,
   cancellationReason: doc.cancellationReason,
@@ -69,6 +72,7 @@ const listPayouts = async (req, query = {}) => {
     StaffPayout.find(filter)
       .populate('staffId', 'name email')
       .populate('approvedBy', 'name')
+      .populate('confirmedBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),
@@ -157,13 +161,22 @@ const completePayout = async (req, id) => {
   if (!canAccessBranch(req, payout.branchId)) {
     throw Object.assign(new Error('Branch access denied'), { statusCode: 403, code: 'FORBIDDEN' });
   }
-  if (payout.status !== 'pending') {
-    throw Object.assign(new Error('Only pending payouts can be completed'), { statusCode: 400, code: 'BAD_REQUEST' });
+  if (String(payout.staffId) !== String(req.user._id)) {
+    throw Object.assign(new Error('Only the staff member who received this payout can confirm it'), {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    });
   }
+  if (payout.status !== 'pending') {
+    throw Object.assign(new Error('Only pending payouts can be confirmed'), { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  const now = new Date();
   payout.status = 'completed';
-  payout.completedAt = new Date();
+  payout.completedAt = now;
+  payout.confirmedAt = now;
+  payout.confirmedBy = req.user._id;
   await payout.save();
-  return formatPayout(payout.toObject());
+  return formatPayout((await payout.populate('confirmedBy', 'name')).toObject());
 };
 
 const cancelPayout = async (req, id, reason) => {

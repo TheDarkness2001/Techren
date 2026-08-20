@@ -118,6 +118,11 @@ class StaffFinanceApi {
     return StaffPayoutEntry.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<StaffPayoutEntry> confirmPayout(String id) async {
+    final response = await _client.dio.patch('/staff-payouts/$id/confirm');
+    return StaffPayoutEntry.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<StaffPayoutEntry> cancelPayout(String id, String reason) async {
     final response = await _client.dio.patch('/staff-payouts/$id/cancel', data: {'reason': reason});
     return StaffPayoutEntry.fromJson(response.data['data'] as Map<String, dynamic>);

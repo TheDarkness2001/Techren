@@ -444,232 +444,234 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
     );
   }
 
+  Widget _filtersBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 780;
+          final searchField = TextField(
+            controller: widget.searchController,
+            decoration: _filterDecoration(
+              context.l10n.searchStudent,
+              hint: context.l10n.nameOrId,
+              suffix: widget.search.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: widget.onSearchCleared,
+                    )
+                  : null,
+            ),
+            onSubmitted: widget.onSearchSubmitted,
+          );
+          final monthField = DropdownButtonFormField<int>(
+            value: _month,
+            decoration: _filterDecoration(context.l10n.month),
+            items: [
+              for (var i = 1; i <= 12; i++)
+                DropdownMenuItem(value: i, child: Text(context.l10n.monthShort(i))),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _month = v);
+            },
+          );
+          final yearField = DropdownButtonFormField<int>(
+            value: _year,
+            decoration: _filterDecoration(context.l10n.year),
+            items: [
+              for (var y = AcademyTime.year + 1; y >= AcademyTime.year - 4; y--)
+                DropdownMenuItem(value: y, child: Text('$y')),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _year = v);
+            },
+          );
+
+          if (wide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(flex: 3, child: searchField),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(width: 120, child: monthField),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(width: 120, child: yearField),
+                const SizedBox(width: AppSpacing.sm),
+                _filterActions(),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchField,
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: monthField),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: yearField),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Align(alignment: Alignment.centerRight, child: _filterActions()),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _studentCard(PaymentRosterResult roster, PaymentRosterRow row, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${row.studentCode.isEmpty ? '' : '#${row.studentCode}  '}${row.name}',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                _OverallPaidLabel(
+                  status: row.hasBillableCourses ? row.summaryStatus : 'none',
+                  onAccept: row.isPaid || !row.hasBillableCourses
+                      ? null
+                      : () => _acceptPayment(student: row, roster: roster),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _StudentPaymentSummaryChip(
+              row: row,
+              onTap: row.isPaid
+                  ? null
+                  : () => _acceptPayment(student: row, roster: roster),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _studentTable(PaymentRosterResult roster) {
+    return AppDataTable(
+      columns: const ['Student ID', 'Name', 'Courses', 'Paid?'],
+      rows: [
+        for (final row in roster.items)
+          AppDataRow(
+            cells: [
+              Text(
+                row.studentCode.isEmpty ? '—' : '#${row.studentCode}',
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(row.name, overflow: TextOverflow.ellipsis),
+              _StudentPaymentSummaryChip(
+                row: row,
+                onTap: row.isPaid ? null : () => _acceptPayment(student: row, roster: roster),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _OverallPaidLabel(
+                  status: row.hasBillableCourses ? row.summaryStatus : 'none',
+                  onAccept: row.isPaid || !row.hasBillableCourses
+                      ? null
+                      : () => _acceptPayment(student: row, roster: roster),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final rosterAsync = ref.watch(paymentRosterProvider(_query));
     final theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_refreshing) const LinearProgressIndicator(minHeight: 2),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 780;
-              final searchField = TextField(
-                controller: widget.searchController,
-                decoration: _filterDecoration(
-                  context.l10n.searchStudent,
-                  hint: context.l10n.nameOrId,
-                  suffix: widget.search.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: widget.onSearchCleared,
-                        )
-                      : null,
-                ),
-                onSubmitted: widget.onSearchSubmitted,
-              );
-              final monthField = DropdownButtonFormField<int>(
-                value: _month,
-                decoration: _filterDecoration(context.l10n.month),
-                items: [
-                  for (var i = 1; i <= 12; i++)
-                    DropdownMenuItem(value: i, child: Text(context.l10n.monthShort(i))),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => _month = v);
-                },
-              );
-              final yearField = DropdownButtonFormField<int>(
-                value: _year,
-                decoration: _filterDecoration(context.l10n.year),
-                items: [
-                  for (var y = AcademyTime.year + 1; y >= AcademyTime.year - 4; y--)
-                    DropdownMenuItem(value: y, child: Text('$y')),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => _year = v);
-                },
-              );
-
-              if (wide) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(flex: 3, child: searchField),
-                    const SizedBox(width: AppSpacing.sm),
-                    SizedBox(width: 120, child: monthField),
-                    const SizedBox(width: AppSpacing.sm),
-                    SizedBox(width: 120, child: yearField),
-                    const SizedBox(width: AppSpacing.sm),
-                    _filterActions(),
-                  ],
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  searchField,
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(child: monthField),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(child: yearField),
-                    ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useTable = constraints.maxWidth >= 800;
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (_refreshing)
+                const SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2)),
+              SliverToBoxAdapter(child: _filtersBar()),
+              if (widget.isFounder)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+                    child: BranchCollectionsPanel(month: _month, year: _year),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Align(alignment: Alignment.centerRight, child: _filterActions()),
-                ],
-              );
-            },
-          ),
-        ),
-        if (widget.isFounder)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-            child: BranchCollectionsPanel(month: _month, year: _year),
-          ),
-        if (widget.canManageExpenses)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-            child: BranchExpensesPanel(month: _month, year: _year),
-          ),
-        Expanded(
-          child: rosterAsync.when(
-            loading: () => const LoadingState(kind: LoadingSkeletonKind.table),
-            error: (e, _) => ListView(
-              children: [
-                SizedBox(height: AppSpacing.emptyStateTop),
-                EmptyState(
-                  title: context.l10n.couldNotLoadPayments,
-                  message: '$e',
-                  icon: Icons.error_outline,
-                  action: TextButton(onPressed: _refresh, child: Text(context.l10n.retry)),
                 ),
-              ],
-            ),
-            data: (roster) {
-              if (roster.items.isEmpty) {
-                return ListView(
-                  children: [
-                    const SizedBox(height: AppSpacing.emptyStateTop),
-                    EmptyState(
-                      title: context.l10n.noStudents,
-                      message: context.l10n.noStudentsMatchFilters,
-                      icon: Icons.payments_outlined,
+              if (widget.canManageExpenses)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+                    child: BranchExpensesPanel(month: _month, year: _year),
+                  ),
+                ),
+              ...rosterAsync.when(
+                loading: () => [
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: LoadingState(kind: LoadingSkeletonKind.table),
+                  ),
+                ],
+                error: (e, _) => [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      title: context.l10n.couldNotLoadPayments,
+                      message: '$e',
+                      icon: Icons.error_outline,
+                      action: TextButton(onPressed: _refresh, child: Text(context.l10n.retry)),
                     ),
-                  ],
-                );
-              }
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final useTable = constraints.maxWidth >= 800;
-                  if (!useTable) {
-                    return RefreshIndicator(
-                      onRefresh: _refresh,
-                      child: ListView.builder(
-                        padding: AppSpacing.listGutter,
-                        itemCount: roster.items.length,
-                        itemBuilder: (context, index) {
-                          final row = roster.items[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppSpacing.md),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${row.studentCode.isEmpty ? '' : '#${row.studentCode}  '}${row.name}',
-                                          style: theme.textTheme.titleSmall,
-                                        ),
-                                      ),
-                                      _OverallPaidLabel(
-                                        status: row.hasBillableCourses ? row.summaryStatus : 'none',
-                                        onAccept: row.isPaid || !row.hasBillableCourses
-                                            ? null
-                                            : () => _acceptPayment(
-                                                  student: row,
-                                                  roster: roster,
-                                                ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  _StudentPaymentSummaryChip(
-                                    row: row,
-                                    onTap: row.isPaid
-                                        ? null
-                                        : () => _acceptPayment(
-                                              student: row,
-                                              roster: roster,
-                                            ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }
-                  return RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: ListView(
-                      padding: AppSpacing.listGutter,
-                      children: [
-                        AppDataTable(
-                          columns: const ['Student ID', 'Name', 'Courses', 'Paid?'],
-                          rows: [
-                            for (final row in roster.items)
-                              AppDataRow(
-                                cells: [
-                                  Text(
-                                    row.studentCode.isEmpty ? '—' : '#${row.studentCode}',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(row.name, overflow: TextOverflow.ellipsis),
-                                  _StudentPaymentSummaryChip(
-                                    row: row,
-                                    onTap: row.isPaid
-                                        ? null
-                                        : () => _acceptPayment(
-                                              student: row,
-                                              roster: roster,
-                                            ),
-                                  ),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: _OverallPaidLabel(
-                                      status: row.hasBillableCourses ? row.summaryStatus : 'none',
-                                      onAccept: row.isPaid || !row.hasBillableCourses
-                                          ? null
-                                          : () => _acceptPayment(student: row, roster: roster),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
+                  ),
+                ],
+                data: (roster) {
+                  if (roster.items.isEmpty) {
+                    return [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: EmptyState(
+                          title: context.l10n.noStudents,
+                          message: context.l10n.noStudentsMatchFilters,
+                          icon: Icons.payments_outlined,
                         ),
-                      ],
+                      ),
+                    ];
+                  }
+                  return [
+                    SliverPadding(
+                      padding: AppSpacing.listGutter,
+                      sliver: useTable
+                          ? SliverToBoxAdapter(child: _studentTable(roster))
+                          : SliverList.builder(
+                              itemCount: roster.items.length,
+                              itemBuilder: (context, index) =>
+                                  _studentCard(roster, roster.items[index], theme),
+                            ),
                     ),
-                  );
+                  ];
                 },
-              );
-            },
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

@@ -28,7 +28,8 @@ router.post(
   validate,
   controller.create
 );
-router.patch('/:id/complete', manageRevenue, objectId('id'), validate, controller.complete);
+router.patch('/:id/complete', allowStaffSelfOrRevenue, objectId('id'), validate, controller.complete);
+router.patch('/:id/confirm', allowStaffSelfOrRevenue, objectId('id'), validate, controller.complete);
 router.patch(
   '/:id/cancel',
   manageRevenue,
