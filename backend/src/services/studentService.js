@@ -2,14 +2,55 @@ const Student = require('../models/Student');
 const Parent = require('../models/Parent');
 const ExamGroup = require('../models/ExamGroup');
 const ClassSchedule = require('../models/ClassSchedule');
+const Subject = require('../models/Subject');
 const DeviceToken = require('../models/DeviceToken');
 const RefreshToken = require('../models/RefreshToken');
 const uploadService = require('./uploadService');
+const { addStudentsToGroup } = require('./scheduleSyncService');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter, canAccessBranch } = require('../utils/branchFilter');
 const { assertParentChild, forbidden } = require('../utils/resourceAccess');
 
 const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
+
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Selecting subjects on the student profile is billing + what they study.
+ * Learning access is group-based, so enroll them in a subject group when missing.
+ */
+const syncStudentSubjectEnrollment = async (student) => {
+  const names = [
+    ...new Set(
+      (student.subjectFees || [])
+        .map((fee) => String(fee?.subject || '').trim())
+        .filter(Boolean)
+    ),
+  ];
+  if (!names.length || !student.branchId) return;
+
+  const nameFilter = {
+    $or: names.map((name) => ({ name: new RegExp(`^${escapeRegex(name)}$`, 'i') })),
+  };
+
+  let subjects = await Subject.find({ branchId: student.branchId, ...nameFilter }).select('_id name');
+  if (!subjects.length) {
+    // Legacy subjects may lack branchId; match by name only.
+    subjects = await Subject.find(nameFilter).select('_id name');
+  }
+
+  for (const subject of subjects) {
+    const alreadyInGroup = await ExamGroup.exists({ subject: subject._id, students: student._id });
+    if (alreadyInGroup) continue;
+
+    const group =
+      (await ExamGroup.findOne({ subject: subject._id, branchId: student.branchId }).sort({ createdAt: 1 })) ||
+      (await ExamGroup.findOne({ subject: subject._id }).sort({ createdAt: 1 }));
+    if (!group) continue;
+
+    await addStudentsToGroup(group._id, [student._id]);
+  }
+};
 
 const findParentForStudent = async (studentId) =>
   Parent.findOne({ children: studentId });
@@ -239,6 +280,8 @@ const createStudent = async (req, data) => {
     await student.save();
   }
 
+  await syncStudentSubjectEnrollment(student);
+
   return formatStudentWithParent(student.toPublicJSON(), student._id);
 };
 
@@ -321,6 +364,10 @@ const updateStudent = async (req, id, data) => {
       student.parentPhone = String(data.parentAccount.phone).trim();
       await student.save();
     }
+  }
+
+  if (data.subjectFees !== undefined) {
+    await syncStudentSubjectEnrollment(student);
   }
 
   return formatStudentWithParent(student.toPublicJSON(), student._id);

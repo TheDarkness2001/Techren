@@ -1,6 +1,7 @@
 const Subject = require('../models/Subject');
 const ExamGroup = require('../models/ExamGroup');
 const ClassSchedule = require('../models/ClassSchedule');
+const Student = require('../models/Student');
 const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 const { getBranchFilter } = require('../utils/branchFilter');
 const { isPrivilegedStaff } = require('../middleware/auth');
@@ -113,8 +114,33 @@ const deleteSubject = async (id, filter) => {
 
 const resolveVisibleSubjectIds = async (req) => {
   if (req.userType === 'student') {
-    const groups = await ExamGroup.find({ students: req.user._id }).select('subject');
-    return [...new Set(groups.map((g) => String(g.subject)))];
+    const [groups, student] = await Promise.all([
+      ExamGroup.find({ students: req.user._id }).select('subject'),
+      Student.findById(req.user._id).select('subjectFees branchId'),
+    ]);
+    const ids = new Set(groups.map((g) => String(g.subject)).filter(Boolean));
+
+    // Subject chips on the student profile also grant Learning visibility, even
+    // before staff places them in a specific exam group.
+    const feeNames = [
+      ...new Set(
+        (student?.subjectFees || [])
+          .map((fee) => String(fee?.subject || '').trim())
+          .filter(Boolean)
+      ),
+    ];
+    if (feeNames.length) {
+      const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameFilter = {
+        $or: feeNames.map((name) => ({ name: new RegExp(`^${escapeRegex(name)}$`, 'i') })),
+      };
+      const byName = student?.branchId
+        ? await Subject.find({ branchId: student.branchId, ...nameFilter }).select('_id')
+        : await Subject.find(nameFilter).select('_id');
+      for (const doc of byName) ids.add(String(doc._id));
+    }
+
+    return [...ids];
   }
 
   if (req.userType === 'teacher' && isPrivilegedStaff(req.user)) {

@@ -239,14 +239,18 @@ const buildDuesByStudent = async ({ studentIds, month, year, branchFilter = {} }
     const student = studentById.get(sid) || {};
     const billable = resolveBillableCourses(student, groupsByStudent.get(sid) || []);
     const courses = billable.map((course) => {
-      const amountPaid = paidTowardCourse({
+      const rawPaid = paidTowardCourse({
         studentId: sid,
         course,
         courseCount: billable.length,
         paidByStudentSubject,
         paidByStudent,
       });
-      const amountDue = course.amountDue > 0 ? course.amountDue : Math.max(amountPaid, 0);
+      // Keep roster dues tied to the configured monthly fee. Extra receipts still
+      // exist in payment history / revenue, but must not inflate the due chip
+      // (e.g. old 600+600 payments after fees were lowered to 400+200).
+      const amountDue = course.amountDue > 0 ? course.amountDue : Math.max(rawPaid, 0);
+      const amountPaid = amountDue > 0 ? Math.min(rawPaid, amountDue) : rawPaid;
       return {
         subjectId: course.subjectId,
         subjectName: course.subjectName,

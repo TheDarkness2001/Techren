@@ -701,8 +701,11 @@ class _StudentPaymentSummaryChip extends StatelessWidget {
         : partial
             ? AppColors.warning
             : AppColors.error;
-    final money =
-        '${_moneyLabel(row.totalPaid)} / ${_moneyLabel(row.totalDue)} (${_courseStatusLabel(status)})';
+    // Paid rows lead with the monthly due (not receipts), so a 600 fee never
+    // reads as "1 200" when older overpayments exist.
+    final money = paid
+        ? '${_moneyLabel(row.totalDue)} (${_courseStatusLabel(status)})'
+        : '${_moneyLabel(row.totalPaid)} / ${_moneyLabel(row.totalDue)} (${_courseStatusLabel(status)})';
     final label = row.courses.length == 1
         ? '${row.courses.first.subjectName} — $money'
         : row.courses.length == 2

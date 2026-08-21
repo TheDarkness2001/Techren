@@ -617,7 +617,7 @@ class _PersonEditDialogState extends ConsumerState<_PersonEditDialog> {
                   InputDecorator(
                     decoration: const InputDecoration(
                       labelText: 'Subjects',
-                      helperText: 'Tap to add or change what this student studies',
+                      helperText: 'Tap to add subjects this student studies (grants Learning access)',
                     ),
                     child: subjectsAsync.when(
                       loading: () => const Padding(
