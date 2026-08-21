@@ -565,6 +565,8 @@ class BranchExpense {
     this.teacherId,
     this.teacherName = '',
     this.recordedByName = '',
+    this.createdAt,
+    this.spentAt,
   });
 
   final String id;
@@ -578,6 +580,10 @@ class BranchExpense {
   final String? teacherId;
   final String teacherName;
   final String recordedByName;
+  final DateTime? createdAt;
+  final DateTime? spentAt;
+
+  DateTime get recordedWhen => spentAt ?? createdAt ?? DateTime.now();
 
   factory BranchExpense.fromJson(Map<String, dynamic> json) => BranchExpense(
         id: json['id']?.toString() ?? '',
@@ -591,6 +597,8 @@ class BranchExpense {
         teacherId: json['teacherId']?.toString(),
         teacherName: json['teacherName'] as String? ?? '',
         recordedByName: json['recordedByName'] as String? ?? '',
+        createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+        spentAt: json['spentAt'] != null ? DateTime.tryParse(json['spentAt'].toString()) : null,
       );
 }
 

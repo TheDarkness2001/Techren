@@ -13,6 +13,8 @@ const branchExpenseSchema = new mongoose.Schema(
     teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
     teacherName: { type: String, trim: true, default: '' },
     recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
+    /** When the cost actually happened (defaults to createdAt / now). */
+    spentAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

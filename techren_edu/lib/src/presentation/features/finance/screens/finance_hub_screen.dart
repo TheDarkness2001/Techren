@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_semantic_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/academy_time.dart';
 import '../../../../core/utils/format_money.dart';
@@ -280,18 +281,17 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
     PaymentCourseStatus? course,
     required PaymentRosterResult roster,
   }) async {
-    final unpaidCourses = student.courses.where((c) => !c.isPaid).toList();
-    var selected = course ?? (unpaidCourses.isNotEmpty ? unpaidCourses.first : null);
-    if (selected == null && unpaidCourses.isEmpty && student.courses.isNotEmpty) {
-      return;
+    var unpaidCourses = student.courses.where((c) => !c.isPaid && c.remaining > 0).toList();
+    // Optional single-course focus (legacy); default is combined total.
+    if (course != null && unpaidCourses.any((c) => c.subjectName == course.subjectName)) {
+      unpaidCourses = unpaidCourses.where((c) => c.subjectName == course.subjectName).toList();
     }
+    if (unpaidCourses.isEmpty) return;
 
-    final amountCtrl = TextEditingController(
-      text: selected != null
-          ? (selected.remaining > 0 ? selected.remaining : selected.amountDue).toStringAsFixed(0)
-          : '',
-    );
-    final subjectCtrl = TextEditingController(text: selected?.subjectName ?? '');
+    final totalRemaining = unpaidCourses.fold<double>(0, (sum, c) => sum + c.remaining);
+    final totalLabel = unpaidCourses.map((c) => c.subjectName).join(' + ');
+
+    final amountCtrl = TextEditingController(text: totalRemaining.toStringAsFixed(0));
     var method = 'cash';
 
     final recorded = await showAppDialog<bool>(
@@ -308,33 +308,31 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
                 '${context.l10n.monthShort(roster.month)} ${roster.year}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              InputDecorator(
+                decoration: InputDecoration(labelText: context.l10n.course),
+                child: Text(
+                  unpaidCourses.length == 1 ? unpaidCourses.first.subjectName : totalLabel,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              Text(
+                unpaidCourses.length == 1
+                    ? context.l10n.remainingLeft(_moneyLabel(totalRemaining))
+                    : context.l10n.totalRemaining(_moneyLabel(totalRemaining)),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+              ),
               if (unpaidCourses.length > 1)
-                DropdownButtonFormField<PaymentCourseStatus>(
-                  value: selected,
-                  decoration: InputDecoration(labelText: context.l10n.course),
-                  items: unpaidCourses
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c,
-                          child: Text('${c.subjectName} — ${context.l10n.remainingLeft(_moneyLabel(c.remaining))}'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setDialogState(() {
-                      selected = v;
-                      subjectCtrl.text = v.subjectName;
-                      amountCtrl.text =
-                          (v.remaining > 0 ? v.remaining : v.amountDue).toStringAsFixed(0);
-                    });
-                  },
-                )
-              else
-                TextField(
-                  controller: subjectCtrl,
-                  decoration: InputDecoration(labelText: context.l10n.courseOrSubject),
-                  readOnly: selected != null,
+                Text(
+                  [
+                    for (final c in unpaidCourses)
+                      '${c.subjectName}: ${_moneyLabel(c.remaining)}',
+                  ].join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.semantic.textMuted,
+                      ),
                 ),
               TextField(
                 controller: amountCtrl,
@@ -361,22 +359,41 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
               label: context.l10n.recordPaid,
               onPressed: () async {
                 final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
-                final subject = (selected?.subjectName ?? subjectCtrl.text).trim();
-                if (amount <= 0 || subject.isEmpty) return;
+                if (amount <= 0) return;
                 try {
-                  await ref.read(financeApiProvider).createPayment({
-                    'studentId': student.id,
-                    'amount': amount,
-                    'paymentType': 'tuition-fee',
-                    'paymentMethod': method,
-                    'subject': subject,
-                    'dueDate': DateTime.now().toIso8601String(),
-                    'academicYear': roster.academicYear,
-                    'term': roster.term,
-                    'month': roster.month,
-                    'year': roster.year,
-                    'status': 'paid',
-                  });
+                  final api = ref.read(financeApiProvider);
+                  Future<void> postOne(String subject, double payAmount) async {
+                    await api.createPayment({
+                      'studentId': student.id,
+                      'amount': payAmount,
+                      'paymentType': 'tuition-fee',
+                      'paymentMethod': method,
+                      'subject': subject,
+                      'dueDate': DateTime.now().toIso8601String(),
+                      'academicYear': roster.academicYear,
+                      'term': roster.term,
+                      'month': roster.month,
+                      'year': roster.year,
+                      'status': 'paid',
+                    });
+                  }
+
+                  if (unpaidCourses.length == 1) {
+                    await postOne(unpaidCourses.first.subjectName, amount);
+                  } else {
+                    // Split one total payment across unpaid courses (fill remaining order).
+                    var left = amount;
+                    for (final c in unpaidCourses) {
+                      if (left <= 0) break;
+                      final take = left < c.remaining ? left : c.remaining;
+                      if (take <= 0) continue;
+                      await postOne(c.subjectName, take);
+                      left -= take;
+                    }
+                    if (left > 0) {
+                      await postOne(unpaidCourses.first.subjectName, left);
+                    }
+                  }
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
                   if (context.mounted) {
@@ -393,7 +410,6 @@ class _PaymentsTabState extends ConsumerState<_PaymentsTab> {
     );
 
     amountCtrl.dispose();
-    subjectCtrl.dispose();
 
     if (recorded == true && mounted) {
       ref.invalidate(paymentRosterProvider);

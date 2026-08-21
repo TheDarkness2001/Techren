@@ -14,6 +14,9 @@ extension L10nPayments on AppLocalizations {
   String get nameOrId => t(en: 'Name or ID', ru: 'Имя или ID', uz: 'Ism yoki ID');
   String get couldNotLoadPayments => t(en: 'Could not load payments', ru: 'Не удалось загрузить платежи', uz: 'To\'lovlarni yuklab bo\'lmadi');
   String remainingLeft(String amount) => t(en: '$amount left', ru: 'осталось $amount', uz: '$amount qoldi');
+  String totalRemaining(String amount) =>
+      t(en: 'Total remaining: $amount', ru: 'Всего осталось: $amount', uz: 'Jami qolgan: $amount');
+  String get costDateTime => t(en: 'Date & time', ru: 'Дата и время', uz: 'Sana va vaqt');
   String get branchCollections => t(en: 'Branch collections', ru: 'Сборы по филиалам', uz: 'Filial yig\'imlari');
   String get needToCollect => t(en: 'Need to collect', ru: 'Нужно собрать', uz: 'Yig\'ish kerak');
   String get collected => t(en: 'Collected', ru: 'Собрано', uz: 'Yig\'ilgan');

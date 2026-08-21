@@ -35,6 +35,7 @@ const format = (doc) => ({
   teacherName: doc.teacherName || doc.teacherId?.name || '',
   recordedByName: doc.recordedBy?.name || '',
   createdAt: doc.createdAt,
+  spentAt: doc.spentAt || doc.createdAt,
 });
 
 const list = async (req) => {
@@ -55,7 +56,7 @@ const list = async (req) => {
       .populate('branchId', 'name')
       .populate('teacherId', 'name')
       .populate('recordedBy', 'name')
-      .sort({ createdAt: -1 })
+      .sort({ spentAt: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit),
     BranchExpense.countDocuments(filter),
@@ -117,6 +118,12 @@ const create = async (req, data) => {
     throw Object.assign(new Error('Add a note for other expenses'), { statusCode: 400, code: 'VALIDATION_ERROR' });
   }
 
+  let spentAt = new Date();
+  if (data.spentAt) {
+    const parsed = new Date(data.spentAt);
+    if (!Number.isNaN(parsed.getTime())) spentAt = parsed;
+  }
+
   const doc = await BranchExpense.create({
     branchId,
     category,
@@ -127,6 +134,7 @@ const create = async (req, data) => {
     teacherId: teacherId || undefined,
     teacherName,
     recordedBy: req.user?._id,
+    spentAt,
   });
 
   return getOne(doc._id, req);
@@ -176,6 +184,11 @@ const update = async (req, id, data) => {
   const notes = String(data.notes ?? doc.notes ?? '').trim();
   if (category === 'other' && !notes) {
     throw Object.assign(new Error('Add a note for other expenses'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (data.spentAt !== undefined) {
+    const parsed = new Date(data.spentAt);
+    if (!Number.isNaN(parsed.getTime())) doc.spentAt = parsed;
   }
 
   doc.category = category;

@@ -68,21 +68,29 @@ abstract final class AppColors {
   /// Legacy alias used across features.
   static const error = danger;
 
-  // ── Charts (fixed palette — never improvise) ───────────────────────────
+  // ── Charts (high-contrast slices — easy to tell apart on dark UI) ───────
   static const chartBlue = Color(0xFF3B82F6);
   static const chartIndigo = Color(0xFF4F46E5);
   static const chartEmerald = Color(0xFF22C55E);
   static const chartAmber = Color(0xFFF59E0B);
   static const chartCyan = Color(0xFF06B6D4);
   static const chartPurple = Color(0xFF8B5CF6);
+  static const chartRose = Color(0xFFF43F5E);
+  static const chartLime = Color(0xFF84CC16);
+  static const chartOrange = Color(0xFFEA580C);
+  static const chartTeal = Color(0xFF14B8A6);
 
   static const List<Color> chartPalette = [
-    chartBlue,
-    chartIndigo,
-    chartEmerald,
+    chartRose,
     chartAmber,
+    chartEmerald,
     chartCyan,
     chartPurple,
+    chartOrange,
+    chartBlue,
+    chartLime,
+    chartTeal,
+    chartIndigo,
   ];
 
   // ── Sidebar (light) ────────────────────────────────────────────────────

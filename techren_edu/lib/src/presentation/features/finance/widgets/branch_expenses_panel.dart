@@ -38,29 +38,47 @@ Color _categoryColor(String category) {
     case 'teacher-payment':
       return AppColors.chartPurple;
     case 'rent':
-      return AppColors.chartIndigo;
+      return AppColors.chartRose;
     case 'electricity':
       return AppColors.chartAmber;
     case 'repair':
-      return AppColors.chartCyan;
+      return AppColors.chartEmerald;
     default:
-      return AppColors.chartBlue;
+      return AppColors.chartCyan;
   }
+}
+
+Color _sliceColor(String category, int index) {
+  // Prefer unique colors per row so two "Other" costs stay distinguishable.
+  if (index < AppColors.chartPalette.length) {
+    return AppColors.chartPalette[index];
+  }
+  return _categoryColor(category);
 }
 
 List<FinanceSlice> _costSlicesFromItems(AppLocalizations l10n, List<BranchExpense> items) {
   return [
-    for (final item in items)
+    for (var i = 0; i < items.length; i++)
       FinanceSlice(
-        label: _categoryLabel(l10n, item.category),
-        value: item.amount,
-        color: _categoryColor(item.category),
+        label: _categoryLabel(l10n, items[i].category),
+        value: items[i].amount,
+        color: _sliceColor(items[i].category, i),
       ),
   ];
 }
 
+String _formatCostWhen(DateTime when) {
+  final local = when.toLocal();
+  final d = local.day.toString().padLeft(2, '0');
+  final m = local.month.toString().padLeft(2, '0');
+  final h = local.hour.toString().padLeft(2, '0');
+  final min = local.minute.toString().padLeft(2, '0');
+  return '$d.$m.${local.year} $h:$min';
+}
+
 String _expenseSubtitle(BranchExpense item) {
   return [
+    _formatCostWhen(item.recordedWhen),
     if (item.branchName.isNotEmpty) _displayBranchName(item.branchName),
     if (item.teacherName.isNotEmpty) item.teacherName,
     if (item.notes.isNotEmpty) item.notes,
@@ -134,22 +152,22 @@ class BranchExpensesPanel extends ConsumerWidget {
                         editTooltip: l10n.edit,
                         deleteTooltip: l10n.delete,
                         items: [
-                          for (final item in data.items)
+                          for (var i = 0; i < data.items.length; i++)
                             FinanceManagedLegendItem(
                               slice: FinanceSlice(
-                                label: _categoryLabel(l10n, item.category),
-                                value: item.amount,
-                                color: _categoryColor(item.category),
+                                label: _categoryLabel(l10n, data.items[i].category),
+                                value: data.items[i].amount,
+                                color: _sliceColor(data.items[i].category, i),
                               ),
-                              subtitle: _expenseSubtitle(item),
+                              subtitle: _expenseSubtitle(data.items[i]),
                               onEdit: () => showEditBranchExpenseDialog(
                                 context,
                                 ref,
-                                expense: item,
+                                expense: data.items[i],
                                 month: month,
                                 year: year,
                               ),
-                              onDelete: () => _deleteExpense(context, ref, item.id),
+                              onDelete: () => _deleteExpense(context, ref, data.items[i].id),
                             ),
                         ],
                       ),
@@ -215,6 +233,7 @@ Future<bool> showBranchExpenseDialog(
   var category = editing ? expense.category : 'rent';
   String? branchId = editing ? expense.branchId : (user?.isFounder == true ? null : user?.branchId);
   String? teacherId = editing ? expense.teacherId : null;
+  var spentAt = editing ? expense.recordedWhen.toLocal() : DateTime.now();
 
   final branches = user?.isFounder == true
       ? (await ref.read(branchesProvider(const PageMeta(limit: 100)).future)).items
@@ -231,6 +250,29 @@ Future<bool> showBranchExpenseDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) {
+        Future<void> pickWhen() async {
+          final date = await showDatePicker(
+            context: context,
+            initialDate: spentAt,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now().add(const Duration(days: 1)),
+          );
+          if (date == null || !context.mounted) return;
+          final time = await showTimePicker(
+            context: context,
+            initialTime: TimeOfDay.fromDateTime(spentAt),
+          );
+          if (time == null) {
+            setDialogState(() {
+              spentAt = DateTime(date.year, date.month, date.day, spentAt.hour, spentAt.minute);
+            });
+            return;
+          }
+          setDialogState(() {
+            spentAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+          });
+        }
+
         return AppDialog(
           title: editing ? l10n.edit : l10n.addCost,
           icon: Icons.receipt_long_outlined,
@@ -270,6 +312,16 @@ Future<bool> showBranchExpenseDialog(
                 decoration: InputDecoration(labelText: l10n.amount),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
+              InkWell(
+                onTap: pickWhen,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: l10n.costDateTime,
+                    suffixIcon: const Icon(Icons.event_outlined),
+                  ),
+                  child: Text(_formatCostWhen(spentAt)),
+                ),
+              ),
               TextField(
                 controller: notesCtrl,
                 decoration: InputDecoration(
@@ -294,6 +346,7 @@ Future<bool> showBranchExpenseDialog(
                     'category': category,
                     'amount': amount,
                     'notes': notesCtrl.text.trim(),
+                    'spentAt': spentAt.toUtc().toIso8601String(),
                     if (category == 'teacher-payment' && teacherId != null) 'teacherId': teacherId,
                   };
                   if (editing) {

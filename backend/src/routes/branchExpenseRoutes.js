@@ -22,6 +22,7 @@ router.post(
   body('teacherId').optional({ nullable: true, checkFalsy: true }).isMongoId(),
   body('notes').optional().trim(),
   body('teacherName').optional().trim(),
+  body('spentAt').optional().isISO8601(),
   validate,
   controller.create
 );
@@ -33,6 +34,7 @@ router.put(
   body('teacherId').optional({ nullable: true, checkFalsy: true }).isMongoId(),
   body('notes').optional().trim(),
   body('teacherName').optional().trim(),
+  body('spentAt').optional().isISO8601(),
   validate,
   controller.update
 );
