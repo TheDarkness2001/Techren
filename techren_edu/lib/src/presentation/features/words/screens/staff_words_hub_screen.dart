@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/user_facing_error.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -103,7 +104,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       ref.invalidate(cmsLessonsProvider(level.id));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(level.id));
@@ -121,7 +122,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       ref.invalidate(cmsLessonsProvider(lesson.levelId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(lesson.id));
@@ -166,7 +167,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) {
@@ -230,7 +231,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
             const SizedBox(height: AppSpacing.lg),
             languagesAsync.when(
               loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-              error: (e, _) => Text(e.toString()),
+              error: (e, _) => Text(UserFacingError.from(e).message),
               data: (languages) => _buildTabBody(
                 context,
                 languages: languages,
@@ -265,7 +266,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
       case WordsHubTab.permissions:
         return groupsAsync.when(
           loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-          error: (e, _) => Text(e.toString()),
+          error: (e, _) => Text(UserFacingError.from(e).message),
           data: (result) => _buildPermissionsTab(result.items, languages),
         );
       case WordsHubTab.exam:
@@ -335,7 +336,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
         else
           levelsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => Text(UserFacingError.from(e).message),
             data: (levels) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -411,7 +412,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               padding: EdgeInsets.only(top: AppSpacing.md),
               child: LinearProgressIndicator(),
             ),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => Text(UserFacingError.from(e).message),
             data: (levels) {
               if (_levelId == null && levels.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -435,7 +436,7 @@ class _StaffWordsHubScreenState extends ConsumerState<StaffWordsHubScreen> {
               padding: EdgeInsets.only(top: AppSpacing.md),
               child: LinearProgressIndicator(),
             ),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => Text(UserFacingError.from(e).message),
             data: (lessons) {
               if (_lessonId == null && lessons.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {

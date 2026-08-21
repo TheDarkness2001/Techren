@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/widgets/go_back_icon_button.dart';
 
+import '../../../../core/errors/user_facing_error.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/go_back_icon_button.dart';
 import '../../../../core/widgets/learning_playground.dart';
 import '../../../../domain/entities/video.dart';
 import '../../../providers/video_provider.dart';
@@ -37,7 +38,10 @@ class _VideoHubScreenState extends ConsumerState<VideoHubScreen> {
       ],
       body: videosAsync.when(
         loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-        error: (e, _) => Center(child: Text(e.toString())),
+        error: (e, _) => UserFacingErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(studentVideosProvider),
+        ),
         data: (videos) {
           if (videos.isEmpty) {
             return const EmptyState(

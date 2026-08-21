@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/widgets/go_back_icon_button.dart';
-import 'package:go_router/go_router.dart';
-
+import '../../../../core/errors/user_facing_error.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/go_back_icon_button.dart';
 import '../../../../core/widgets/learning_playground.dart';
 import '../../../../domain/entities/sentences.dart';
 import '../../../providers/sentences_provider.dart';
 import 'sentence_practice_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class SentencesHubScreen extends ConsumerStatefulWidget {
   const SentencesHubScreen({super.key});
@@ -43,7 +43,10 @@ class _SentencesHubScreenState extends ConsumerState<SentencesHubScreen> {
       ],
       body: treeAsync.when(
         loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-        error: (e, _) => Center(child: Text(e.toString())),
+        error: (e, _) => UserFacingErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(studentSentencesTreeProvider),
+        ),
         data: (levels) {
           if (levels.isEmpty) {
             return const EmptyState(

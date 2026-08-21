@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
+import '../../../../core/errors/user_facing_error.dart';
 import '../../../../core/routing/student_navigation.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
@@ -10,6 +7,9 @@ import '../../../../core/widgets/learning_playground.dart';
 import '../../../../domain/entities/words.dart';
 import '../../../providers/words_provider.dart';
 import 'word_practice_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class WordsHubScreen extends ConsumerStatefulWidget {
   const WordsHubScreen({
@@ -56,7 +56,10 @@ class _WordsHubScreenState extends ConsumerState<WordsHubScreen> {
       ],
       body: treeAsync.when(
         loading: () => const LoadingState(kind: LoadingSkeletonKind.list),
-        error: (e, _) => Center(child: Text(e.toString())),
+        error: (e, _) => UserFacingErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(studentWordsTreeProvider),
+        ),
         data: (levels) {
           if (levels.isEmpty) {
             return const EmptyState(

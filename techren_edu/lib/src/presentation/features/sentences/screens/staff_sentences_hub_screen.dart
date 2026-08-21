@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
+import '../../../../core/errors/user_facing_error.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/adaptive_scaffold.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -19,17 +16,11 @@ import '../../../providers/words_provider.dart';
 import '../../learning/widgets/module_content_manager.dart';
 import '../widgets/sentences_hub_widgets.dart';
 import '../widgets/sentences_practice_view.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-String _friendlyProgressError(Object error) {
-  final text = error.toString();
-  if (text.contains('403') || text.contains('FORBIDDEN') || text.contains('permission')) {
-    return 'You do not have access to this group’s progress.';
-  }
-  if (text.contains('connection') || text.contains('SocketException') || text.contains('CONNECTION')) {
-    return 'Cannot reach the server. Check your connection and try again.';
-  }
-  return 'Could not load progress. Please try again.';
-}
+String _friendlyProgressError(Object error) => UserFacingError.from(error).message;
 
 class StaffSentencesHubScreen extends ConsumerStatefulWidget {
   const StaffSentencesHubScreen({
@@ -121,7 +112,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       ref.invalidate(cmsSentencesLessonsProvider(level.id));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(level.id));
@@ -139,7 +130,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       ref.invalidate(cmsSentencesLessonsProvider(lesson.levelId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) setState(() => _permissionsBusyIds.remove(lesson.id));
@@ -184,7 +175,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserFacingError.from(e).message)));
       }
     } finally {
       if (mounted) {
@@ -245,12 +236,12 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
             switch (_tab) {
               SentencesHubTab.practice => languagesAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-                  error: (e, _) => Text(e.toString()),
+                  error: (e, _) => Text(UserFacingError.from(e).message),
                   data: (languages) => _buildPracticeTab(languages),
                 ),
               SentencesHubTab.leaderboard => leaderboardAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.table),
-                  error: (e, _) => Text(e.toString()),
+                  error: (e, _) => Text(UserFacingError.from(e).message),
                   data: (board) => SentencesLeaderboardTable(entries: board.leaderboard),
                 ),
               SentencesHubTab.lessons => Padding(
@@ -265,7 +256,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
                 ),
               SentencesHubTab.permissions => groupsAsync.when(
                   loading: () => const LoadingState(kind: LoadingSkeletonKind.dashboard),
-                  error: (e, _) => Text(e.toString()),
+                  error: (e, _) => Text(UserFacingError.from(e).message),
                   data: (result) => _buildPermissionsTab(result.items, languagesAsync),
                 ),
               SentencesHubTab.studentProgress => _buildStudentProgressTab(groupsAsync, languagesAsync),
@@ -311,7 +302,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
         if (levelsAsync != null)
           levelsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => Text(UserFacingError.from(e).message),
             data: (levels) {
               if (_levelId == null && levels.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -340,7 +331,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
           const SizedBox(height: AppSpacing.lg),
           lessonsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(e.toString()),
+            error: (e, _) => Text(UserFacingError.from(e).message),
             data: (lessons) {
               if (_lessonId == null && lessons.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -412,7 +403,7 @@ class _StaffSentencesHubScreenState extends ConsumerState<StaffSentencesHubScree
             else
               levelsAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(e.toString()),
+                error: (e, _) => Text(UserFacingError.from(e).message),
                 data: (levels) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
